@@ -1,0 +1,54 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  EMPLOYEE
+}
+
+model Lead {
+  id          Int      @id @default(autoincrement())
+  employeeId  String
+  agentName   String
+  clientEmail String
+  leadEmail   String
+  ccEmail     String?
+  subjectLine String
+  emailPitch  String
+  website     String?
+  phone       String?
+  country     String?
+  leadType    String
+  date        DateTime
+  createdAt   DateTime @default(now())
+  employee    Employee @relation(fields: [employeeId], references: [employeeId])
+  link        String
+}
+
+model Employee {
+  id          Int      @id @default(autoincrement())
+  employeeId  String   @unique
+  fullName    String
+  email       String   @unique
+  password    String
+  role        String   @default("EMPLOYEE")
+  createdAt   DateTime @default(now())
+  target      Int
+  joiningDate DateTime
+  leads       Lead[]
+}
+
+model Industry {
+  id           Int      @id @default(autoincrement())
+  employeeId   String
+  fullName     String
+  createdAt    DateTime @default(now())
+  industryName String
+  leadType     String
+}

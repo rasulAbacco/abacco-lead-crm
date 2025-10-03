@@ -1,0 +1,96 @@
+import React, { useState, useEffect } from "react";
+import DashboardHeader from "../components/DashboardHeader";
+import StatsGrid from "../components/StatsGrid";
+import ChartsSection from "../components/ChartsSection";
+import EmployeeSection from "../components/EmployeeSection";
+
+export default function AdminDashboard() {
+  const [employees, setEmployees] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [filter, setFilter] = useState("all");
+
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        const res = await fetch("http://localhost:4000/api/employees");
+        if (!res.ok) throw new Error("Network response was not ok");
+        const data = await res.json();
+        console.log("Fetched employees:", data);
+        setEmployees(data);
+      } catch (err) {
+        console.error("Failed to fetch employees:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchEmployees();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen text-lg font-medium text-gray-600">
+        Loading dashboard...
+      </div>
+    );
+  }
+
+  const totalMonthlyLeads = employees.reduce((sum, emp) => sum + emp.monthlyLeads, 0);
+  const avgLeads = employees.length ? Math.round(totalMonthlyLeads / employees.length) : 0;
+  const achievedCount = employees.filter((emp) => emp.monthlyLeads >= emp.target).length;
+  const topPerformer = employees.reduce(
+    (max, emp) => (emp.monthlyLeads > max.monthlyLeads ? emp : max),
+    employees[0] || { name: "-", monthlyLeads: 0 }
+  );
+
+  const getFilteredEmployees = () => {
+    let data = [...employees];
+    if (filter === "highest") data.sort((a, b) => b.monthlyLeads - a.monthlyLeads);
+    else if (filter === "lowest") data.sort((a, b) => a.monthlyLeads - b.monthlyLeads);
+    else if (filter === "achieved") data = data.filter((emp) => emp.monthlyLeads >= emp.target);
+    else if (filter === "below") data = data.filter((emp) => emp.monthlyLeads < emp.target);
+    return data;
+  };
+
+  const filteredEmployees = getFilteredEmployees();
+
+  const performanceData = employees.map((emp) => ({
+    name: emp.name.split(" ")[0],
+    leads: emp.monthlyLeads,
+    target: emp.target,
+  }));
+
+  const pieData = [
+    { name: "Achieved", value: achievedCount },
+    { name: "Below Target", value: employees.length - achievedCount },
+  ];
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 p-8">
+      <div className="max-w-7xl mx-auto space-y-8">
+        <DashboardHeader />
+        <StatsGrid
+          totalMonthlyLeads={totalMonthlyLeads}
+          avgLeads={avgLeads}
+          achievedCount={achievedCount}
+          topPerformer={topPerformer}
+          employeesLength={employees.length}
+        />
+        <ChartsSection
+          employees={employees}
+          setSelectedEmployee={setSelectedEmployee}
+          pieData={pieData}
+          performanceData={performanceData}
+          achievedCount={achievedCount}
+        />
+        <EmployeeSection
+          selectedEmployee={selectedEmployee}
+          setSelectedEmployee={setSelectedEmployee}
+          filteredEmployees={filteredEmployees}
+          filter={filter}
+          setFilter={setFilter}
+        />
+      </div>
+    </div>
+  );
+}
