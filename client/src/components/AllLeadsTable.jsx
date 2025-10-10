@@ -9,6 +9,7 @@ const defaultFilters = {
   search: "",
   sortBy: "id-asc",
 };
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export default function AllLeadsTable() {
   const [leads, setLeads] = useState([]);
@@ -18,7 +19,7 @@ export default function AllLeadsTable() {
   const fetchLeads = async () => {
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:4000/api/employees/full");
+      const res = await fetch(`${API_BASE_URL}/api/employees/full`);
       const data = await res.json();
       if (data) setLeads(Array.isArray(data) ? data : data.leads);
     } catch (err) {

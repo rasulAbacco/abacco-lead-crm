@@ -1,4 +1,5 @@
 import { useState } from "react";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const AddEmployeeForm = () => {
   const [formData, setFormData] = useState({
@@ -20,7 +21,7 @@ const AddEmployeeForm = () => {
     setStatus("loading");
 
     try {
-      const res = await fetch("http://localhost:4000/api/employees", {
+      const res = await fetch(`${API_BASE_URL}/api/employees`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Plus, Building2, TrendingUp, User, Calendar, Search, Globe } from "lucide-react";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const IndustryPage = () => {
   const [industryName, setIndustryName] = useState("");
@@ -27,7 +28,7 @@ const IndustryPage = () => {
   // ✅ Fetch all industries
   const fetchIndustries = async () => {
     try {
-      const res = await fetch("http://localhost:4000/api/industry");
+      const res = await fetch(`${API_BASE_URL}/api/industry`);
       const data = await res.json();
       if (data.success) setIndustries(data.industries);
     } catch (err) {
@@ -54,7 +55,7 @@ const IndustryPage = () => {
     setLoading(true);
 
     try {
-      const res = await fetch("http://localhost:4000/api/industry", {
+      const res = await fetch(`${API_BASE_URL}/api/industry`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

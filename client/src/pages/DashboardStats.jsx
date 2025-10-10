@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { Calendar, Award, Activity, Zap } from "lucide-react";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const DashboardStats = ({ leads }) => {
   const [monthlyTarget, setMonthlyTarget] = useState(60); // default fallback
@@ -43,7 +44,7 @@ const DashboardStats = ({ leads }) => {
         }
 
         const res = await axios.get(
-          `http://localhost:4000/api/employees/${employeeId}/target`
+          `${API_BASE_URL}/api/employees/${employeeId}/target`
         );
 
         if (res.data?.target) {

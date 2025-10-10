@@ -18,12 +18,13 @@ const ForwardLeads = () => {
   const [forwardedLeads, setForwardedLeads] = useState(new Set()); // ✅ store lead IDs
   const [showSuccess, setShowSuccess] = useState(false);
   const [loading, setLoading] = useState(true);
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
   // 🔹 Fetch employees with leads
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
-        const res = await fetch("http://localhost:4000/api/employees/with-leads");
+        const res = await fetch(`${API_BASE_URL}/api/employees/with-leads`);
         const data = await res.json();
         setEmployees(
           data.map((emp) => ({

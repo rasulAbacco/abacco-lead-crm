@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { Target, Users, TrendingUp, CheckCircle, Edit3, Save } from "lucide-react";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const SetTarget = () => {
     const [employees, setEmployees] = useState([]);
@@ -14,7 +15,7 @@ const SetTarget = () => {
 
     const fetchEmployees = async () => {
         try {
-            const res = await axios.get("http://localhost:4000/api/targets");
+            const res = await axios.get(`${API_BASE_URL}/api/targets`);
             const data = Array.isArray(res.data) ? res.data : [];
 
             // ✅ Sort by experience (descending)
@@ -41,7 +42,7 @@ const SetTarget = () => {
 
         setLoading(id);
         try {
-            await axios.put(`http://localhost:4000/api/targets/${Number(id)}`, {
+            await axios.put(`${API_BASE_URL}/api/targets/${Number(id)}`, {
                 target: Number(newTarget),
             });
             await fetchEmployees();

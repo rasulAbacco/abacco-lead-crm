@@ -3,6 +3,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from "recharts";
 import axios from "axios";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export default function TodayLeadsChart({ setSelectedEmployee }) {
   const [timeRange, setTimeRange] = useState("today"); // today | weekly | monthly
@@ -11,7 +12,7 @@ export default function TodayLeadsChart({ setSelectedEmployee }) {
 
   const fetchData = async () => {
     try {
-      const res = await axios.get("http://localhost:4000/api/employees/leads-summary");
+      const res = await axios.get(`${API_BASE_URL}/api/employees/leads-summary`);
       const { today, weekly, months } = res.data;
 
       if (timeRange === "today") {
@@ -35,7 +36,7 @@ export default function TodayLeadsChart({ setSelectedEmployee }) {
   useEffect(() => {
      const fetchData = async () => {
       try {
-        const res = await axios.get("http://localhost:4000/api/employees/leads-summary");
+        const res = await axios.get(`${API_BASE_URL}/api/employees/leads-summary`);
         const { today, weekly, months } = res.data;
 
         if (timeRange === "today") {

@@ -16,12 +16,13 @@ const EmployeeDashboard = () => {
   const [performanceData, setPerformanceData] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [employeeTarget, setEmployeeTarget] = useState(0);
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 
 useEffect(() => {
   const fetchEmployeesAndPerformance = async () => {
     try {
-      const res = await fetch("http://localhost:4000/api/employees");
+      const res = await fetch(`${API_BASE_URL}/api/employees`);
       if (!res.ok) throw new Error("Network response was not ok");
       const employeesData = await res.json();
 
@@ -66,7 +67,7 @@ useEffect(() => {
         const employeeId = localStorage.getItem("employeeId");
         if (!employeeId) throw new Error("Employee not logged in");
 
-        const res = await axios.get(`http://localhost:4000/api/employees/${employeeId}/leads`);
+        const res = await axios.get(`${API_BASE_URL}/api/employees/${employeeId}/leads`);
         setLeads(res.data.leads || []);
 
       } catch (err) {

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Download, Calendar, Filter, TrendingUp, Mail, Phone, Globe, MapPin, ExternalLink, Search } from "lucide-react";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export default function EmployeeLeadsPage() {
   const { id } = useParams();
@@ -20,7 +21,7 @@ export default function EmployeeLeadsPage() {
   useEffect(() => {
     const fetchEmployeeLeads = async () => {
       try {
-        const res = await fetch(`http://localhost:4000/api/employees/${id}/leads`);
+        const res = await fetch(`${API_BASE_URL}/api/employees/${id}/leads`);
         if (!res.ok) throw new Error("Failed to fetch leads");
         const data = await res.json();
         setEmployee(data);

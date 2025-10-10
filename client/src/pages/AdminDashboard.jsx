@@ -3,6 +3,7 @@ import DashboardHeader from "../components/DashboardHeader";
 import StatsGrid from "../components/StatsGrid";
 import ChartsSection from "../components/ChartsSection";
 import EmployeeSection from "../components/EmployeeSection";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export default function AdminDashboard() {
   const [employees, setEmployees] = useState([]);
@@ -13,7 +14,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
-        const res = await fetch("http://localhost:4000/api/employees");
+        const res = await fetch(`${API_BASE_URL}/api/employees`);
         if (!res.ok) throw new Error("Network response was not ok");
         const data = await res.json();
         console.log("Fetched employees:", data);
