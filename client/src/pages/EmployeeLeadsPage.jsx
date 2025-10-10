@@ -12,8 +12,8 @@ export default function EmployeeLeadsPage() {
   const [searchTerm, setSearchTerm] = useState("");
 
   const months = [
-    "January","February","March","April","May","June",
-    "July","August","September","October","November","December"
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
   ];
   const currentYear = new Date().getFullYear();
 
@@ -76,21 +76,21 @@ export default function EmployeeLeadsPage() {
         leadsToDownload = Object.entries(filteredLeads).flatMap(([month, leads]) => {
           return leads.length
             ? leads
-            : [{ id: "", subjectLine: "", leadEmail: "", clientEmail: "", phone: "", website: "", country: "", date: month, emailPitch: "", link: "" }];
+            : [{ id: "", subjectLine: "", leadEmail: "", clientEmail: "", phone: "", website: "", country: "", date: month, emailPitch: "", emailResponce: "", link: "" }];
         });
       } else {
         leadsToDownload = filteredLeads[monthFilter].length
           ? filteredLeads[monthFilter]
-          : [{ id: "", subjectLine: "", leadEmail: "", clientEmail: "", phone: "", website: "", country: "", date: monthFilter, emailPitch: "", link: "" }];
+          : [{ id: "", subjectLine: "", leadEmail: "", clientEmail: "", phone: "", website: "", country: "", date: monthFilter, emailPitch: "", emailResponce: "", link: "" }];
       }
     }
 
     if (!leadsToDownload.length) return;
 
-    const headers = ["Lead ID,Subject Line,Lead Email,Client Email,Phone,Website,Country,Date,Email Pitch,Lead Link"];
+    const headers = ["Lead ID,Subject Line,Lead Email,Client Email,Phone,Website,Country,Date,Email Pitch,Email Resopnce, Lead Link"];
     const rows = leadsToDownload.map(
       (lead) =>
-        `${lead.id},"${lead.subjectLine}",${lead.leadEmail},${lead.clientEmail},${lead.phone},${lead.website},${lead.country},${lead.date},"${lead.emailPitch}",${lead.link}`
+        `${lead.id},"${lead.subjectLine}",${lead.leadEmail},${lead.clientEmail},${lead.phone},${lead.website},${lead.country},${lead.date},"${lead.emailPitch}","${lead.emailResponce}",${lead.link}`
     );
 
     const csvContent = [headers, ...rows].join("\n");
@@ -111,7 +111,7 @@ export default function EmployeeLeadsPage() {
 
   const filterLeadsBySearch = (leads) => {
     if (!searchTerm) return leads;
-    return leads.filter(lead => 
+    return leads.filter(lead =>
       lead.subjectLine?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       lead.leadEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       lead.clientEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -149,23 +149,23 @@ export default function EmployeeLeadsPage() {
         <div className="max-w-7xl mx-auto px-6 py-8">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
-            {employee?.fullName ? (
-  <h1 className="text-3xl font-bold text-slate-900 mb-2">
-    {employee.fullName}'s Lead Dashboard
-  </h1>
-) : (
-  <h1 className="text-3xl font-bold text-slate-900 mb-2">
-    Lead Dashboard
-  </h1>
-)}
+              {employee?.fullName ? (
+                <h1 className="text-3xl font-bold text-slate-900 mb-2">
+                  {employee.fullName}'s Lead Dashboard
+                </h1>
+              ) : (
+                <h1 className="text-3xl font-bold text-slate-900 mb-2">
+                  Lead Dashboard
+                </h1>
+              )}
 
-    
+
               <p className="text-slate-600 flex items-center gap-2">
                 <TrendingUp className="w-4 h-4" />
                 Performance Overview • {currentYear}
               </p>
             </div>
-            
+
             <div className="flex items-center gap-3 bg-blue-50 px-6 py-3 rounded-xl border border-blue-100">
               <div className="text-center">
                 <p className="text-sm text-slate-600 font-medium">Total Leads</p>
@@ -185,7 +185,7 @@ export default function EmployeeLeadsPage() {
                 <Filter className="w-5 h-5 text-slate-500" />
                 <span className="text-sm font-semibold text-slate-700">Filters:</span>
               </div>
-              
+
               <select
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
@@ -239,11 +239,13 @@ export default function EmployeeLeadsPage() {
                   <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Subject</th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Lead Email</th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Client Email</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Email Body</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Email Responce</th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Phone</th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Website</th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Country</th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Lead-</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Lead</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -259,6 +261,8 @@ export default function EmployeeLeadsPage() {
                         </td>
                         <td className="px-6 py-4 text-sm text-slate-700">{lead.leadEmail}</td>
                         <td className="px-6 py-4 text-sm text-slate-700">{lead.clientEmail}</td>
+                         <td className="px-6 py-4 text-sm text-slate-700">{lead.emailPitch}</td>
+                        <td className="px-6 py-4 text-sm text-slate-700">{lead.emailResponce}</td>
                         <td className="px-6 py-4 text-sm text-slate-700">
                           <div className="flex items-center gap-1">
                             <Phone className="w-3 h-3 text-slate-400" />

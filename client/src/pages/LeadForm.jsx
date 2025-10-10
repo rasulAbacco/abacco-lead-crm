@@ -21,6 +21,7 @@ const LeadForm = () => {
     ccEmail: "",
     subjectLine: "",
     emailPitch: "",
+    emailResponce: "",
     website: "",
     phone: "",
     country: "",
@@ -45,13 +46,15 @@ const LeadForm = () => {
 
   const validateForm = () => {
     const newErrors = {};
-    if (!formData.agentName.trim()) newErrors.agentName = "Agent name is required";
+    // if (!formData.agentName.trim()) newErrors.agentName = "Agent name is required";
     if (!formData.clientEmail.trim()) newErrors.clientEmail = "Client email is required";
     else if (!validateEmail(formData.clientEmail)) newErrors.clientEmail = "Invalid email";
     if (!formData.leadEmail.trim()) newErrors.leadEmail = "Lead email is required";
     else if (!validateEmail(formData.leadEmail)) newErrors.leadEmail = "Invalid email";
     if (!formData.subjectLine.trim()) newErrors.subjectLine = "Subject line is required";
     if (!formData.emailPitch.trim()) newErrors.emailPitch = "Email pitch is required";
+    if (!formData.emailResponce.trim()) newErrors.emailResponce = "Email Responce is required";
+    
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -71,12 +74,13 @@ const LeadForm = () => {
       ccEmail: "",
       subjectLine: "",
       emailPitch: "",
+      emailResponce:"",
       website: "",
       phone: "",
       country: "",
       leadType: "Association Lead",
       date: "",
-      link: "",
+      link: ""
     });
     setErrors({});
   };
@@ -201,7 +205,7 @@ const LeadForm = () => {
             {/* Agent Name */}
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
-                Agent Name <span className="text-red-500">*</span>
+                Client Name 
               </label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -329,7 +333,7 @@ const LeadForm = () => {
             {/* Phone */}
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
-                Phone
+                Phone <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -405,6 +409,25 @@ const LeadForm = () => {
               />
               {errors.emailPitch && (
                 <p className="text-red-500 text-sm">{errors.emailPitch}</p>
+              )}
+            </div>
+
+              {/* Email Responce */}
+                <div className="lg:col-span-2 space-y-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Response <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                name="emailResponce"
+                value={formData.emailResponce}
+                onChange={handleChange}
+                className={`w-full px-4 py-3 border rounded-lg resize-none ${errors.emailResponce ? "border-red-500" : "border-gray-300"
+                  }`}
+                rows="5"
+                placeholder="Enter your professional email Responce here..."
+              />
+              {errors.emailResponce && (
+                <p className="text-red-500 text-sm">{errors.emailResponce}</p>
               )}
             </div>
 

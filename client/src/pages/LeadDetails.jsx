@@ -69,6 +69,10 @@ const LeadDetails = () => {
             <label className="font-semibold">Email Pitch:</label>
             <p className="bg-gray-50 p-3 rounded">{lead.emailPitch}</p>
           </div>
+          <div>
+            <label className="font-semibold">Responce:</label>
+            <p>{lead.emailResponce}</p>
+          </div>
         </div>
       </div>
     </div>

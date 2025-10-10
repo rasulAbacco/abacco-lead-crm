@@ -13,22 +13,23 @@ enum Role {
 }
 
 model Lead {
-  id          Int      @id @default(autoincrement())
-  employeeId  String
-  agentName   String
-  clientEmail String
-  leadEmail   String
-  ccEmail     String?
-  subjectLine String
-  emailPitch  String
-  website     String?
-  phone       String?
-  country     String?
-  leadType    String
-  date        DateTime
-  createdAt   DateTime @default(now())
-  employee    Employee @relation(fields: [employeeId], references: [employeeId])
-  link        String
+  id            Int      @id @default(autoincrement())
+  employeeId    String
+  agentName     String?
+  clientEmail   String
+  leadEmail     String
+  ccEmail       String?
+  subjectLine   String
+  emailPitch    String
+  emailResponce String
+  website       String?
+  phone         String?
+  country       String?
+  leadType      String
+  date          DateTime
+  createdAt     DateTime @default(now())
+  employee      Employee @relation(fields: [employeeId], references: [employeeId])
+  link          String
 }
 
 model Employee {
@@ -51,4 +52,5 @@ model Industry {
   createdAt    DateTime @default(now())
   industryName String
   leadType     String
+  countryName  String
 }

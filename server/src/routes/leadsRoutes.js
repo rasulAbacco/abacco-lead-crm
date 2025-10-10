@@ -11,43 +11,31 @@ router.post("/", async (req, res) => {
   try {
     const { leads } = req.body;
 
-    if (!leads || !Array.isArray(leads) || leads.length === 0) {
+    if (!Array.isArray(leads) || leads.length === 0) {
       return res.status(400).json({ success: false, message: "No leads provided" });
     }
 
     const lead = leads[0];
-    let { clientEmail, link, date } = lead;
+    const { id, clientEmail, link, date } = lead;
 
     if (!clientEmail || !link) {
       return res.status(400).json({ success: false, message: "Client email and link are required" });
     }
 
-    // --- Normalize helpers ---
-    const normalizeEmail = (e) => (e || "").toString().trim().toLowerCase();
-
+    const normalizeEmail = (e) => (e || "").trim().toLowerCase();
     const normalizeLink = (raw) => {
       if (!raw) return "";
-      let s = raw.toString().trim();
-      if (!/^https?:\/\//i.test(s)) s = "http://" + s; // prepend protocol if missing
-
+      let s = raw.trim();
+      if (!/^https?:\/\//i.test(s)) s = "http://" + s;
       try {
         const u = new URL(s);
-        u.hash = ""; // remove fragment
-
-        // remove tracking params
-        const removeKeys = [];
+        u.hash = "";
         u.searchParams.forEach((v, k) => {
-          if (k.startsWith("utm_") || ["fbclid", "gclid"].includes(k)) {
-            removeKeys.push(k);
-          }
+          if (k.startsWith("utm_") || ["fbclid", "gclid"].includes(k)) u.searchParams.delete(k);
         });
-        removeKeys.forEach((k) => u.searchParams.delete(k));
-
-        // remove trailing slashes
         u.pathname = u.pathname.replace(/\/+$/, "");
-
         return `${u.protocol}//${u.hostname}${u.pathname}${u.search || ""}`.toLowerCase();
-      } catch (err) {
+      } catch {
         return s.replace(/\/+$/, "").toLowerCase();
       }
     };
@@ -55,26 +43,15 @@ router.post("/", async (req, res) => {
     const normalizedClientEmail = normalizeEmail(clientEmail);
     const normalizedLink = normalizeLink(link);
 
-    // 🕒 Define 3-month threshold BEFORE using it
     const threeMonthsAgo = new Date();
     threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
 
-    // 🐞 Debug logs
-    console.log("📌 Checking for duplicates:");
-    console.log("🔹 Normalized Email:", normalizedClientEmail);
-    console.log("🔹 Normalized Link:", normalizedLink);
-    console.log("🔹 3 months ago:", threeMonthsAgo.toISOString());
-
-    // --- Check for existing duplicate within last 3 months ---
     const existingLead = await prisma.lead.findFirst({
       where: {
         clientEmail: normalizedClientEmail,
         link: normalizedLink,
-        createdAt: {
-          gte: threeMonthsAgo,
-        },
+        createdAt: { gte: threeMonthsAgo },
       },
-      orderBy: { createdAt: "desc" },
     });
 
     if (existingLead) {
@@ -85,17 +62,17 @@ router.post("/", async (req, res) => {
       return res.status(400).json({
         success: false,
         duplicate: true,
-        field: "clientEmail & link",
         message: `Duplicate found (created on ${existingLead.createdAt.toLocaleDateString("en-IN")}). You can resubmit after ${remainingDays} day(s).`,
         existingDate: existingLead.createdAt,
         retryAfterDays: remainingDays,
       });
     }
 
-    // --- Save new lead ---
+    // ✅ Safe insert (no overwriting)
+    const { id: _, ...leadData } = lead;
     const newLead = await prisma.lead.create({
       data: {
-        ...lead,
+        ...leadData,
         clientEmail: normalizedClientEmail,
         link: normalizedLink,
         date: new Date(date || new Date()),
@@ -105,6 +82,13 @@ router.post("/", async (req, res) => {
     return res.status(201).json({ success: true, lead: newLead });
   } catch (error) {
     console.error("❌ Error creating lead:", error);
+    if (error.code === "P2002") {
+      return res.status(400).json({
+        success: false,
+        duplicate: true,
+        message: "Duplicate lead already exists.",
+      });
+    }
     return res.status(500).json({ success: false, message: "Server error" });
   }
 });

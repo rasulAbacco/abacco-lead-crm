@@ -47,6 +47,7 @@ const ForwardLeads = () => {
               contactDate: new Date(lead.date).toLocaleDateString(),
               subjectLine: lead.subjectLine,
               emailPitch: lead.emailPitch,
+              emailResponce: lead.emailResponce,
               link: lead.link,
               time: new Date(lead.date).toLocaleTimeString([], {
                 hour: "2-digit",
@@ -326,6 +327,13 @@ const ForwardLeads = () => {
                                       <span className="text-gray-600">Country:</span>
                                       <span className="font-medium text-gray-900">
                                         {lead.country}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-sm">
+                                      <Globe className="w-4 h-4 text-gray-400" />
+                                      <span className="text-gray-600">Responce:</span>
+                                      <span className="font-medium text-gray-900">
+                                        {lead.emailResponce}
                                       </span>
                                     </div>
                                   </div>

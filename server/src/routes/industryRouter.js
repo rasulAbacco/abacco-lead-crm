@@ -11,7 +11,7 @@ const prisma = new PrismaClient();
  */
 router.post("/", async (req, res) => {
   try {
-    const { employeeId, fullName, industryName, leadType } = req.body;
+    const { employeeId, fullName, industryName, leadType, countryName  } = req.body;
 
     if (!employeeId || !industryName || !leadType) {
       return res.status(400).json({ success: false, message: "Missing fields" });
@@ -23,6 +23,7 @@ router.post("/", async (req, res) => {
         fullName,
         industryName,
         leadType,
+        countryName
       },
     });
 
