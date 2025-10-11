@@ -18,7 +18,7 @@ export default function AllLeadsTable() {
   const fetchLeads = async () => {
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:4000/api/employees/full");
+      const res = await fetch("http://localhost:4001/api/employees/full");
       const data = await res.json();
       if (data) setLeads(Array.isArray(data) ? data : data.leads);
     } catch (err) {

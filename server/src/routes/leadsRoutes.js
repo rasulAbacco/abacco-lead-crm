@@ -128,6 +128,24 @@ router.get("/:id", async (req, res) => {
   }
 });
 
+
+// ✅ Get count of leads by email
+router.get("/count/:email", async (req, res) => {
+  try {
+    const { email } = req.params;
+
+    const count = await prisma.lead.count({
+      where: { leadEmail: email },
+    });
+
+    res.json({ success: true, email, count });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+
 // Update lead
 router.put("/:id", async (req, res) => {
   try {

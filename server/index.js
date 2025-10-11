@@ -27,7 +27,7 @@ app.use("/api/industry", industryRouter);
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 // Start server
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 4001;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
 

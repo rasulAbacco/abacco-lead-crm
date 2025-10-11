@@ -11,7 +11,7 @@ export default function TodayLeadsChart({ setSelectedEmployee }) {
 
   const fetchData = async () => {
     try {
-      const res = await axios.get("http://localhost:4000/api/employees/leads-summary");
+      const res = await axios.get("http://localhost:4001/api/employees/leads-summary");
       const { today, weekly, months } = res.data;
 
       if (timeRange === "today") {
@@ -35,7 +35,7 @@ export default function TodayLeadsChart({ setSelectedEmployee }) {
   useEffect(() => {
      const fetchData = async () => {
       try {
-        const res = await axios.get("http://localhost:4000/api/employees/leads-summary");
+        const res = await axios.get("http://localhost:4001/api/employees/leads-summary");
         const { today, weekly, months } = res.data;
 
         if (timeRange === "today") {
