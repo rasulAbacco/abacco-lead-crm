@@ -18,6 +18,7 @@ const AllLeadsSummary = ({ employeeId }) => {
     const fetchLeads = async () => {
       try {
         const res = await axios.get(`${API_BASE_URL}/api/employees/leads-summary`);
+        const res = await axios.get(`http://localhost:4001/api/employees/leads-summary`);
 
         if (res.data.success) {
           const today = {
