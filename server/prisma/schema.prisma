@@ -42,6 +42,7 @@ model Employee {
   createdAt   DateTime @default(now())
   target      Int
   joiningDate DateTime
+  isActive    Boolean  @default(true) // ✅ New field
   leads       Lead[]
 }
 

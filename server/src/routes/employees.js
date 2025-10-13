@@ -17,6 +17,7 @@ router.get('/', async (req, res) => {
                 role: true,
                 target: true,
                 joiningDate: true, // <=== Make sure this is included
+                isActive: true, // <=== New field
             },
             orderBy: {
                 createdAt: 'desc',
@@ -80,5 +81,33 @@ router.put('/:id', async (req, res) => {
         res.status(400).json({ error: error.message })
     }
 })
+
+// PUT /api/employees/:id/toggle-active
+router.put('/:id/toggle-active', async (req, res) => {
+    const { id } = req.params;
+    try {
+        // Get current state
+        const employee = await prisma.employee.findUnique({
+            where: { id: parseInt(id) },
+        });
+
+        if (!employee) {
+            return res.status(404).json({ error: 'Employee not found' });
+        }
+
+        const updated = await prisma.employee.update({
+            where: { id: parseInt(id) },
+            data: {
+                isActive: !employee.isActive,
+            },
+        });
+
+        res.json({ success: true, isActive: updated.isActive });
+    } catch (error) {
+        console.error('Error toggling active state:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
 
 export default router

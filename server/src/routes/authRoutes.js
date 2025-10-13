@@ -21,6 +21,11 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ success: false, message: "Invalid credentials" });
     }
 
+    // Check if user is active
+    if (!user.isActive) {
+      return res.status(403).json({ success: false, message: "Account is inactive. Please contact admin." });
+    }
+
     if (password !== user.password) {
       return res.status(401).json({ success: false, message: "Invalid credentials" });
     }
@@ -31,12 +36,13 @@ router.post("/login", async (req, res) => {
       { expiresIn: "1h" }
     );
 
-    res.json({ 
-      success: true, 
-      role: user.role || "employee", 
+    res.json({
+      success: true,
+      role: user.role || "employee",
       fullName: user.fullName,
-      employeeId: user.employeeId,   // ✅ Added employeeId
-      token: token 
+      employeeId: user.employeeId,
+      isActive: user.isActive,
+      token: token
     });
   } catch (err) {
     console.error(err);
