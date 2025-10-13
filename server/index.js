@@ -7,6 +7,7 @@ import employeeRoutes from "./src/routes/employeeRoutes.js";
 import leadsRoutes from "./src/routes/leadsRoutes.js";
 import targetRoutes from "./src/routes/targetRoutes.js";
 import industryRouter from "./src/routes/industryRouter.js";
+import employeesDeatails from './src/routes/employees.js'
 
 dotenv.config();
 const prisma = new PrismaClient();
@@ -22,6 +23,7 @@ app.use("/api/employees", employeeRoutes);
 app.use("/api/leads", leadsRoutes);
 app.use("/api/targets", targetRoutes);
 app.use("/api/industry", industryRouter);
+app.use('/api/all-employees', employeesDeatails)
 
 // Add JWT secret to environment
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';

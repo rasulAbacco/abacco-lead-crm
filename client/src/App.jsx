@@ -16,6 +16,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 import IndustryType from "./pages/IndustryType";
 import IndustryTypeEmployee from "./pages/IndustryTypeEmployee";
+import AllEmployees from "./pages/AllEmployees";
 
 function App() {
   return (
@@ -122,6 +123,8 @@ function App() {
       {/* Details */}
       <Route path="/employee/:id" element={<EmployeeDetails />} />
       <Route path="/lead/:id" element={<LeadDetails />} />
+      <Route path="/employees" element={<AllEmployees/>} />
+
     </Routes>
   );
 }

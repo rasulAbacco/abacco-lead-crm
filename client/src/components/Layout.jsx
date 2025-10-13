@@ -92,6 +92,7 @@ function Layout({ children }) {
                 <NavLink to="/all-leads" icon={FileText} label="All Leads" />
                 <NavLink to="/set-targets" icon={Sparkles} label="Set Targets" />
                 <NavLink to="/industry-types" icon={Briefcase}  label="Industry Types" />
+                <NavLink to="/employees" icon={Briefcase}  label="All Employees" />
               </>
             )}
           </nav>
