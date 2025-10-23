@@ -308,48 +308,39 @@ router.post("/", async (req, res) => {
 });
 
 
+router.get("/leads/:employeeId", async (req, res) => {
+  const { employeeId } = req.params;
 
+  try {
+    if (!employeeId) {
+      return res.status(400).json({ error: "Employee ID is required" });
+    }
+
+    // ✅ Fetch all leads that belong to this employee
+    const leads = await prisma.lead.findMany({
+      where: { employeeId },
+      orderBy: { createdAt: "desc" },
+      include: {
+        employee: {
+          select: {
+            employeeId: true,
+            fullName: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    if (!leads.length) {
+      return res.status(404).json({ message: "No leads found for this employee" });
+    }
+
+    res.json(leads);
+  } catch (error) {
+    console.error("Error fetching employee leads:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 export default router;
 
-
-
-// // src/routes/employeeRoutes.js
-// import express from "express";
-// import bcrypt from "bcryptjs";
-// import { PrismaClient } from "@prisma/client";
-
-// const router = express.Router();
-// const prisma = new PrismaClient();
-
-// // POST /api/employees
-// router.post("/", async (req, res) => {
-//   const { employeeId, fullName, email, password } = req.body;
-
-//   if (!employeeId || !fullName || !email || !password) {
-//     return res.status(400).json({ error: "Missing required fields" });
-//   }
-
-//   try {
-//     const existing = await prisma.employee.findFirst({
-//       where: { OR: [{ employeeId }, { email }] },
-//     });
-
-//     if (existing) {
-//       return res.status(400).json({ error: "Employee ID or email already exists" });
-//     }
-
-//     const hashedPassword = await bcrypt.hash(password, 10);
-
-//     const employee = await prisma.employee.create({
-//       data: { employeeId, fullName, email, password: hashedPassword },
-//     });
-
-//     return res.status(201).json(employee);
-//   } catch (error) {
-//     console.error(error);
-//     return res.status(500).json({ error: "Something went wrong" });
-//   }
-// });
-
-// export default router;

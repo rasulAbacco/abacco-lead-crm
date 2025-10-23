@@ -55,7 +55,7 @@ const LeadForm = () => {
     if (!formData.subjectLine.trim()) newErrors.subjectLine = "Subject line is required";
     if (!formData.emailPitch.trim()) newErrors.emailPitch = "Email pitch is required";
     if (!formData.emailResponce.trim()) newErrors.emailResponce = "Email Responce is required";
-    
+
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -75,7 +75,7 @@ const LeadForm = () => {
       ccEmail: "",
       subjectLine: "",
       emailPitch: "",
-      emailResponce:"",
+      emailResponce: "",
       website: "",
       phone: "",
       country: "",
@@ -206,7 +206,7 @@ const LeadForm = () => {
             {/* Agent Name */}
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
-                Client Name 
+                Client Name
               </label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -289,7 +289,7 @@ const LeadForm = () => {
                 CC Email
               </label>
               <input
-                type="email"
+                type="text"
                 name="ccEmail"
                 value={formData.ccEmail}
                 onChange={handleChange}
@@ -413,8 +413,8 @@ const LeadForm = () => {
               )}
             </div>
 
-              {/* Email Responce */}
-                <div className="lg:col-span-2 space-y-2">
+            {/* Email Responce */}
+            <div className="lg:col-span-2 space-y-2">
               <label className="block text-sm font-medium text-gray-700">
                 Response <span className="text-red-500">*</span>
               </label>

@@ -8,7 +8,9 @@ import {
   Users,
   Sparkles,
   Briefcase,
-  ChevronRight
+  ChevronRight,
+  FolderOpen,
+  UserPlus,
 } from "lucide-react";
 
 const getRole = () => localStorage.getItem("role")?.toLowerCase();
@@ -81,18 +83,19 @@ function Layout({ children }) {
               <>
                 <NavLink to="/employee-dashboard" icon={LayoutDashboard} label="Dashboard" />
                 <NavLink to="/leadform" icon={FileText} label="Lead Management" />
+                <NavLink to="/myleads" icon={FolderOpen} label="My Leads" />
                 <NavLink to="/industry-type" icon={Briefcase} label="Industry Types" />
               </>
             )}
             {role === "admin" && (
               <>
-                <NavLink to="/admin-dashboard" icon={Users} label="Admin Dashboard" />
+                <NavLink to="/admin-dashboard" icon={LayoutDashboard} label="Admin Dashboard" />
                 <NavLink to="/forward-leads" icon={Send} label="Forward Leads" />
-                <NavLink to="/add-employee" icon={Users} label="Add Employee" />
+                <NavLink to="/add-employee" icon={UserPlus} label="Add Employee" />
                 <NavLink to="/all-leads" icon={FileText} label="All Leads" />
                 <NavLink to="/set-targets" icon={Sparkles} label="Set Targets" />
                 <NavLink to="/industry-types" icon={Briefcase}  label="Industry Types" />
-                <NavLink to="/employees" icon={Briefcase}  label="All Employees" />
+                <NavLink to="/employees" icon={Users}  label="All Employees" />
               </>
             )}
           </nav>

@@ -17,6 +17,7 @@ import Layout from "./components/Layout";
 import IndustryType from "./pages/IndustryType";
 import IndustryTypeEmployee from "./pages/IndustryTypeEmployee";
 import AllEmployees from "./pages/AllEmployees";
+import MyLeads from "./pages/MyLeads";
 
 function App() {
   return (
@@ -109,6 +110,16 @@ function App() {
         }
       />
       <Route
+        path="/myleads"
+        element={
+          <Layout>
+            <ProtectedRoute role="employee">
+              <MyLeads />
+            </ProtectedRoute>
+          </Layout>
+        }
+      />
+      <Route
         path="/industry-type"
         element={
           <Layout>
@@ -123,7 +134,7 @@ function App() {
       {/* Details */}
       <Route path="/employee/:id" element={<EmployeeDetails />} />
       <Route path="/lead/:id" element={<LeadDetails />} />
-      <Route path="/employees" element={<AllEmployees/>} />
+      <Route path="/employees" element={<AllEmployees />} />
 
     </Routes>
   );
