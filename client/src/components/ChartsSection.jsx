@@ -7,18 +7,21 @@ export default function ChartsSection({ employees, setSelectedEmployee, pieData,
   return (
     <>
       <TodayLeadsChart employees={employees} setSelectedEmployee={setSelectedEmployee} />
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="flex flex-col lg:flex-row gap-6 mt-6">
         <PerformanceChart
           employees={employees}
           performanceData={performanceData}
           setSelectedEmployee={setSelectedEmployee}
         />
+        
+      </div>
+      {/* <div className="flex flex-col lg:flex-row gap-6 mt-6">
         <AchievementPieChart
           pieData={pieData}
           achievedCount={achievedCount}
           totalEmployees={employees.length}
         />
-      </div>
+      </div> */}
     </>
   );
 }
