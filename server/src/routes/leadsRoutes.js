@@ -1,12 +1,23 @@
 import express from "express";
 import { PrismaClient } from "@prisma/client";
+import { toZonedTime } from "date-fns-tz"; // ✅ fixed import
 
 const router = express.Router();
 const prisma = new PrismaClient();
 
-// Create Lead
+// 🕐 USA timezone constant
+const USA_TZ = "America/New_York";
 
-// POST /api/leads
+// Helper to get US-local date (midnight-based)
+const getUSADate = () => {
+  const nowInUSA = toZonedTime(new Date(), USA_TZ); // ✅ updated
+  nowInUSA.setHours(0, 0, 0, 0); // midnight start of day in US
+  return nowInUSA;
+};
+
+// ==========================================================
+// ✅ Create Lead
+// ==========================================================
 router.post("/", async (req, res) => {
   try {
     const { leads } = req.body;
@@ -19,7 +30,10 @@ router.post("/", async (req, res) => {
     const { id, clientEmail, link, date } = lead;
 
     if (!clientEmail || !link) {
-      return res.status(400).json({ success: false, message: "Client email and link are required" });
+      return res.status(400).json({
+        success: false,
+        message: "Client email and link are required",
+      });
     }
 
     const normalizeEmail = (e) => (e || "").trim().toLowerCase();
@@ -68,14 +82,16 @@ router.post("/", async (req, res) => {
       });
     }
 
-    // ✅ Safe insert (no overwriting)
+    // ✅ Use USA timezone-based date
+    const usaDate = getUSADate();
+
     const { id: _, ...leadData } = lead;
     const newLead = await prisma.lead.create({
       data: {
         ...leadData,
         clientEmail: normalizedClientEmail,
         link: normalizedLink,
-        date: new Date(date || new Date()),
+        date: date ? new Date(date) : usaDate, // ✅ fallback to US-local day
       },
     });
 
@@ -93,8 +109,9 @@ router.post("/", async (req, res) => {
   }
 });
 
-
+// ==========================================================
 // Get all leads
+// ==========================================================
 router.get("/", async (req, res) => {
   try {
     const { employeeId } = req.query;
@@ -113,7 +130,9 @@ router.get("/", async (req, res) => {
   }
 });
 
+// ==========================================================
 // Get single lead
+// ==========================================================
 router.get("/:id", async (req, res) => {
   try {
     const lead = await prisma.lead.findUnique({
@@ -128,8 +147,9 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-
+// ==========================================================
 // ✅ Get count of leads by email
+// ==========================================================
 router.get("/count/:email", async (req, res) => {
   try {
     const { email } = req.params;
@@ -145,16 +165,20 @@ router.get("/count/:email", async (req, res) => {
   }
 });
 
-
+// ==========================================================
 // Update lead
+// ==========================================================
 router.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
     let { date, ...data } = req.body;
 
+    // ✅ Ensure updated date also uses US timezone
     if (date) {
       const parsed = new Date(date);
-      data.date = isNaN(parsed.getTime()) ? new Date() : parsed;
+      data.date = isNaN(parsed.getTime()) ? getUSADate() : parsed;
+    } else {
+      data.date = getUSADate();
     }
 
     const updatedLead = await prisma.lead.update({
@@ -169,7 +193,9 @@ router.put("/:id", async (req, res) => {
   }
 });
 
+// ==========================================================
 // Delete lead
+// ==========================================================
 router.delete("/:id", async (req, res) => {
   try {
     await prisma.lead.delete({
@@ -181,7 +207,9 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
-// ✅ New route: Fetch all leads with employee info
+// ==========================================================
+// ✅ Fetch all leads with employee info
+// ==========================================================
 router.get("/all", async (req, res) => {
   try {
     const leads = await prisma.lead.findMany({
@@ -207,7 +235,7 @@ router.get("/all", async (req, res) => {
       leadType: lead.leadType,
       date: lead.date,
       link: lead.link,
-      employee: lead.employee, // nested employee info if needed
+      employee: lead.employee,
     }));
 
     res.json(formattedLeads);
@@ -217,6 +245,4 @@ router.get("/all", async (req, res) => {
   }
 });
 
-
 export default router;
-

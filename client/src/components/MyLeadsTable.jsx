@@ -8,12 +8,13 @@ import {
     ChevronDown,
     ChevronUp,
     Mail,
-    User,
     Building2,
     ExternalLink,
     MessageSquare,
     Send,
     MailPlus,
+    Globe,
+    Phone,
 } from "lucide-react";
 
 const defaultFilters = {
@@ -47,7 +48,6 @@ export default function MyLeadsTable() {
 
     const safe = (val) => (val && val.trim() !== "" ? val : "Not available");
 
-    // 🧠 Replace this with however you store the logged-in employee
     const employeeId = localStorage.getItem("employeeId") || "AT113";
 
     const fetchLeads = async () => {
@@ -93,8 +93,7 @@ export default function MyLeadsTable() {
                         .toLowerCase() === filters.leadType.toLowerCase();
 
                 const fromDateMatch =
-                    !filters.fromDate ||
-                    new Date(lead.date) >= new Date(filters.fromDate);
+                    !filters.fromDate || new Date(lead.date) >= new Date(filters.fromDate);
                 const toDateMatch =
                     !filters.toDate || new Date(lead.date) <= new Date(filters.toDate);
 
@@ -107,6 +106,8 @@ export default function MyLeadsTable() {
                         lead.leadEmail,
                         lead.ccEmail,
                         lead.leadType,
+                        lead.country,
+                        lead.phone, // ✅ now included phone numbers in search
                     ].some((field) =>
                         (field || "")
                             .toString()
@@ -119,7 +120,13 @@ export default function MyLeadsTable() {
                     (lead.leadEmail &&
                         lead.leadEmail.toLowerCase() === filters.leadEmail.toLowerCase());
 
-                return leadTypeMatch && fromDateMatch && toDateMatch && searchMatch && leadEmailMatch;
+                return (
+                    leadTypeMatch &&
+                    fromDateMatch &&
+                    toDateMatch &&
+                    searchMatch &&
+                    leadEmailMatch
+                );
             })
             .sort((a, b) => {
                 switch (filters.sortBy) {
@@ -168,6 +175,8 @@ export default function MyLeadsTable() {
             "Client Email",
             "Lead Email",
             "CC Email",
+            "Phone Number",
+            "Country",
             "Subject",
             "Lead Type",
             "Date (dd/mm/yy)",
@@ -182,6 +191,8 @@ export default function MyLeadsTable() {
             safe(lead.clientEmail),
             safe(lead.leadEmail),
             safe(lead.ccEmail),
+            safe(lead.phone),
+            safe(lead.country),
             safe(lead.subjectLine),
             safe(lead.leadType),
             formatDate(lead.date),
@@ -219,6 +230,7 @@ export default function MyLeadsTable() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100">
             <div className="max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8">
+
                 {/* Header */}
                 <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
@@ -247,89 +259,73 @@ export default function MyLeadsTable() {
                         </button>
                     </div>
                 </div>
-
-                {/* Filters Panel */}
+                {/* ✅ Filter Section */}
                 {showFilters && (
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6 mb-6 animate-in fade-in duration-200">
-                        <div className="space-y-4">
-                            {/* Search */}
-                            <div className="relative">
-                                <Search className="w-5 h-5 absolute left-3 top-3 text-slate-400" />
-                                <input
-                                    type="text"
-                                    placeholder="Search by subject, email, or lead type..."
-                                    className="w-full pl-11 pr-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-slate-700"
-                                    value={filters.search}
-                                    onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                                />
-                            </div>
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6 mb-6 space-y-4">
+                        <div className="relative">
+                            <Search className="w-5 h-5 absolute left-3 top-3 text-slate-400" />
+                            <input
+                                type="text"
+                                placeholder="Search by name, email, country, phone, subject..."
+                                className="w-full pl-11 pr-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-slate-700"
+                                value={filters.search}
+                                onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                            />
+                        </div>
 
-                            {/* Filter Grid */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                                <select
-                                    className="px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-slate-700 font-medium"
-                                    value={filters.leadType}
-                                    onChange={(e) => setFilters({ ...filters, leadType: e.target.value })}
-                                >
-                                    <option value="all">All Types</option>
-                                    <option value="Association Lead">Association</option>
-                                    <option value="Industry Lead">Industry</option>
-                                    <option value="Attendees Lead">Attendees</option>
-                                </select>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                            <select
+                                value={filters.leadType}
+                                onChange={(e) => setFilters({ ...filters, leadType: e.target.value })}
+                                className="px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-slate-700"
+                            >
+                                <option value="all">All Types</option>
+                                <option value="Association Lead">Association</option>
+                                <option value="Industry Lead">Industry</option>
+                                <option value="Attendees Lead">Attendees</option>
+                            </select>
 
-                                <select
-                                    className="px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-slate-700 font-medium"
-                                    value={filters.leadEmail}
-                                    onChange={(e) => setFilters({ ...filters, leadEmail: e.target.value })}
-                                >
-                                    <option value="all">All Lead Emails</option>
-                                    {leadEmailOptions.map((email, idx) => (
-                                        <option key={idx} value={email}>
-                                            {email}
-                                        </option>
-                                    ))}
-                                </select>
+                            <select
+                                value={filters.leadEmail}
+                                onChange={(e) => setFilters({ ...filters, leadEmail: e.target.value })}
+                                className="px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-slate-700"
+                            >
+                                <option value="all">All Lead Emails</option>
+                                {leadEmailOptions.map((email) => (
+                                    <option key={email} value={email}>
+                                        {email}
+                                    </option>
+                                ))}
+                            </select>
 
-                                <input
-                                    type="date"
-                                    className="px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-slate-700"
-                                    value={filters.fromDate}
-                                    onChange={(e) => setFilters({ ...filters, fromDate: e.target.value })}
-                                />
+                            <input
+                                type="date"
+                                value={filters.fromDate}
+                                onChange={(e) => setFilters({ ...filters, fromDate: e.target.value })}
+                                className="px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-slate-700"
+                            />
+                            <input
+                                type="date"
+                                value={filters.toDate}
+                                onChange={(e) => setFilters({ ...filters, toDate: e.target.value })}
+                                className="px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-slate-700"
+                            />
 
-                                <input
-                                    type="date"
-                                    className="px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-slate-700"
-                                    value={filters.toDate}
-                                    onChange={(e) => setFilters({ ...filters, toDate: e.target.value })}
-                                />
-                            </div>
-
-                            <div className="flex items-center justify-between pt-2">
-                                <select
-                                    className="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-slate-700 text-sm"
-                                    value={filters.sortBy}
-                                    onChange={(e) => setFilters({ ...filters, sortBy: e.target.value })}
-                                >
-                                    <option value="id-desc">Newest First</option>
-                                    <option value="id-asc">Oldest First</option>
-                                    <option value="date-desc">Date (Recent)</option>
-                                    <option value="date-asc">Date (Oldest)</option>
-                                    <option value="leadType">Lead Type</option>
-                                </select>
-
-                                <button
-                                    onClick={() => setFilters(defaultFilters)}
-                                    className="px-4 py-2 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors font-medium"
-                                >
-                                    Reset All
-                                </button>
-                            </div>
+                            <select
+                                value={filters.sortBy}
+                                onChange={(e) => setFilters({ ...filters, sortBy: e.target.value })}
+                                className="px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-slate-700"
+                            >
+                                <option value="id-desc">Newest First</option>
+                                <option value="id-asc">Oldest First</option>
+                                <option value="date-desc">Date (Recent)</option>
+                                <option value="date-asc">Date (Oldest)</option>
+                            </select>
                         </div>
                     </div>
                 )}
 
-                {/* Lead Cards */}
+                {/* Cards */}
                 <div className="space-y-4">
                     {filteredLeads.length > 0 ? (
                         filteredLeads.map((lead) => {
@@ -337,12 +333,16 @@ export default function MyLeadsTable() {
                             const ccEmails = lead.ccEmail
                                 ? lead.ccEmail.split(",").map((e) => e.trim()).filter(Boolean)
                                 : [];
+                            const phoneNumbers = lead.phone
+                                ? lead.phone.split(",").map((p) => p.trim()).filter(Boolean)
+                                : [];
 
                             return (
                                 <div
                                     key={lead.id}
                                     className="bg-white rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-all duration-200 overflow-hidden"
                                 >
+                                    {/* Card Header */}
                                     <div className="p-4 sm:p-5 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
                                         <div className="flex items-start justify-between gap-3">
                                             <div className="flex-1 min-w-0">
@@ -384,13 +384,11 @@ export default function MyLeadsTable() {
                                                 >
                                                     {isExpanded ? (
                                                         <>
-                                                            <ChevronUp className="w-4 h-4" />
-                                                            <span className="hidden sm:inline">Hide</span>
+                                                            <ChevronUp className="w-4 h-4" /> Hide
                                                         </>
                                                     ) : (
                                                         <>
-                                                            <ChevronDown className="w-4 h-4" />
-                                                            <span className="hidden sm:inline">View</span>
+                                                            <ChevronDown className="w-4 h-4" /> View
                                                         </>
                                                     )}
                                                 </button>
@@ -398,6 +396,7 @@ export default function MyLeadsTable() {
                                         </div>
                                     </div>
 
+                                    {/* Card Body */}
                                     <div className="p-4 sm:p-5">
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                             <InfoCard
@@ -413,6 +412,37 @@ export default function MyLeadsTable() {
                                                 value={formatDate(lead.date)}
                                             />
                                             <InfoCard
+                                                icon={Globe}
+                                                color="teal"
+                                                title="Country"
+                                                value={safe(lead.country)}
+                                            />
+
+                                            {/* ✅ Phone Numbers Section */}
+                                            <div className="flex items-start gap-3 sm:col-span-2 lg:col-span-1">
+                                                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                                                    <Phone className="w-5 h-5 text-blue-600" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs text-slate-500 mb-0.5">Phone Number(s)</p>
+                                                    {phoneNumbers.length > 0 ? (
+                                                        <div className="flex flex-col gap-1">
+                                                            {phoneNumbers.map((ph, idx) => (
+                                                                <span
+                                                                    key={idx}
+                                                                    className="px-2 py-0.5 bg-blue-50 border border-blue-100 text-blue-700 text-xs rounded-md w-fit"
+                                                                >
+                                                                    {ph}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <p className="text-sm text-slate-700">Not available</p>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <InfoCard
                                                 icon={Mail}
                                                 color="orange"
                                                 title="Client Email"
@@ -424,11 +454,13 @@ export default function MyLeadsTable() {
                                                 title="Lead Email"
                                                 value={safe(lead.leadEmail)}
                                             />
+
+                                            {/* CC Emails */}
                                             <div className="flex items-start gap-3 sm:col-span-2 lg:col-span-1">
-                                                <div className="flex-shrink-0 w-10 h-10 bg-violet-100 rounded-lg flex items-center justify-center">
+                                                <div className="w-10 h-10 bg-violet-100 rounded-lg flex items-center justify-center">
                                                     <MailPlus className="w-5 h-5 text-violet-600" />
                                                 </div>
-                                                <div className="flex-1">
+                                                <div>
                                                     <p className="text-xs text-slate-500 mb-0.5">CC Emails</p>
                                                     {ccEmails.length > 0 ? (
                                                         <div className="flex flex-col gap-1">

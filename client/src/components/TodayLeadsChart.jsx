@@ -17,7 +17,12 @@ export default function TodayLeadsChart({ setSelectedEmployee }) {
 
       if (timeRange === "today") {
         setChartData([
-          { day: new Date().toLocaleDateString("en-US", { weekday: "short" }), ...today },
+          {
+            day: new Date(
+              new Date().toLocaleString("en-US", { timeZone: "America/New_York" })
+            ).toLocaleDateString("en-US", { weekday: "short" }),
+            ...today,
+          },
         ]);
       } else if (timeRange === "weekly") {
         setChartData(weekly);
@@ -42,9 +47,11 @@ export default function TodayLeadsChart({ setSelectedEmployee }) {
         if (timeRange === "today") {
           setChartData([
             {
-              day: new Date().toLocaleDateString("en-US", { weekday: "short" }),
-              ...today
-            }
+              day: new Date(
+                new Date().toLocaleString("en-US", { timeZone: "America/New_York" })
+              ).toLocaleDateString("en-US", { weekday: "short" }),
+              ...today,
+            },
           ]);
         } else if (timeRange === "weekly") {
           // Ensure Mon → Sat order and fill missing days

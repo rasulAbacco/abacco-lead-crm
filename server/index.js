@@ -8,6 +8,12 @@ import leadsRoutes from "./src/routes/leadsRoutes.js";
 import targetRoutes from "./src/routes/targetRoutes.js";
 import industryRouter from "./src/routes/industryRouter.js";
 import employeesDeatails from './src/routes/employees.js'
+import { getUSADateTime } from "./src/utils/timezone.js";
+
+console.log("🕐 Server time (UTC):", new Date().toISOString());
+console.log("🇺🇸 US (New York) time:", getUSADateTime());
+
+process.env.TZ = 'America/New_York';
 
 dotenv.config();
 const prisma = new PrismaClient();
