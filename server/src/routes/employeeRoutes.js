@@ -1,6 +1,13 @@
 // src/routes/employeeRoutes.js
 import express from "express";
 import { PrismaClient } from "@prisma/client";
+import { fromZonedTime } from "date-fns-tz";
+import {
+  getUSADateTime,
+  getUSATodayRange,
+  toUSAZone,
+} from "../utils/timezone.js";
+const USA_TZ = "America/Chicago";
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -158,8 +165,8 @@ router.get("/leads-summary", async (req, res) => {
   try {
     const now = new Date();
     const months = [
-      "January","February","March","April","May","June",
-      "July","August","September","October","November","December"
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
     ];
 
     const getSummary = async (start, end) => {
@@ -343,6 +350,7 @@ router.get("/leads/:employeeId", async (req, res) => {
 });
 
 // PUT /api/leads/:id - Update a lead
+// PUT /api/leads/:id - Update a lead
 router.put("/leads/:id", async (req, res) => {
   const { id } = req.params;
   const leadId = parseInt(id, 10);
@@ -367,23 +375,30 @@ router.put("/leads/:id", async (req, res) => {
       emailResponce,
     } = req.body;
 
+    // Prepare update data
+    const updateData = {};
+
+    if (agentName !== undefined) updateData.agentName = agentName;
+    if (clientEmail !== undefined) updateData.clientEmail = clientEmail;
+    if (leadEmail !== undefined) updateData.leadEmail = leadEmail;
+    if (ccEmail !== undefined) updateData.ccEmail = ccEmail;
+    if (phone !== undefined) updateData.phone = phone;
+    if (country !== undefined) updateData.country = country;
+    if (subjectLine !== undefined) updateData.subjectLine = subjectLine;
+    if (leadType !== undefined) updateData.leadType = leadType;
+    if (link !== undefined) updateData.link = link;
+    if (emailPitch !== undefined) updateData.emailPitch = emailPitch;
+    if (emailResponce !== undefined) updateData.emailResponce = emailResponce;
+
+    // Handle date - it comes as "2025-10-04T17:00:00.000Z"
+    if (date) {
+      updateData.date = new Date(date);
+    }
+
     // Update the lead
     const updatedLead = await prisma.lead.update({
       where: { id: leadId },
-      data: {
-        agentName: agentName || undefined,
-        clientEmail: clientEmail || undefined,
-        leadEmail: leadEmail || undefined,
-        ccEmail: ccEmail || undefined,
-        phone: phone || undefined,
-        country: country || undefined,
-        subjectLine: subjectLine || undefined,
-        leadType: leadType || undefined,
-        date: date ? new Date(date) : undefined,
-        link: link || undefined,
-        emailPitch: emailPitch || undefined,
-        emailResponce: emailResponce || undefined,
-      },
+      data: updateData,
     });
 
     res.json({ success: true, lead: updatedLead });

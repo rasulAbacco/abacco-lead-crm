@@ -45,7 +45,12 @@ const formatDateForInput = (dateString) => {
     if (!dateString) return "";
     const date = new Date(dateString);
     if (isNaN(date)) return "";
-    return date.toISOString().split('T')[0];
+    // Convert to USA timezone (America/New_York)
+    const usaDate = new Date(date.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    const year = usaDate.getFullYear();
+    const month = String(usaDate.getMonth() + 1).padStart(2, '0');
+    const day = String(usaDate.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 };
 
 export default function MyLeadsTable() {
@@ -116,18 +121,30 @@ export default function MyLeadsTable() {
     const handleSaveEdit = async (leadId) => {
         setSaving(true);
         try {
+            // Convert date to USA timezone datetime string
+            let dateToSend = editForm.date;
+            if (dateToSend) {
+                // Add USA timezone time (5 PM EST = 17:00)
+                dateToSend = `${dateToSend}T17:00:00.000Z`;
+            }
+
+            const dataToSend = {
+                ...editForm,
+                date: dateToSend
+            };
+
             const res = await fetch(`${API_BASE_URL}/api/leads/${leadId}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(editForm),
+                body: JSON.stringify(dataToSend),
             });
 
             if (!res.ok) throw new Error("Failed to update lead");
 
             const updatedLead = await res.json();
 
-            // Update local state
-            setLeads(leads.map(lead => lead.id === leadId ? { ...lead, ...editForm } : lead));
+            // Refresh leads to get updated data from server
+            await fetchLeads();
             setEditingLead(null);
             setEditForm({});
         } catch (err) {
