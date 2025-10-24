@@ -1,9 +1,18 @@
 import React, { useState, useEffect } from "react";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
 } from "recharts";
 import axios from "axios";
+import { toZonedTime, format } from "date-fns-tz";
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const USA_TZ = "America/Chicago"; // ✅ Central USA timezone
 
 export default function TodayLeadsChart({ setSelectedEmployee }) {
   const [timeRange, setTimeRange] = useState("today"); // today | weekly | monthly
@@ -16,16 +25,35 @@ export default function TodayLeadsChart({ setSelectedEmployee }) {
       const { today, weekly, months } = res.data;
 
       if (timeRange === "today") {
+        const nowUSA = toZonedTime(new Date(), USA_TZ);
+        const todayLabel = format(nowUSA, "EEE", { timeZone: USA_TZ }); // Mon, Tue, etc.
+
         setChartData([
           {
-            day: new Date(
-              new Date().toLocaleString("en-US", { timeZone: "America/New_York" })
-            ).toLocaleDateString("en-US", { weekday: "short" }),
+            day: todayLabel,
             ...today,
           },
         ]);
       } else if (timeRange === "weekly") {
-        setChartData(weekly);
+        // ✅ Ensure consistent Mon → Sat order and fill missing days
+        const dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        const weeklyMap = {};
+        weekly.forEach((d) => {
+          weeklyMap[d.day] = d;
+        });
+
+        const sortedWeekly = dayOrder.map(
+          (day) =>
+            weeklyMap[day] || {
+              day,
+              total: 0,
+              associations: 0,
+              attendees: 0,
+              industry: 0,
+            }
+        );
+
+        setChartData(sortedWeekly);
       } else if (timeRange === "monthly") {
         const data = Object.keys(months).map((m) => ({
           month: m,
@@ -34,52 +62,11 @@ export default function TodayLeadsChart({ setSelectedEmployee }) {
         setChartData(data);
       }
     } catch (err) {
-      console.error("Failed to fetch leads summary:", err);
+      console.error("❌ Failed to fetch leads summary:", err);
     }
   };
 
   useEffect(() => {
-     const fetchData = async () => {
-      try {
-        const res = await axios.get(`${API_BASE_URL}/api/employees/leads-summary`);
-        const { today, weekly, months } = res.data;
-
-        if (timeRange === "today") {
-          setChartData([
-            {
-              day: new Date(
-                new Date().toLocaleString("en-US", { timeZone: "America/New_York" })
-              ).toLocaleDateString("en-US", { weekday: "short" }),
-              ...today,
-            },
-          ]);
-        } else if (timeRange === "weekly") {
-          // Ensure Mon → Sat order and fill missing days
-          const dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-          const weeklyMap = {};
-          weekly.forEach(d => { weeklyMap[d.day] = d; });
-
-          const sortedWeekly = dayOrder.map(day => weeklyMap[day] || {
-            day,
-            total: 0,
-            associations: 0,
-            attendees: 0,
-            industry: 0,
-          });
-
-          setChartData(sortedWeekly);
-        } else if (timeRange === "monthly") {
-          const data = Object.keys(months).map((m) => ({
-            month: m,
-            ...months[m],
-          }));
-          setChartData(data);
-        }
-      } catch (err) {
-        console.error("Failed to fetch leads summary:", err);
-      }
-    };
-
     fetchData();
   }, [timeRange]);
 
@@ -91,23 +78,25 @@ export default function TodayLeadsChart({ setSelectedEmployee }) {
           {leadType === "total"
             ? "Total Leads"
             : leadType === "associations"
-            ? "Associations Leads"
-            : leadType === "attendees"
-            ? "Attendees Leads"
-            : "Industry Leads"}
+              ? "Associations Leads"
+              : leadType === "attendees"
+                ? "Attendees Leads"
+                : "Industry Leads"}
         </h2>
 
         <div className="flex gap-3">
+          {/* Time Range Selector */}
           <select
             value={timeRange}
             onChange={(e) => setTimeRange(e.target.value)}
             className="px-3 py-1 text-sm border rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500"
           >
             <option value="today">Today</option>
-            <option value="weekly">Weekly (Mon-Sat)</option>
+            <option value="weekly">Weekly (Mon–Sat)</option>
             <option value="monthly">Monthly</option>
           </select>
 
+          {/* Lead Type Selector */}
           <select
             value={leadType}
             onChange={(e) => setLeadType(e.target.value)}
@@ -123,7 +112,10 @@ export default function TodayLeadsChart({ setSelectedEmployee }) {
 
       {/* Chart */}
       <ResponsiveContainer width="100%" height={300}>
-        <BarChart data={chartData}>
+        <BarChart
+          data={chartData}
+          margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
+        >
           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
           <XAxis
             dataKey={timeRange === "monthly" ? "month" : "day"}

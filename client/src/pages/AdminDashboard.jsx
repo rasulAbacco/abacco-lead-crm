@@ -56,7 +56,7 @@ export default function AdminDashboard() {
   const filteredEmployees = getFilteredEmployees();
 
   const performanceData = employees.map((emp) => ({
-    name: emp.name.split(" ")[0],
+    name: emp.name,
     leads: emp.monthlyLeads,
     target: emp.target,
   }));

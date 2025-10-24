@@ -108,51 +108,7 @@ const DashboardMonthlyChart = ({ leads = [], target = 60 }) => {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-4 gap-4 mb-8">
-          <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-4 border border-gray-200/50 hover:shadow-lg transition-shadow">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="p-1.5 bg-purple-100 rounded-lg">
-                <TrendingUp className="w-4 h-4 text-purple-600" />
-              </div>
-              <p className="text-xs font-medium text-gray-600">Total Leads</p>
-            </div>
-            <p className="text-2xl font-bold text-gray-900">{totalLeads}</p>
-            <p className="text-xs text-gray-500 mt-1">Year to date</p>
-          </div>
-
-          <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-4 border border-gray-200/50 hover:shadow-lg transition-shadow">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="p-1.5 bg-blue-100 rounded-lg">
-                <Target className="w-4 h-4 text-blue-600" />
-              </div>
-              <p className="text-xs font-medium text-gray-600">This Month</p>
-            </div>
-            <p className="text-2xl font-bold text-gray-900">{currentMonthLeads}</p>
-            <p className="text-xs text-gray-500 mt-1">{percentOfTarget}% of target</p>
-          </div>
-
-          <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-4 border border-gray-200/50 hover:shadow-lg transition-shadow">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="p-1.5 bg-green-100 rounded-lg">
-                <Award className="w-4 h-4 text-green-600" />
-              </div>
-              <p className="text-xs font-medium text-gray-600">Success Rate</p>
-            </div>
-            <p className="text-2xl font-bold text-gray-900">{successRate}%</p>
-            <p className="text-xs text-gray-500 mt-1">{monthsAboveTarget} months hit target</p>
-          </div>
-
-          <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-4 border border-gray-200/50 hover:shadow-lg transition-shadow">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="p-1.5 bg-amber-100 rounded-lg">
-                <Calendar className="w-4 h-4 text-amber-600" />
-              </div>
-              <p className="text-xs font-medium text-gray-600">Avg/Month</p>
-            </div>
-            <p className="text-2xl font-bold text-gray-900">{avgLeads}</p>
-            <p className="text-xs text-gray-500 mt-1">Monthly average</p>
-          </div>
-        </div>
+        
 
         {/* Chart Section */}
         <div className="bg-white/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50">

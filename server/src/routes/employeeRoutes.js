@@ -2,17 +2,34 @@
 import express from "express";
 import { PrismaClient } from "@prisma/client";
 import { fromZonedTime } from "date-fns-tz";
+
 import {
   getUSADateTime,
   getUSATodayRange,
   toUSAZone,
 } from "../utils/timezone.js";
-const USA_TZ = "America/Chicago";
 
 const router = express.Router();
 const prisma = new PrismaClient();
+const USA_TZ = "America/Chicago";
 
-// src/routes/employeeRoutes.js
+/* ===========================================================
+   ✅ Helper: Get current month's range in Central USA time
+   =========================================================== */
+function getUSAMonthRange() {
+  const nowUSA = getUSADateTime();
+  const startOfMonth = new Date(nowUSA.getFullYear(), nowUSA.getMonth(), 1, 0, 0, 0);
+  const endOfMonth = new Date(nowUSA.getFullYear(), nowUSA.getMonth() + 1, 0, 23, 59, 59);
+  return {
+    start: fromZonedTime(startOfMonth, USA_TZ),
+    end: fromZonedTime(endOfMonth, USA_TZ),
+  };
+}
+
+/* ===========================================================
+   ✅ GET /api/employees
+   Fetch employees with daily/monthly leads in CST
+   =========================================================== */
 router.get("/", async (req, res) => {
   try {
     const employees = await prisma.employee.findMany({
@@ -21,72 +38,57 @@ router.get("/", async (req, res) => {
         employeeId: true,
         fullName: true,
         email: true,
-        target: true, // ✅ fetch target from DB
+        target: true,
       },
     });
 
-    const now = new Date();
-
-    // Set start and end of month
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-
-    // Set start and end of today
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    const { start: startOfMonth, end: endOfMonth } = getUSAMonthRange();
+    const { start: startOfToday, end: endOfToday } = getUSATodayRange();
 
     const employeesWithLeads = await Promise.all(
       employees.map(async (emp) => {
         const monthlyLeads = await prisma.lead.count({
           where: {
             employeeId: emp.employeeId,
-            date: {
-              gte: startOfMonth,
-              lte: endOfMonth,
-            },
+            date: { gte: startOfMonth, lte: endOfMonth },
           },
         });
 
         const dailyLeads = await prisma.lead.count({
           where: {
             employeeId: emp.employeeId,
-            date: {
-              gte: startOfToday,
-              lte: endOfToday,
-            },
+            date: { gte: startOfToday, lte: endOfToday },
           },
         });
 
         return {
-          id: emp.employeeId, // frontend expects 'id'
+          id: emp.employeeId,
           name: emp.fullName,
           email: emp.email,
           dailyLeads,
           monthlyLeads,
-          target: emp.target || 0, // ✅ use target from DB
+          target: emp.target || 0,
         };
       })
     );
 
     res.json(employeesWithLeads);
   } catch (error) {
-    console.error("Error fetching employees:", error);
+    console.error("❌ Error fetching employees:", error);
     res.status(500).json({ error: "Failed to fetch employees" });
   }
 });
 
-
-// Get All leads without employee filter
+/* ===========================================================
+   ✅ GET /api/employees/full
+   Fetch all leads (no filters)
+   =========================================================== */
 router.get("/full", async (req, res) => {
   try {
     const leads = await prisma.lead.findMany({
       include: {
         employee: {
-          select: {
-            employeeId: true,
-            fullName: true,
-            email: true,
-          },
+          select: { employeeId: true, fullName: true, email: true },
         },
       },
       orderBy: { id: "asc" },
@@ -109,21 +111,24 @@ router.get("/full", async (req, res) => {
       date: lead.date,
       createdAt: lead.createdAt,
       link: lead.link,
-      employee: lead.employee, // nested object { employeeId, fullName, email }
+      employee: lead.employee,
     }));
 
     res.json(formattedLeads);
   } catch (error) {
-    console.error("Error fetching leads:", error);
+    console.error("❌ Error fetching leads:", error);
     res.status(500).json({ error: "Failed to fetch leads" });
   }
 });
 
-// GET /api/employees/with-leads
+/* ===========================================================
+   ✅ GET /api/employees/with-leads
+   Returns employees and all leads (no filtering)
+   =========================================================== */
 router.get("/with-leads", async (req, res) => {
   try {
     const employees = await prisma.employee.findMany({
-      where: { role: "EMPLOYEE" }, // <-- only employees
+      where: { role: "EMPLOYEE" },
       select: {
         id: true,
         employeeId: true,
@@ -144,7 +149,6 @@ router.get("/with-leads", async (req, res) => {
             country: true,
             leadType: true,
             date: true,
-            // time: true,
             link: true,
           },
         },
@@ -153,17 +157,18 @@ router.get("/with-leads", async (req, res) => {
 
     res.json(employees);
   } catch (error) {
-    console.error("Error fetching employees with leads:", error);
+    console.error("❌ Error fetching employees with leads:", error);
     res.status(500).json({ error: "Failed to fetch employees with leads" });
   }
 });
-/**
- * GET /api/employees/leads-summary
- * Returns today's summary and month-wise summary of leads by type
- */
+
+/* ===========================================================
+   ✅ GET /api/employees/leads-summary
+   Returns daily, weekly, and monthly summary (CST)
+   =========================================================== */
 router.get("/leads-summary", async (req, res) => {
   try {
-    const now = new Date();
+    const nowUSA = getUSADateTime();
     const months = [
       "January", "February", "March", "April", "May", "June",
       "July", "August", "September", "October", "November", "December"
@@ -177,41 +182,42 @@ router.get("/leads-summary", async (req, res) => {
 
       const summary = { total: 0, associations: 0, industry: 0, attendees: 0 };
 
-      leads.forEach(lead => {
+      leads.forEach((lead) => {
         if (!lead.leadType) return;
         const type = lead.leadType.trim().toLowerCase();
-
-        if (type.includes("association")) summary.associations += 1;
-        else if (type.includes("industry")) summary.industry += 1;
-        else if (type.includes("attendee")) summary.attendees += 1;
-
-        summary.total += 1;
+        if (type.includes("association")) summary.associations++;
+        else if (type.includes("industry")) summary.industry++;
+        else if (type.includes("attendee")) summary.attendees++;
+        summary.total++;
       });
 
       return summary;
     };
 
     // --- Today ---
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    const { start: startOfToday, end: endOfToday } = getUSATodayRange();
     const today = await getSummary(startOfToday, endOfToday);
 
-    // --- Weekly (exclude Sundays) ---
+    // --- Weekly (CST, skip Sundays) ---
     const weeklyData = [];
     for (let i = 6; i >= 0; i--) {
-      const day = new Date(now);
-      day.setDate(now.getDate() - i);
+      const dayUSA = new Date(nowUSA);
+      dayUSA.setDate(nowUSA.getDate() - i);
 
-      // Skip Sundays
-      if (day.getDay() === 0) continue;
+      if (dayUSA.getDay() === 0) continue; // skip Sunday
 
-      const start = new Date(day.getFullYear(), day.getMonth(), day.getDate());
-      const end = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59, 59);
+      const start = fromZonedTime(
+        new Date(dayUSA.getFullYear(), dayUSA.getMonth(), dayUSA.getDate(), 0, 0, 0),
+        USA_TZ
+      );
+      const end = fromZonedTime(
+        new Date(dayUSA.getFullYear(), dayUSA.getMonth(), dayUSA.getDate(), 23, 59, 59),
+        USA_TZ
+      );
 
       const summary = await getSummary(start, end);
-
       weeklyData.push({
-        day: day.toLocaleDateString("en-US", { weekday: "short" }),
+        day: dayUSA.toLocaleDateString("en-US", { weekday: "short" }),
         ...summary,
       });
     }
@@ -219,17 +225,19 @@ router.get("/leads-summary", async (req, res) => {
     // --- Monthly ---
     const monthsData = {};
     for (let m = 0; m < 12; m++) {
-      const start = new Date(now.getFullYear(), m, 1);
-      const end = new Date(now.getFullYear(), m + 1, 0, 23, 59, 59);
+      const start = fromZonedTime(new Date(nowUSA.getFullYear(), m, 1, 0, 0, 0), USA_TZ);
+      const end = fromZonedTime(new Date(nowUSA.getFullYear(), m + 1, 0, 23, 59, 59), USA_TZ);
       monthsData[months[m]] = await getSummary(start, end);
     }
 
     res.json({ success: true, today, weekly: weeklyData, months: monthsData });
   } catch (err) {
-    console.error(err);
+    console.error("❌ Error in leads-summary:", err);
     res.status(500).json({ error: "Failed to fetch leads summary" });
   }
 });
+
+
 
 // GET /api/employees/:id/leads
 router.get("/:id/leads", async (req, res) => {

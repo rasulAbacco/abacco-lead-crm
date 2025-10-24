@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   Search,
   Download,
@@ -15,13 +15,17 @@ import {
   ChevronDown,
   ChevronUp,
   Filter,
-  UserRound
+  UserRound,
+  ArrowLeft,
 } from "lucide-react";
+import { toZonedTime, format } from "date-fns-tz";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const USA_TZ = "America/Chicago"; // ✅ Central USA timezone
 
 export default function EmployeeLeadsPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [employee, setEmployee] = useState(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("today");
@@ -44,6 +48,7 @@ export default function EmployeeLeadsPage() {
     });
   };
 
+  // 🔹 Fetch employee leads
   useEffect(() => {
     const fetchEmployeeLeads = async () => {
       try {
@@ -60,28 +65,35 @@ export default function EmployeeLeadsPage() {
     fetchEmployeeLeads();
   }, [id]);
 
+  // 🔹 Group leads by month
   const groupLeadsByMonth = (leads) => {
     const grouped = {};
     months.forEach((m) => (grouped[m] = []));
     leads.forEach((lead) => {
-      const date = new Date(lead.date);
-      if (date.getFullYear() === currentYear) {
-        const monthName = months[date.getMonth()];
+      const leadDate = toZonedTime(new Date(lead.date), USA_TZ);
+      if (leadDate.getFullYear() === currentYear) {
+        const monthName = months[leadDate.getMonth()];
         grouped[monthName].push(lead);
       }
     });
     return grouped;
   };
 
+  // 🔹 Filter leads by "today" (according to USA timezone)
   useEffect(() => {
     if (!employee?.leads) return;
-    const today = new Date();
+
+    const nowUSA = toZonedTime(new Date(), USA_TZ);
 
     if (filter === "today") {
+      const todayStr = format(nowUSA, "yyyy-MM-dd", { timeZone: USA_TZ });
+
       setFilteredLeads(
-        employee.leads.filter(
-          (lead) => new Date(lead.date).toDateString() === today.toDateString()
-        )
+        employee.leads.filter((lead) => {
+          const leadDateUSA = toZonedTime(new Date(lead.date), USA_TZ);
+          const leadDateStr = format(leadDateUSA, "yyyy-MM-dd", { timeZone: USA_TZ });
+          return leadDateStr === todayStr;
+        })
       );
     } else if (filter === "month") {
       const grouped = groupLeadsByMonth(employee.leads);
@@ -93,6 +105,7 @@ export default function EmployeeLeadsPage() {
     }
   }, [filter, employee, monthFilter]);
 
+  // 🔹 CSV Export
   const downloadCSV = () => {
     let leadsToDownload = [];
     if (filter === "today") {
@@ -136,6 +149,7 @@ export default function EmployeeLeadsPage() {
     );
   };
 
+  // ⏳ Loading & Not Found states
   if (loading) {
     return (
       <div className="flex flex-col justify-center items-center min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
@@ -156,6 +170,7 @@ export default function EmployeeLeadsPage() {
     );
   }
 
+  // 🔹 Lead Card
   const renderLeadCard = (lead) => {
     const isExpanded = expandedCards.has(lead.id);
     const ccEmails = lead.ccEmail
@@ -172,6 +187,7 @@ export default function EmployeeLeadsPage() {
       >
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
+          
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-2 flex-wrap">
@@ -221,45 +237,25 @@ export default function EmployeeLeadsPage() {
         {/* Body */}
         <div className="p-4 sm:p-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Lead Email */}
             <InfoCard icon={Mail} title="Lead Email" value={safe(lead.leadEmail)} color="pink" />
-            {/* CC Email */}
             <InfoCard icon={MailPlus} title="CC Emails" value={ccEmails.length ? ccEmails.join(", ") : "Not available"} color="violet" />
-            {/* Client Email */}
             <InfoCard icon={Mail} title="Client Email" value={safe(lead.clientEmail)} color="orange" />
-            {/* Agent Name */}
             <InfoCard icon={UserRound} title="Agent Name" value={safe(lead.agentName)} color="emerald" />
-            {/* Phone */}
             <InfoCard icon={Phone} title="Phone" value={safe(lead.phone)} color="green" />
-            {/* Website */}
             <InfoCard icon={Globe} title="Website" value={safe(lead.website)} color="indigo" />
-            {/* Country */}
             <InfoCard icon={MapPin} title="Country" value={safe(lead.country)} color="teal" />
           </div>
 
-          {/* Expanded */}
           {isExpanded && (
             <div className="mt-6 pt-6 border-t border-slate-200 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
               {lead.emailPitch && (
-                <EmailSection
-                  title="Email Pitch"
-                  icon={Send}
-                  color="blue"
-                  text={lead.emailPitch}
-                />
+                <EmailSection title="Email Pitch" icon={Send} color="blue" text={lead.emailPitch} />
               )}
               {lead.emailResponce && (
-                <EmailSection
-                  title="Email Response"
-                  icon={MessageSquare}
-                  color="emerald"
-                  text={lead.emailResponce}
-                />
+                <EmailSection title="Email Response" icon={MessageSquare} color="emerald" text={lead.emailResponce} />
               )}
               {!lead.emailPitch && !lead.emailResponce && (
-                <p className="text-center text-slate-500 py-4">
-                  No pitch or response available
-                </p>
+                <p className="text-center text-slate-500 py-4">No pitch or response available</p>
               )}
             </div>
           )}
@@ -270,9 +266,7 @@ export default function EmployeeLeadsPage() {
 
   const InfoCard = ({ icon: Icon, title, value, color }) => (
     <div className="flex items-start gap-3">
-      <div
-        className={`flex-shrink-0 w-10 h-10 bg-${color}-100 rounded-lg flex items-center justify-center`}
-      >
+      <div className={`flex-shrink-0 w-10 h-10 bg-${color}-100 rounded-lg flex items-center justify-center`}>
         <Icon className={`w-5 h-5 text-${color}-600`} />
       </div>
       <div>
@@ -283,13 +277,9 @@ export default function EmployeeLeadsPage() {
   );
 
   const EmailSection = ({ title, icon: Icon, color, text }) => (
-    <div
-      className={`bg-gradient-to-br from-${color}-50 to-${color}-100 rounded-lg p-4 border border-${color}-200`}
-    >
+    <div className={`bg-gradient-to-br from-${color}-50 to-${color}-100 rounded-lg p-4 border border-${color}-200`}>
       <div className="flex items-center gap-2 mb-3">
-        <div
-          className={`w-8 h-8 bg-${color}-600 rounded-lg flex items-center justify-center`}
-        >
+        <div className={`w-8 h-8 bg-${color}-600 rounded-lg flex items-center justify-center`}>
           <Icon className="w-4 h-4 text-white" />
         </div>
         <h4 className="font-semibold text-slate-900">{title}</h4>
@@ -307,6 +297,14 @@ export default function EmployeeLeadsPage() {
       {/* Header */}
       <div className="max-w-[1600px] mx-auto mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          {/* Back Button */}
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-100 transition-all shadow-sm hover:shadow-md font-medium w-fit"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back
+          </button>
           <div>
             <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-1">
               {employee.fullName}’s Leads
