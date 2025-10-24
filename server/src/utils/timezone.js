@@ -1,6 +1,8 @@
+//server/src/utils/timezone.js
 import { toZonedTime, fromZonedTime } from "date-fns-tz";
 
-const USA_TZ = "America/New_York";
+const USA_TZ = "America/Chicago"; // ✅ Central USA Time
+
 
 // 🕐 Get current date/time in US timezone
 export function getUSADateTime() {
@@ -24,3 +26,9 @@ export function getUSATodayRange() {
         end: fromZonedTime(endOfDay, USA_TZ),
     };
 }
+
+// 🧭 Convert a UTC date (from DB) to Central Time for display
+export function toUSAZone(date) {
+    return toZonedTime(date, USA_TZ);
+}
+

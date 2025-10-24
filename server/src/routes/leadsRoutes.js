@@ -1,23 +1,20 @@
 import express from "express";
 import { PrismaClient } from "@prisma/client";
-import { toZonedTime } from "date-fns-tz"; // ✅ fixed import
+import { fromZonedTime } from "date-fns-tz";
+import {
+  getUSADateTime,
+  getUSATodayRange,
+  toUSAZone,
+} from "../utils/timezone.js";
 
 const router = express.Router();
 const prisma = new PrismaClient();
 
-// 🕐 USA timezone constant
-const USA_TZ = "America/New_York";
-
-// Helper to get US-local date (midnight-based)
-const getUSADate = () => {
-  const nowInUSA = toZonedTime(new Date(), USA_TZ); // ✅ updated
-  nowInUSA.setHours(0, 0, 0, 0); // midnight start of day in US
-  return nowInUSA;
-};
-
 // ==========================================================
-// ✅ Create Lead
+// ✅ Create Lead (Central USA Time)
 // ==========================================================
+
+
 router.post("/", async (req, res) => {
   try {
     const { leads } = req.body;
@@ -36,6 +33,7 @@ router.post("/", async (req, res) => {
       });
     }
 
+    // Normalize email and link
     const normalizeEmail = (e) => (e || "").trim().toLowerCase();
     const normalizeLink = (raw) => {
       if (!raw) return "";
@@ -45,7 +43,8 @@ router.post("/", async (req, res) => {
         const u = new URL(s);
         u.hash = "";
         u.searchParams.forEach((v, k) => {
-          if (k.startsWith("utm_") || ["fbclid", "gclid"].includes(k)) u.searchParams.delete(k);
+          if (k.startsWith("utm_") || ["fbclid", "gclid"].includes(k))
+            u.searchParams.delete(k);
         });
         u.pathname = u.pathname.replace(/\/+$/, "");
         return `${u.protocol}//${u.hostname}${u.pathname}${u.search || ""}`.toLowerCase();
@@ -57,6 +56,7 @@ router.post("/", async (req, res) => {
     const normalizedClientEmail = normalizeEmail(clientEmail);
     const normalizedLink = normalizeLink(link);
 
+    // Prevent duplicates (within last 3 months)
     const threeMonthsAgo = new Date();
     threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
 
@@ -76,22 +76,29 @@ router.post("/", async (req, res) => {
       return res.status(400).json({
         success: false,
         duplicate: true,
-        message: `Duplicate found (created on ${existingLead.createdAt.toLocaleDateString("en-IN")}). You can resubmit after ${remainingDays} day(s).`,
+        message: `Duplicate found (created on ${existingLead.createdAt.toLocaleDateString(
+          "en-IN"
+        )}). You can resubmit after ${remainingDays} day(s).`,
         existingDate: existingLead.createdAt,
         retryAfterDays: remainingDays,
       });
     }
 
-    // ✅ Use USA timezone-based date
-    const usaDate = getUSADate();
+    // ✅ Use Central USA timezone-based UTC date
+    const usaDate = getUSADateTime();
+    const utcDate = fromZonedTime(usaDate, "America/Chicago");
 
     const { id: _, ...leadData } = lead;
+
     const newLead = await prisma.lead.create({
       data: {
         ...leadData,
         clientEmail: normalizedClientEmail,
         link: normalizedLink,
-        date: date ? new Date(date) : usaDate, // ✅ fallback to US-local day
+        // ✅ FIXED: ensure selected date falls in US day (noon CST)
+        date: date
+          ? fromZonedTime(`${date}T12:00:00`, "America/Chicago")
+          : utcDate,
       },
     });
 
@@ -109,8 +116,9 @@ router.post("/", async (req, res) => {
   }
 });
 
+
 // ==========================================================
-// Get all leads
+// ✅ Get all leads by employee ID
 // ==========================================================
 router.get("/", async (req, res) => {
   try {
@@ -122,16 +130,18 @@ router.get("/", async (req, res) => {
 
     const leads = await prisma.lead.findMany({
       where: { employeeId: employeeId.toString() },
+      orderBy: { id: "desc" },
     });
 
     res.json({ success: true, leads });
   } catch (err) {
+    console.error("Error fetching leads:", err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
 // ==========================================================
-// Get single lead
+// ✅ Get single lead by ID
 // ==========================================================
 router.get("/:id", async (req, res) => {
   try {
@@ -153,7 +163,6 @@ router.get("/:id", async (req, res) => {
 router.get("/count/:email", async (req, res) => {
   try {
     const { email } = req.params;
-
     const count = await prisma.lead.count({
       where: { leadEmail: email },
     });
@@ -166,19 +175,20 @@ router.get("/count/:email", async (req, res) => {
 });
 
 // ==========================================================
-// Update lead
+// ✅ Update lead (maintaining Central USA Time)
 // ==========================================================
 router.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
     let { date, ...data } = req.body;
 
-    // ✅ Ensure updated date also uses US timezone
     if (date) {
       const parsed = new Date(date);
-      data.date = isNaN(parsed.getTime()) ? getUSADate() : parsed;
+      data.date = isNaN(parsed.getTime())
+        ? fromZonedTime(getUSADateTime(), "America/Chicago")
+        : parsed;
     } else {
-      data.date = getUSADate();
+      data.date = fromZonedTime(getUSADateTime(), "America/Chicago");
     }
 
     const updatedLead = await prisma.lead.update({
@@ -194,7 +204,7 @@ router.put("/:id", async (req, res) => {
 });
 
 // ==========================================================
-// Delete lead
+// ✅ Delete lead
 // ==========================================================
 router.delete("/:id", async (req, res) => {
   try {
@@ -203,6 +213,7 @@ router.delete("/:id", async (req, res) => {
     });
     res.json({ success: true, message: "Lead deleted" });
   } catch (err) {
+    console.error("Error deleting lead:", err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -233,7 +244,7 @@ router.get("/all", async (req, res) => {
       leadEmail: lead.leadEmail,
       subjectLine: lead.subjectLine,
       leadType: lead.leadType,
-      date: lead.date,
+      date: toUSAZone(lead.date),
       link: lead.link,
       employee: lead.employee,
     }));
@@ -242,6 +253,35 @@ router.get("/all", async (req, res) => {
   } catch (error) {
     console.error("Error fetching leads:", error);
     res.status(500).json({ error: "Failed to fetch leads" });
+  }
+});
+
+// ==========================================================
+// ✅ Get Today's Leads (Central USA Time)
+// ==========================================================
+router.get("/today", async (req, res) => {
+  try {
+    const { start, end } = getUSATodayRange();
+
+    const leads = await prisma.lead.findMany({
+      where: {
+        createdAt: {
+          gte: start,
+          lte: end,
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const formatted = leads.map((lead) => ({
+      ...lead,
+      createdAt: toUSAZone(lead.createdAt),
+    }));
+
+    res.json({ success: true, leads: formatted });
+  } catch (err) {
+    console.error("Error fetching today's leads:", err);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 });
 

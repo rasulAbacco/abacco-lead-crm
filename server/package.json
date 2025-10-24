@@ -4,8 +4,8 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "cross-env TZ=America/New_York nodemon server.js",
-    "dev": "cross-env TZ=America/New_York nodemon server.js"
+    "start": "cross-env TZ=America/Chicago nodemon server.js",
+    "dev": "cross-env TZ=America/Chicago nodemon server.js"
   },
   "keywords": [],
   "author": "",
