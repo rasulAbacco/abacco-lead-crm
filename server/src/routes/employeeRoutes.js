@@ -342,5 +342,56 @@ router.get("/leads/:employeeId", async (req, res) => {
   }
 });
 
+// PUT /api/leads/:id - Update a lead
+router.put("/leads/:id", async (req, res) => {
+  const { id } = req.params;
+  const leadId = parseInt(id, 10);
+
+  if (isNaN(leadId)) {
+    return res.status(400).json({ error: "Invalid lead ID" });
+  }
+
+  try {
+    const {
+      agentName,
+      clientEmail,
+      leadEmail,
+      ccEmail,
+      phone,
+      country,
+      subjectLine,
+      leadType,
+      date,
+      link,
+      emailPitch,
+      emailResponce,
+    } = req.body;
+
+    // Update the lead
+    const updatedLead = await prisma.lead.update({
+      where: { id: leadId },
+      data: {
+        agentName: agentName || undefined,
+        clientEmail: clientEmail || undefined,
+        leadEmail: leadEmail || undefined,
+        ccEmail: ccEmail || undefined,
+        phone: phone || undefined,
+        country: country || undefined,
+        subjectLine: subjectLine || undefined,
+        leadType: leadType || undefined,
+        date: date ? new Date(date) : undefined,
+        link: link || undefined,
+        emailPitch: emailPitch || undefined,
+        emailResponce: emailResponce || undefined,
+      },
+    });
+
+    res.json({ success: true, lead: updatedLead });
+  } catch (error) {
+    console.error("Error updating lead:", error);
+    res.status(500).json({ error: "Failed to update lead" });
+  }
+});
+
 export default router;
 
