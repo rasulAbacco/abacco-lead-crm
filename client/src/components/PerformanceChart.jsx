@@ -69,7 +69,7 @@ export default function PerformanceChart({ employees, performanceData, setSelect
   const totalLeadsToday = todayLeads.reduce((sum, emp) => sum + emp.leads, 0);
 
   return (
-    <div className="bg-gradient-to-br from-white to-gray-50/50 rounded-3xl shadow-2xl p-8 border border-gray-200/50 overflow-x-auto">
+    <div className="bg-gradient-to-br from-white to-gray-50/50 rounded-3xl shadow-2xl p-8 border border-gray-200/50 overflow-x-auto w-full">
       {/* Header Section */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
