@@ -18,6 +18,7 @@ import {
     Edit,
     Save,
     X,
+    CheckCircle,
 } from "lucide-react";
 
 const defaultFilters = {
@@ -50,6 +51,15 @@ const formatDateForInput = (dateString) => {
     const year = usaDate.getFullYear();
     const month = String(usaDate.getMonth() + 1).padStart(2, '0');
     const day = String(usaDate.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+// Get today's date in YYYY-MM-DD format for max date attribute
+const getTodayDate = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
 };
 
@@ -130,7 +140,8 @@ export default function MyLeadsTable() {
 
             const dataToSend = {
                 ...editForm,
-                date: dateToSend
+                date: dateToSend,
+                isEdited: true // Mark as edited
             };
 
             const res = await fetch(`${API_BASE_URL}/api/leads/${leadId}`, {
@@ -262,6 +273,7 @@ export default function MyLeadsTable() {
             "Link",
             "Pitch",
             "Response",
+            "Edited",
         ];
 
         const rows = filteredLeads.map((lead) => [
@@ -278,6 +290,7 @@ export default function MyLeadsTable() {
             safe(lead.link),
             safe(lead.emailPitch),
             safe(lead.emailResponce),
+            lead.isEdited ? "Yes" : "No",
         ]);
 
         const csvContent =
@@ -430,6 +443,12 @@ export default function MyLeadsTable() {
                                                     <span className="text-xs font-semibold text-slate-500">
                                                         #{lead.id}
                                                     </span>
+                                                    {lead.isEdited && (
+                                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-amber-100 text-amber-700 border border-amber-200">
+                                                            <CheckCircle className="w-3 h-3" />
+                                                            Edited
+                                                        </span>
+                                                    )}
                                                     {isEditing ? (
                                                         <select
                                                             value={editForm.leadType}
@@ -534,7 +553,7 @@ export default function MyLeadsTable() {
                                             {isEditing ? (
                                                 <>
                                                     <EditableField label="Agent" icon={Building2} color="emerald" value={editForm.agentName} onChange={(v) => setEditForm({ ...editForm, agentName: v })} />
-                                                    <EditableField label="Date" icon={Calendar} color="purple" value={editForm.date} onChange={(v) => setEditForm({ ...editForm, date: v })} type="date" />
+                                                    <EditableField label="Date" icon={Calendar} color="purple" value={editForm.date} onChange={(v) => setEditForm({ ...editForm, date: v })} type="date" max={getTodayDate()} />
                                                     <EditableField label="Country" icon={Globe} color="teal" value={editForm.country} onChange={(v) => setEditForm({ ...editForm, country: v })} />
                                                     <EditableField label="Phone Number" icon={Phone} color="blue" value={editForm.phone} onChange={(v) => setEditForm({ ...editForm, phone: v })} />
                                                     <EditableField label="Client Email" icon={Mail} color="orange" value={editForm.clientEmail} onChange={(v) => setEditForm({ ...editForm, clientEmail: v })} />
@@ -638,7 +657,7 @@ const InfoCard = ({ icon: Icon, color, title, value }) => (
     </div>
 );
 
-const EditableField = ({ label, icon: Icon, color, value, onChange, type = "text", colSpan = "" }) => (
+const EditableField = ({ label, icon: Icon, color, value, onChange, type = "text", max, colSpan = "" }) => (
     <div className={`flex items-start gap-3 ${colSpan}`}>
         <div className={`flex-shrink-0 w-10 h-10 bg-${color}-100 rounded-lg flex items-center justify-center`}>
             <Icon className={`w-5 h-5 text-${color}-600`} />
@@ -648,6 +667,7 @@ const EditableField = ({ label, icon: Icon, color, value, onChange, type = "text
             <input
                 type={type}
                 value={value}
+                max={max}
                 onChange={(e) => onChange(e.target.value)}
                 className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
             />

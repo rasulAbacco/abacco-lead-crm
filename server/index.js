@@ -36,6 +36,6 @@ app.use('/api/all-employees', employeesDeatails)
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 // Start server
-const PORT = process.env.PORT || 4001;
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 

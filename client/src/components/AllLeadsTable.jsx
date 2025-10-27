@@ -16,6 +16,7 @@ import {
   MailPlus,
   Globe,
   Phone,
+  CheckCircle,
 } from "lucide-react";
 
 const defaultFilters = {
@@ -181,6 +182,7 @@ export default function AllLeadsTable() {
       "Link",
       "Pitch",
       "Response",
+      "Edited",
     ];
 
     const rows = filteredLeads.map((lead) => [
@@ -199,6 +201,7 @@ export default function AllLeadsTable() {
       safe(lead.link),
       safe(lead.emailPitch),
       safe(lead.emailResponce),
+      lead.isEdited ? "Yes" : "No",
     ]);
 
     const csvContent =
@@ -363,6 +366,12 @@ export default function AllLeadsTable() {
                           <span className="text-xs font-semibold text-slate-500">
                             #{lead.id}
                           </span>
+                          {lead.isEdited && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-amber-100 text-amber-700 border border-amber-200">
+                              <CheckCircle className="w-3 h-3" />
+                              Edited
+                            </span>
+                          )}
                           <span className="inline-flex px-2.5 py-0.5 text-xs font-semibold rounded-full border">
                             {lead.leadType || "Lead"}
                           </span>
