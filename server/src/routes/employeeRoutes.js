@@ -111,6 +111,7 @@ router.get("/full", async (req, res) => {
       date: lead.date,
       createdAt: lead.createdAt,
       link: lead.link,
+      isEdited: lead.isEdited, // Added this field to include the edit status
       employee: lead.employee,
     }));
 
@@ -381,6 +382,7 @@ router.put("/leads/:id", async (req, res) => {
       link,
       emailPitch,
       emailResponce,
+      isEdited,
     } = req.body;
 
     // Prepare update data
@@ -397,6 +399,7 @@ router.put("/leads/:id", async (req, res) => {
     if (link !== undefined) updateData.link = link;
     if (emailPitch !== undefined) updateData.emailPitch = emailPitch;
     if (emailResponce !== undefined) updateData.emailResponce = emailResponce;
+    if (isEdited !== undefined) updateData.isEdited = isEdited;
 
     // Handle date - it comes as "2025-10-04T17:00:00.000Z"
     if (date) {
@@ -415,6 +418,5 @@ router.put("/leads/:id", async (req, res) => {
     res.status(500).json({ error: "Failed to update lead" });
   }
 });
-
 export default router;
 
