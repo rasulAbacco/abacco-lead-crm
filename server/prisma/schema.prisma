@@ -34,17 +34,55 @@ model Lead {
 }
 
 model Employee {
-  id          Int      @id @default(autoincrement())
-  employeeId  String   @unique
-  fullName    String
-  email       String   @unique
-  password    String
-  role        String   @default("EMPLOYEE")
-  createdAt   DateTime @default(now())
-  target      Int
-  joiningDate DateTime
-  isActive    Boolean  @default(true) // ✅ New field
-  leads       Lead[]
+  id            Int            @id @default(autoincrement())
+  employeeId    String         @unique
+  fullName      String
+  email         String         @unique
+  password      String
+  role          String         @default("EMPLOYEE")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime?      @updatedAt
+  target        Int            @default(0)
+  joiningDate   DateTime
+  isActive      Boolean        @default(true)
+  leads         Lead[]
+  sharedLinks   SharedLink[]   @relation("CreatedLinks") // Links created by admin
+  receivedLinks ReceivedLink[] @relation("ReceivedByEmployee") // Links received by employee
+
+  @@index([role])
+  @@index([isActive])
+  @@index([employeeId])
+}
+
+model SharedLink {
+  id          Int            @id @default(autoincrement())
+  link        String         @db.Text // Use Text for longer URLs
+  linkType    String // Association Type, Industry Type, Attendees Type, World Wide
+  country     String
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime?      @updatedAt
+  createdById Int
+  createdBy   Employee       @relation("CreatedLinks", fields: [createdById], references: [id], onDelete: Cascade)
+  recipients  ReceivedLink[] @relation("LinkRecipients")
+
+  @@index([createdById])
+  @@index([linkType])
+  @@index([country])
+  @@index([createdAt])
+}
+
+model ReceivedLink {
+  id           Int        @id @default(autoincrement())
+  sharedLinkId Int
+  sharedLink   SharedLink @relation("LinkRecipients", fields: [sharedLinkId], references: [id], onDelete: Cascade)
+  recipientId  Int
+  recipient    Employee   @relation("ReceivedByEmployee", fields: [recipientId], references: [id], onDelete: Cascade)
+  receivedDate DateTime   @default(now())
+
+  @@unique([sharedLinkId, recipientId]) // Prevent duplicate assignments
+  @@index([recipientId])
+  @@index([sharedLinkId])
+  @@index([receivedDate])
 }
 
 model Industry {

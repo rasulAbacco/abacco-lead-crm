@@ -113,10 +113,8 @@ const AllEmployees = () => {
                     <div className="h-1.5 w-24 sm:w-32 bg-gradient-to-r from-purple-600 via-blue-600 to-pink-500 rounded-full shadow-md"></div>
                 </div>
 
-                {employees.length === 0 ? (
-                    <div className="flex flex-col items-center jus
-                    
-                    tify-center py-12 sm:py-20 bg-white rounded-2xl shadow-lg">
+               {employees.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 sm:py-20 bg-white rounded-2xl shadow-lg">
                         <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-purple-100 to-blue-100 rounded-full flex items-center justify-center mb-4 sm:mb-6">
                             <svg className="w-8 h-8 sm:w-10 sm:h-10 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -126,85 +124,97 @@ const AllEmployees = () => {
                         <p className="text-sm sm:text-base text-gray-500">Add your first team member to get started</p>
                     </div>
                 ) : (
-                    <>
-                        {/* Mobile Cards View */}
-                        <div className="lg:hidden space-y-4">
-                            {employees.map((emp) => (
-                                <div
-                                    key={emp.id}
-                                    className="bg-white rounded-2xl shadow-lg p-4 sm:p-5 border border-gray-100 hover:shadow-xl transition-all duration-300"
-                                >
-                                    <div className="flex items-start justify-between mb-4">
-                                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                                            <div className="w-12 h-12 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md flex-shrink-0">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                        {employees.map((emp) => (
+                            <div
+                                key={emp.id}
+                                className="bg-white rounded-2xl shadow-lg border border-gray-100 hover:shadow-2xl hover:scale-105 transition-all duration-300 overflow-hidden"
+                            >
+                                {/* Card Header with Gradient */}
+                                <div className="bg-gradient-to-br from-purple-600 via-purple-500 to-blue-600 p-5 relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-16 -mt-16"></div>
+                                    <div className="absolute bottom-0 left-0 w-24 h-24 bg-white opacity-10 rounded-full -ml-12 -mb-12"></div>
+                                    
+                                    <div className="relative flex items-start justify-between mb-3">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-7 h-7 bg-white bg-opacity-20 backdrop-blur-md rounded-lg flex items-center justify-center text-[#7F27FF] font-bold text-xl shadow-lg ring-2 ring-white ring-opacity-30">
                                                 {(emp.fullName || emp.name || 'U').charAt(0).toUpperCase()}
                                             </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="font-bold text-gray-900 text-base sm:text-lg truncate">{emp.fullName || emp.name}</p>
-                                                <p className="text-xs sm:text-sm text-gray-500 truncate">{emp.email}</p>
-                                            </div>
+                                            <button
+                                                onClick={() => toggleActive(emp.id)}
+                                                className={`cursor-pointer px-3 py-1 rounded-full text-xs font-bold shadow-md transition-all ${emp.isActive
+                                                    ? 'bg-green-400 text-green-900'
+                                                    : 'bg-red-400 text-red-900'
+                                                    }`}
+                                            >
+                                                {emp.isActive ? '● Active' : '● Inactive'}
+                                            </button>
                                         </div>
-                                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-gradient-to-br from-purple-500 to-blue-500 text-white shadow-md flex-shrink-0 ml-2">
+                                        <span className="px-3 py-1 bg-white bg-opacity-20 backdrop-blur-md rounded-full text-xs font-bold text-[#7F27FF] shadow-md">
                                             {emp.employeeId || emp.id}
                                         </span>
                                     </div>
+                                    
+                                    <div className="relative">
+                                        <h3 className="text-xl font-bold text-white mb-1 truncate">{emp.fullName || emp.name}</h3>
+                                        <p className="text-purple-100 text-sm truncate">{emp.email}</p>
+                                    </div>
+                                </div>
 
-                                    <div className="space-y-3">
-                                        <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                                            <span className="text-xs sm:text-sm font-semibold text-gray-600">Password</span>
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded-lg text-gray-700">
-                                                    {visiblePasswords[emp.id] ? emp.password : '••••••••'}
-                                                </span>
-                                                <button
-                                                    onClick={() => togglePasswordVisibility(emp.id)}
-                                                    className="w-7 h-7 flex items-center justify-center bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg transition-all text-sm flex-shrink-0"
-                                                >
-                                                    {visiblePasswords[emp.id] ? '🙈' : '👁️'}
-                                                </button>
-                                            </div>
+                                {/* Card Body */}
+                                <div className="p-5 space-y-4">
+                                    {/* Password Section */}
+                                    <div className="bg-gradient-to-br from-gray-50 to-purple-50 rounded-xl p-3">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">Password</span>
+                                            <button
+                                                onClick={() => togglePasswordVisibility(emp.id)}
+                                                className="w-8 h-8 flex items-center justify-center bg-white hover:bg-purple-100 rounded-lg transition-all shadow-sm text-sm"
+                                            >
+                                                {visiblePasswords[emp.id] ? '🙈' : '👁️'}
+                                            </button>
                                         </div>
+                                        <span className="font-mono text-sm bg-white px-3 py-2 rounded-lg text-gray-800 block truncate shadow-sm">
+                                            {visiblePasswords[emp.id] ? emp.password : '••••••••'}
+                                        </span>
+                                    </div>
 
-                                        <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                                            <span className="text-xs sm:text-sm font-semibold text-gray-600">Role</span>
-                                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${emp.role === 'ADMIN'
-                                                ? 'bg-gradient-to-r from-purple-500 to-blue-500 text-white'
-                                                : 'bg-gray-200 text-gray-700'
+                                    {/* Info Grid */}
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl p-3">
+                                            <span className="text-xs font-bold text-gray-600 uppercase tracking-wide block mb-2">Role</span>
+                                            <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm ${emp.role === 'ADMIN'
+                                                ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
+                                                : 'bg-white text-gray-700 border border-gray-200'
                                                 }`}>
+                                                {emp.role === 'ADMIN' ? '👑 ' : ''}
                                                 {emp.role || 'EMPLOYEE'}
                                             </span>
                                         </div>
 
-                                        <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                                            <span className="text-xs sm:text-sm font-semibold text-gray-600">Target</span>
-                                            <span className="font-bold text-purple-700 text-base">{emp.target}</span>
+                                        <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-3">
+                                            <span className="text-xs font-bold text-gray-600 uppercase tracking-wide block mb-2">Target</span>
+                                            <div className="flex items-center gap-1">
+                                                <span className="text-2xl">🎯</span>
+                                                <span className="font-bold text-purple-700 text-lg">{emp.target}</span>
+                                            </div>
                                         </div>
 
-                                        <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                                            <span className="text-xs sm:text-sm font-semibold text-gray-600">Joined</span>
-                                            <span className="text-xs sm:text-sm text-gray-700">
-                                                {emp.joiningDate ? new Date(emp.joiningDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
-                                            </span>
-                                        </div>
-
-                                        <div className="flex items-center justify-between pt-2">
-                                            <span className="text-xs sm:text-sm font-semibold text-gray-600">Status</span>
-                                            <button
-                                                onClick={() => toggleActive(emp.id)}
-                                                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${emp.isActive
-                                                    ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white'
-                                                    : 'bg-gradient-to-r from-red-500 to-rose-500 text-white'
-                                                    }`}
-                                            >
-                                                <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
-                                                {emp.isActive ? 'Active' : 'Inactive'}
-                                            </button>
+                                        <div className="col-span-2 bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl p-3">
+                                            <span className="text-xs font-bold text-gray-600 uppercase tracking-wide block mb-2">Joined Date</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-lg">📅</span>
+                                                <span className="text-sm font-semibold text-gray-700">
+                                                    {emp.joiningDate ? new Date(emp.joiningDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'N/A'}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
 
+                                    {/* Edit Button */}
                                     <button
                                         onClick={() => openEditModal(emp)}
-                                        className="w-full mt-4 inline-flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold shadow-lg transition-all"
+                                        className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-4 py-3 rounded-xl text-sm font-bold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
                                     >
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -212,108 +222,9 @@ const AllEmployees = () => {
                                         Edit Employee
                                     </button>
                                 </div>
-                            ))}
-                        </div>
-
-                        {/* Desktop Table View */}
-                        <div className="hidden lg:block bg-white rounded-2xl shadow-xl border border-gray-100">
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full">
-                                    <thead>
-                                        <tr className="bg-gradient-to-r from-purple-600 via-purple-700 to-blue-600 text-white">
-                                            <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap">ID</th>
-                                            <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap">Employee</th>
-                                            <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap">Email</th>
-                                            <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap">Password</th>
-                                            <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap">Role</th>
-                                            <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap">Target</th>
-                                            <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap">Joined</th>
-                                            <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap">Status</th>
-                                            <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-100">
-                                        {employees.map((emp) => (
-                                            <tr
-                                                key={emp.id}
-                                                className="hover:bg-gradient-to-r hover:from-purple-50 hover:to-blue-50 transition-all duration-300"
-                                            >
-                                                <td className="px-4 py-4 whitespace-nowrap">
-                                                    <span className="inline-flex items-center justify-center px-3 py-1.5 bg-gradient-to-br from-purple-500 to-blue-500 text-white text-sm font-bold rounded-lg shadow-md">
-                                                        {emp.employeeId || emp.id}
-                                                    </span>
-                                                </td>
-                                                <td className="px-4 py-4 whitespace-nowrap">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center text-white font-bold shadow-md flex-shrink-0">
-                                                            {(emp.fullName || emp.name || 'U').charAt(0).toUpperCase()}
-                                                        </div>
-                                                        <p className="font-semibold text-gray-900">{emp.fullName || emp.name}</p>
-                                                    </div>
-                                                </td>
-                                                <td className="px-4 py-4 whitespace-nowrap">
-                                                    <span className="text-gray-600 text-sm">{emp.email}</span>
-                                                </td>
-                                                <td className="px-4 py-4 whitespace-nowrap">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded-lg text-gray-700">
-                                                            {visiblePasswords[emp.id] ? emp.password : '••••••••'}
-                                                        </span>
-                                                        <button
-                                                            onClick={() => togglePasswordVisibility(emp.id)}
-                                                            className="w-7 h-7 flex items-center justify-center bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg transition-all flex-shrink-0"
-                                                        >
-                                                            {visiblePasswords[emp.id] ? '🙈' : '👁️'}
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                                <td className="px-4 py-4 whitespace-nowrap">
-                                                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${emp.role === 'ADMIN'
-                                                        ? 'bg-gradient-to-r from-purple-500 to-blue-500 text-white'
-                                                        : 'bg-gray-200 text-gray-700'
-                                                        }`}>
-                                                        {emp.role || 'EMPLOYEE'}
-                                                    </span>
-                                                </td>
-                                                <td className="px-4 py-4 whitespace-nowrap">
-                                                    <span className="font-bold text-purple-700 text-lg">{emp.target}</span>
-                                                </td>
-                                                <td className="px-4 py-4 whitespace-nowrap">
-                                                    <span className="text-gray-600 text-sm">
-                                                        {emp.joiningDate ? new Date(emp.joiningDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
-                                                    </span>
-                                                </td>
-                                                <td className="px-4 py-4 whitespace-nowrap">
-                                                    <button
-                                                        onClick={() => toggleActive(emp.id)}
-                                                        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${emp.isActive
-                                                            ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white'
-                                                            : 'bg-gradient-to-r from-red-500 to-rose-500 text-white'
-                                                            }`}
-                                                    >
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
-                                                        {emp.isActive ? 'Active' : 'Inactive'}
-                                                    </button>
-                                                </td>
-                                                <td className="px-4 py-4 whitespace-nowrap">
-                                                    <button
-                                                        onClick={() => openEditModal(emp)}
-                                                        className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-lg transition-all"
-                                                    >
-                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                                        </svg>
-                                                        Edit
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
                             </div>
-                            <div className="sticky bottom-0 h-5 bg-white shadow-inner"></div>
-                        </div>
-                    </>
+                        ))}
+                    </div>
                 )}
 
                 {/* Modal */}

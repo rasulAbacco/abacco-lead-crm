@@ -18,6 +18,8 @@ import IndustryType from "./pages/IndustryType";
 import IndustryTypeEmployee from "./pages/IndustryTypeEmployee";
 import AllEmployees from "./pages/AllEmployees";
 import MyLeads from "./pages/MyLeads";
+import ShareLink from "./pages/ShareLink";
+import MyLink from "./pages/MyLink";
 
 function App() {
   return (
@@ -87,6 +89,16 @@ function App() {
           </Layout>
         }
       />
+      <Route
+        path="/share-links"
+        element={
+          <Layout>
+            <ProtectedRoute role="admin">
+              <ShareLink/>
+            </ProtectedRoute>
+          </Layout>
+        }
+      />
 
       {/* Employee Routes */}
       <Route
@@ -120,6 +132,16 @@ function App() {
         }
       />
       <Route
+        path="/my-links"
+        element={
+          <Layout>
+            <ProtectedRoute role="employee">
+              <MyLink />
+            </ProtectedRoute>
+          </Layout>
+        }
+      />
+      <Route
         path="/industry-type"
         element={
           <Layout>
@@ -129,6 +151,7 @@ function App() {
           </Layout>
         }
       />
+      
 
 
       {/* Details */}
