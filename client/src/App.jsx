@@ -20,6 +20,8 @@ import AllEmployees from "./pages/AllEmployees";
 import MyLeads from "./pages/MyLeads";
 import ShareLink from "./pages/ShareLink";
 import MyLink from "./pages/MyLink";
+import MyReport from "./pages/MyReport";
+import Reports from "./pages/Reports";
 
 function App() {
   return (
@@ -80,6 +82,16 @@ function App() {
         }
       />
       <Route
+        path="/reports"
+        element={
+          <Layout>
+            <ProtectedRoute role="admin">
+              <Reports />
+            </ProtectedRoute>
+          </Layout>
+        }
+      />
+      <Route
         path="/industry-types"
         element={
           <Layout>
@@ -127,6 +139,16 @@ function App() {
           <Layout>
             <ProtectedRoute role="employee">
               <MyLeads />
+            </ProtectedRoute>
+          </Layout>
+        }
+      />
+      <Route
+        path="/myreport"
+        element={
+          <Layout>
+            <ProtectedRoute role="employee">
+              <MyReport />
             </ProtectedRoute>
           </Layout>
         }
