@@ -24,12 +24,12 @@ router.post("/", async (req, res) => {
     }
 
     const lead = leads[0];
-    const { id, clientEmail, link, date } = lead;
+    const { id, clientEmail, link, subjectLine, date } = lead;
 
-    if (!clientEmail || !link) {
+    if (!clientEmail || !link || !subjectLine) {
       return res.status(400).json({
         success: false,
-        message: "Client email and link are required",
+        message: "Client email, link, and subject line are required",
       });
     }
 
@@ -53,8 +53,15 @@ router.post("/", async (req, res) => {
       }
     };
 
+    // Normalize subject line
+    const normalizeSubject = (s) => {
+      if (!s) return "";
+      return s.trim().toLowerCase();
+    };
+
     const normalizedClientEmail = normalizeEmail(clientEmail);
     const normalizedLink = normalizeLink(link);
+    const normalizedSubjectLine = normalizeSubject(subjectLine);
 
     // Prevent duplicates (within last 3 months)
     const threeMonthsAgo = new Date();
@@ -64,6 +71,7 @@ router.post("/", async (req, res) => {
       where: {
         clientEmail: normalizedClientEmail,
         link: normalizedLink,
+        subjectLine: normalizedSubjectLine, // Added subjectLine to duplicate check
         createdAt: { gte: threeMonthsAgo },
       },
     });
@@ -95,6 +103,7 @@ router.post("/", async (req, res) => {
         ...leadData,
         clientEmail: normalizedClientEmail,
         link: normalizedLink,
+        subjectLine: normalizedSubjectLine, // Store normalized subject line
         // ✅ FIXED: ensure selected date falls in US day (noon CST)
         date: date
           ? fromZonedTime(`${date}T12:00:00`, "America/Chicago")
@@ -115,7 +124,6 @@ router.post("/", async (req, res) => {
     return res.status(500).json({ success: false, message: "Server error" });
   }
 });
-
 
 // ==========================================================
 // ✅ Get all leads by employee ID

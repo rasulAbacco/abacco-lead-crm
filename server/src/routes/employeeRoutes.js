@@ -111,7 +111,9 @@ router.get("/full", async (req, res) => {
       date: lead.date,
       createdAt: lead.createdAt,
       link: lead.link,
-      isEdited: lead.isEdited, // Added this field to include the edit status
+      isEdited: lead.isEdited,
+      forwarded: lead.forwarded,
+      qualified: lead.qualified,
       employee: lead.employee,
     }));
 
@@ -129,7 +131,7 @@ router.get("/full", async (req, res) => {
 router.get("/with-leads", async (req, res) => {
   try {
     const employees = await prisma.employee.findMany({
-      where: { role: "EMPLOYEE" },
+      where: { role: "EMPLOYEE", isActive: true },
       select: {
         id: true,
         employeeId: true,
@@ -151,15 +153,314 @@ router.get("/with-leads", async (req, res) => {
             leadType: true,
             date: true,
             link: true,
+            forwarded: true,
+            qualified: true,
+            createdAt: true,
+          },
+          orderBy: {
+            date: "desc",
+          },
+        },
+      },
+      orderBy: {
+        fullName: "asc",
+      },
+    });
+
+    console.log(`✅ Fetched ${employees.length} employees with leads`);
+    res.json(employees);
+  } catch (error) {
+    console.error("❌ Error fetching employees with leads:", error);
+    res.status(500).json({ error: "Failed to fetch employees with leads" });
+  }
+});
+
+/* ===========================================================
+   ✅ POST /api/employees/leads/:id/forward
+   Marks a lead as forwarded in the DB
+   =========================================================== */
+router.post("/leads/:id/forward", async (req, res) => {
+  try {
+    const leadId = parseInt(req.params.id);
+
+    if (isNaN(leadId)) {
+      return res.status(400).json({ error: "Invalid lead ID" });
+    }
+
+    // Check if lead exists
+    const existingLead = await prisma.lead.findUnique({
+      where: { id: leadId },
+    });
+
+    if (!existingLead) {
+      return res.status(404).json({ error: "Lead not found" });
+    }
+
+    const updatedLead = await prisma.lead.update({
+      where: { id: leadId },
+      data: { forwarded: true },
+      select: {
+        id: true,
+        forwarded: true,
+        qualified: true,
+        subjectLine: true,
+        leadEmail: true,
+      },
+    });
+
+    console.log(`✅ Lead ${leadId} marked as forwarded`);
+    res.json(updatedLead);
+  } catch (error) {
+    console.error("❌ Error forwarding lead:", error);
+    res.status(500).json({ error: "Failed to forward lead" });
+  }
+});
+
+/* ===========================================================
+   ✅ POST /api/employees/leads/:id/qualify
+   Marks a lead as qualified (true) or disqualified (false)
+   =========================================================== */
+router.post("/leads/:id/qualify", async (req, res) => {
+  try {
+    const leadId = parseInt(req.params.id);
+    const { qualified } = req.body;
+
+    if (isNaN(leadId)) {
+      return res.status(400).json({ error: "Invalid lead ID" });
+    }
+
+    // Validate qualified value
+    if (typeof qualified !== "boolean") {
+      return res.status(400).json({ 
+        error: "Invalid qualified value. Must be true or false" 
+      });
+    }
+
+    // Check if lead exists
+    const existingLead = await prisma.lead.findUnique({
+      where: { id: leadId },
+    });
+
+    if (!existingLead) {
+      return res.status(404).json({ error: "Lead not found" });
+    }
+
+    // Update lead qualification status
+    const updatedLead = await prisma.lead.update({
+      where: { id: leadId },
+      data: { qualified },
+      select: {
+        id: true,
+        forwarded: true,
+        qualified: true,
+        subjectLine: true,
+        leadEmail: true,
+      },
+    });
+
+    console.log(
+      `✅ Lead ${leadId} marked as ${qualified ? "qualified" : "disqualified"}`
+    );
+    res.json(updatedLead);
+  } catch (error) {
+    console.error("❌ Error updating lead qualification:", error);
+    res.status(500).json({ error: "Failed to update lead qualification" });
+  }
+});
+
+/* ===========================================================
+   ✅ GET /api/employees/leads/stats
+   Get lead statistics for today (optional date parameter)
+   =========================================================== */
+router.get("/leads/stats", async (req, res) => {
+  try {
+    const { date } = req.query;
+    
+    // Use provided date or today's date
+    const targetDate = date ? new Date(date) : new Date();
+    const startOfDay = new Date(targetDate.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(targetDate.setHours(23, 59, 59, 999));
+
+    // Get all leads for the target date
+    const leads = await prisma.lead.findMany({
+      where: {
+        date: {
+          gte: startOfDay,
+          lte: endOfDay,
+        },
+      },
+      select: {
+        id: true,
+        forwarded: true,
+        qualified: true,
+      },
+    });
+
+    const stats = {
+      totalLeads: leads.length,
+      forwarded: leads.filter(l => l.forwarded).length,
+      qualified: leads.filter(l => l.qualified === true).length,
+      disqualified: leads.filter(l => l.qualified === false).length,
+      pending: leads.filter(l => l.qualified === null).length,
+    };
+
+    console.log(`✅ Stats fetched for ${targetDate.toISOString().split('T')[0]}:`, stats);
+    res.json(stats);
+  } catch (error) {
+    console.error("❌ Error fetching lead stats:", error);
+    res.status(500).json({ error: "Failed to fetch lead statistics" });
+  }
+});
+
+/* ===========================================================
+   ✅ PATCH /api/employees/leads/:id/reset-qualification
+   Reset lead qualification status to null
+   =========================================================== */
+router.patch("/leads/:id/reset-qualification", async (req, res) => {
+  try {
+    const leadId = parseInt(req.params.id);
+
+    if (isNaN(leadId)) {
+      return res.status(400).json({ error: "Invalid lead ID" });
+    }
+
+    // Check if lead exists
+    const existingLead = await prisma.lead.findUnique({
+      where: { id: leadId },
+    });
+
+    if (!existingLead) {
+      return res.status(404).json({ error: "Lead not found" });
+    }
+
+    // Reset qualification to null
+    const updatedLead = await prisma.lead.update({
+      where: { id: leadId },
+      data: { qualified: null },
+      select: {
+        id: true,
+        forwarded: true,
+        qualified: true,
+        subjectLine: true,
+      },
+    });
+
+    console.log(`✅ Lead ${leadId} qualification reset to null`);
+    res.json(updatedLead);
+  } catch (error) {
+    console.error("❌ Error resetting lead qualification:", error);
+    res.status(500).json({ error: "Failed to reset lead qualification" });
+  }
+});
+
+/* ===========================================================
+   ✅ PATCH /api/employees/leads/:id/bulk-update
+   Update multiple fields of a lead at once
+   =========================================================== */
+router.patch("/leads/:id/bulk-update", async (req, res) => {
+  try {
+    const leadId = parseInt(req.params.id);
+    const { forwarded, qualified } = req.body;
+
+    if (isNaN(leadId)) {
+      return res.status(400).json({ error: "Invalid lead ID" });
+    }
+
+    // Build update data object
+    const updateData = {};
+    
+    if (typeof forwarded === "boolean") {
+      updateData.forwarded = forwarded;
+    }
+    
+    if (qualified !== undefined) {
+      updateData.qualified = qualified;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ error: "No valid fields to update" });
+    }
+
+    // Check if lead exists
+    const existingLead = await prisma.lead.findUnique({
+      where: { id: leadId },
+    });
+
+    if (!existingLead) {
+      return res.status(404).json({ error: "Lead not found" });
+    }
+
+    // Update lead
+    const updatedLead = await prisma.lead.update({
+      where: { id: leadId },
+      data: updateData,
+      select: {
+        id: true,
+        forwarded: true,
+        qualified: true,
+        subjectLine: true,
+        leadEmail: true,
+        employee: {
+          select: {
+            employeeId: true,
+            fullName: true,
           },
         },
       },
     });
 
-    res.json(employees);
+    console.log(`✅ Lead ${leadId} bulk updated:`, updateData);
+    res.json(updatedLead);
   } catch (error) {
-    console.error("❌ Error fetching employees with leads:", error);
-    res.status(500).json({ error: "Failed to fetch employees with leads" });
+    console.error("❌ Error bulk updating lead:", error);
+    res.status(500).json({ error: "Failed to bulk update lead" });
+  }
+});
+
+/* ===========================================================
+   ✅ GET /api/employees/leads/today/count
+   Get count of today's leads grouped by employee
+   =========================================================== */
+router.get("/leads/today/count", async (req, res) => {
+  try {
+    const today = new Date();
+    const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+
+    const employees = await prisma.employee.findMany({
+      where: {
+        role: "EMPLOYEE",
+        isActive: true,
+      },
+      select: {
+        employeeId: true,
+        fullName: true,
+        _count: {
+          select: {
+            leads: {
+              where: {
+                date: {
+                  gte: startOfDay,
+                  lte: endOfDay,
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const result = employees.map(emp => ({
+      employeeId: emp.employeeId,
+      fullName: emp.fullName,
+      todayLeadsCount: emp._count.leads,
+    }));
+
+    console.log(`✅ Today's lead count fetched for ${employees.length} employees`);
+    res.json(result);
+  } catch (error) {
+    console.error("❌ Error fetching today's lead count:", error);
+    res.status(500).json({ error: "Failed to fetch today's lead count" });
   }
 });
 
@@ -238,9 +539,10 @@ router.get("/leads-summary", async (req, res) => {
   }
 });
 
-
-
-// GET /api/employees/:id/leads
+/* ===========================================================
+   ✅ GET /api/employees/:id/leads
+   Get all leads for a specific employee
+   =========================================================== */
 router.get("/:id/leads", async (req, res) => {
   const { id } = req.params;
 
@@ -255,7 +557,7 @@ router.get("/:id/leads", async (req, res) => {
     }
 
     res.json({
-      fullName: employee.fullName, // 👈 add this
+      fullName: employee.fullName,
       leads: employee.leads,
     });
   } catch (error) {
@@ -264,14 +566,16 @@ router.get("/:id/leads", async (req, res) => {
   }
 });
 
-
-// ✅ Get employee details including target
+/* ===========================================================
+   ✅ GET /api/employees/:id/target
+   Get employee details including target
+   =========================================================== */
 router.get("/:id/target", async (req, res) => {
   const { id } = req.params;
 
   try {
     const employee = await prisma.employee.findUnique({
-      where: { employeeId: id }, // use employeeId (string) not auto-increment id
+      where: { employeeId: id },
       select: { employeeId: true, fullName: true, target: true },
     });
 
@@ -286,17 +590,15 @@ router.get("/:id/target", async (req, res) => {
   }
 });
 
-// POST /api/employees
-// src/routes/leadRoutes.js
-
-
-// POST /api/leads
-// POST /api/leads
+/* ===========================================================
+   ✅ POST /api/employees
+   Create a new employee
+   =========================================================== */
 router.post("/", async (req, res) => {
   try {
     const employeeData = req.body;
 
-    // 🔍 Check for duplicates
+    // Check for duplicates
     const existing = await prisma.employee.findUnique({
       where: { employeeId: employeeData.employeeId },
     });
@@ -323,7 +625,10 @@ router.post("/", async (req, res) => {
   }
 });
 
-
+/* ===========================================================
+   ✅ GET /api/employees/leads/:employeeId
+   Get all leads for a specific employee by employeeId
+   =========================================================== */
 router.get("/leads/:employeeId", async (req, res) => {
   const { employeeId } = req.params;
 
@@ -332,7 +637,6 @@ router.get("/leads/:employeeId", async (req, res) => {
       return res.status(400).json({ error: "Employee ID is required" });
     }
 
-    // ✅ Fetch all leads that belong to this employee
     const leads = await prisma.lead.findMany({
       where: { employeeId },
       orderBy: { createdAt: "desc" },
@@ -358,8 +662,10 @@ router.get("/leads/:employeeId", async (req, res) => {
   }
 });
 
-// PUT /api/leads/:id - Update a lead
-// PUT /api/leads/:id - Update a lead
+/* ===========================================================
+   ✅ PUT /api/employees/leads/:id
+   Update a lead
+   =========================================================== */
 router.put("/leads/:id", async (req, res) => {
   const { id } = req.params;
   const leadId = parseInt(id, 10);
@@ -383,6 +689,8 @@ router.put("/leads/:id", async (req, res) => {
       emailPitch,
       emailResponce,
       isEdited,
+      forwarded,
+      qualified,
     } = req.body;
 
     // Prepare update data
@@ -400,8 +708,10 @@ router.put("/leads/:id", async (req, res) => {
     if (emailPitch !== undefined) updateData.emailPitch = emailPitch;
     if (emailResponce !== undefined) updateData.emailResponce = emailResponce;
     if (isEdited !== undefined) updateData.isEdited = isEdited;
+    if (forwarded !== undefined) updateData.forwarded = forwarded;
+    if (qualified !== undefined) updateData.qualified = qualified;
 
-    // Handle date - it comes as "2025-10-04T17:00:00.000Z"
+    // Handle date
     if (date) {
       updateData.date = new Date(date);
     }
@@ -412,11 +722,12 @@ router.put("/leads/:id", async (req, res) => {
       data: updateData,
     });
 
+    console.log(`✅ Lead ${leadId} updated successfully`);
     res.json({ success: true, lead: updatedLead });
   } catch (error) {
     console.error("Error updating lead:", error);
     res.status(500).json({ error: "Failed to update lead" });
   }
 });
-export default router;
 
+export default router;

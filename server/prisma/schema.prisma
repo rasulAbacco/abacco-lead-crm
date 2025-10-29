@@ -31,6 +31,8 @@ model Lead {
   employee      Employee @relation(fields: [employeeId], references: [employeeId])
   link          String
   isEdited      Boolean? @default(false)
+  forwarded     Boolean  @default(false)
+  qualified     Boolean?
 }
 
 model Employee {

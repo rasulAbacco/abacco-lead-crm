@@ -10,6 +10,7 @@ import industryRouter from "./src/routes/industryRouter.js";
 import employeesDeatails from './src/routes/employees.js'
 import { getUSADateTime } from "./src/utils/timezone.js";
 import linksRouter from "./src/routes/linksRouter.js";
+import reportsRoutes from "./src/routes/reportsRoutes.js";
 
 console.log("🕐 Server time (UTC):", new Date().toISOString());
 console.log("🇺🇸 US (New York) time:", getUSADateTime());
@@ -33,6 +34,7 @@ app.use("/api/targets", targetRoutes);
 app.use("/api/industry", industryRouter);
 app.use('/api/all-employees', employeesDeatails)
 app.use("/api/links", linksRouter);
+app.use("/api/reports", reportsRoutes);
 
 // Add JWT secret to environment
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
