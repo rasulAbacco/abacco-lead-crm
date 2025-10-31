@@ -56,7 +56,7 @@ router.post("/share", authenticate, authorizeRole("ADMIN"), async (req, res) => 
       });
     }
 
-    // Create Shared Link with recipients
+    // ✅ Create Shared Link with recipients (with notification fields)
     const shared = await prisma.sharedLink.create({
       data: {
         link: link.trim(),
@@ -66,6 +66,9 @@ router.post("/share", authenticate, authorizeRole("ADMIN"), async (req, res) => 
         recipients: {
           create: recipientIds.map((rid) => ({
             recipientId: rid,
+            isSeen: false,    // 🔔 new notification — not seen yet
+            isRead: false,    // optional — not clicked/opened yet
+            receivedDate: new Date(), // track when it was sent
           })),
         },
       },
@@ -113,6 +116,7 @@ router.post("/share", authenticate, authorizeRole("ADMIN"), async (req, res) => 
     return res.status(500).json({ message: "Error creating shared link" });
   }
 });
+
 
 /**
  * ✅ ADMIN: Get all shared link info with recipients
@@ -422,5 +426,49 @@ router.put("/:id/recipients", authenticate, authorizeRole("ADMIN"), async (req, 
     res.status(500).json({ message: "Failed to update recipients" });
   }
 });
+
+/**
+ * ✅ EMPLOYEE: Mark all received links as seen
+ */
+router.put("/mark-seen", authenticate, authorizeRole("EMPLOYEE"), async (req, res) => {
+  try {
+    const userId = req.user.id || req.user.userId;
+
+    await prisma.receivedLink.updateMany({
+      where: { recipientId: userId, isSeen: false },
+      data: {
+        isSeen: true,
+        seenAt: new Date(),
+      },
+    });
+
+    res.json({ message: "Links marked as seen" });
+  } catch (err) {
+    console.error("❌ Error marking links as seen:", err);
+    res.status(500).json({ message: "Failed to mark links as seen" });
+  }
+});
+
+/**
+ * ✅ EMPLOYEE: Get count of unseen links
+ */
+router.get("/unseen-count", authenticate, authorizeRole("EMPLOYEE"), async (req, res) => {
+  try {
+    const userId = req.user.id || req.user.userId;
+
+    const unseenCount = await prisma.receivedLink.count({
+      where: {
+        recipientId: userId,
+        isSeen: false,
+      },
+    });
+
+    res.json({ unseenCount });
+  } catch (err) {
+    console.error("❌ Error fetching unseen count:", err);
+    res.status(500).json({ message: "Failed to fetch unseen count" });
+  }
+});
+
 
 export default router;

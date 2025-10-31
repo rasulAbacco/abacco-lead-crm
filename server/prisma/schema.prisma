@@ -50,6 +50,7 @@ model Employee {
   leads         Lead[]
   sharedLinks   SharedLink[]   @relation("CreatedLinks") // Links created by admin
   receivedLinks ReceivedLink[] @relation("ReceivedByEmployee") // Links received by employee
+  Notification  Notification[]
 
   @@index([role])
   @@index([isActive])
@@ -81,6 +82,11 @@ model ReceivedLink {
   recipient    Employee   @relation("ReceivedByEmployee", fields: [recipientId], references: [id], onDelete: Cascade)
   receivedDate DateTime   @default(now())
 
+  // ✅ Add these here:
+  isSeen Boolean   @default(false)
+  isRead Boolean   @default(false)
+  seenAt DateTime?
+
   @@unique([sharedLinkId, recipientId]) // Prevent duplicate assignments
   @@index([recipientId])
   @@index([sharedLinkId])
@@ -95,4 +101,17 @@ model Industry {
   industryName String
   leadType     String
   countryName  String
+}
+
+model Notification {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  title     String
+  message   String?
+  link      String?
+  type      String    @default("info") // success | warning | link
+  isRead    Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
+  user      Employee  @relation(fields: [userId], references: [id])
 }
