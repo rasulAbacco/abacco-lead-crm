@@ -56,10 +56,18 @@ export default function AdminDashboard() {
   const filteredEmployees = getFilteredEmployees();
 
   const performanceData = employees.map((emp) => ({
-    name: emp.name,
-    leads: emp.monthlyLeads,
-    target: emp.target,
-  }));
+  employeeId: emp.employeeId,
+  name: emp.fullName || emp.name,
+  leads: emp.monthlyLeads || emp.leads || 0,
+  target: emp.target || 0,
+  qualifiedLeads: emp.qualifiedLeads || 0,
+  disqualifiedLeads: emp.disqualifiedLeads || 0,
+  pendingLeads: emp.pendingLeads || 0,
+  dailyLeads: emp.dailyLeads || 0,
+}));
+
+console.log("✅ Prepared Performance Data:", performanceData);
+
 
   const pieData = [
     { name: "Achieved", value: achievedCount },

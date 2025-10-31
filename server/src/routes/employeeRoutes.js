@@ -30,6 +30,13 @@ function getUSAMonthRange() {
    ✅ GET /api/employees
    Fetch employees with daily/monthly leads in CST
    =========================================================== */
+// src/routes/employeeRoutes.js
+
+
+/* ===========================================================
+   ✅ GET /api/employees
+   Fetch employees with daily/monthly leads + qualified/disqualified counts
+   =========================================================== */
 router.get("/", async (req, res) => {
   try {
     const employees = await prisma.employee.findMany({
@@ -47,6 +54,7 @@ router.get("/", async (req, res) => {
 
     const employeesWithLeads = await Promise.all(
       employees.map(async (emp) => {
+        // Monthly leads count
         const monthlyLeads = await prisma.lead.count({
           where: {
             employeeId: emp.employeeId,
@@ -54,6 +62,7 @@ router.get("/", async (req, res) => {
           },
         });
 
+        // Daily leads count
         const dailyLeads = await prisma.lead.count({
           where: {
             employeeId: emp.employeeId,
@@ -61,12 +70,45 @@ router.get("/", async (req, res) => {
           },
         });
 
+        // ✅ Qualified leads count (monthly)
+        const qualifiedLeads = await prisma.lead.count({
+          where: {
+            employeeId: emp.employeeId,
+            date: { gte: startOfMonth, lte: endOfMonth },
+            qualified: true,
+          },
+        });
+
+        // ✅ Disqualified leads count (monthly)
+        const disqualifiedLeads = await prisma.lead.count({
+          where: {
+            employeeId: emp.employeeId,
+            date: { gte: startOfMonth, lte: endOfMonth },
+            qualified: false,
+          },
+        });
+
+        // ✅ Pending leads count (monthly - where qualified is null)
+        const pendingLeads = await prisma.lead.count({
+          where: {
+            employeeId: emp.employeeId,
+            date: { gte: startOfMonth, lte: endOfMonth },
+            qualified: null,
+          },
+        });
+
         return {
           id: emp.employeeId,
+          employeeId: emp.employeeId,
           name: emp.fullName,
+          fullName: emp.fullName,
           email: emp.email,
           dailyLeads,
           monthlyLeads,
+          leads: monthlyLeads, // For compatibility with existing code
+          qualifiedLeads,
+          disqualifiedLeads,
+          pendingLeads,
           target: emp.target || 0,
         };
       })
@@ -187,7 +229,6 @@ router.post("/leads/:id/forward", async (req, res) => {
       return res.status(400).json({ error: "Invalid lead ID" });
     }
 
-    // Check if lead exists
     const existingLead = await prisma.lead.findUnique({
       where: { id: leadId },
     });
@@ -229,14 +270,12 @@ router.post("/leads/:id/qualify", async (req, res) => {
       return res.status(400).json({ error: "Invalid lead ID" });
     }
 
-    // Validate qualified value
     if (typeof qualified !== "boolean") {
       return res.status(400).json({ 
         error: "Invalid qualified value. Must be true or false" 
       });
     }
 
-    // Check if lead exists
     const existingLead = await prisma.lead.findUnique({
       where: { id: leadId },
     });
@@ -245,7 +284,6 @@ router.post("/leads/:id/qualify", async (req, res) => {
       return res.status(404).json({ error: "Lead not found" });
     }
 
-    // Update lead qualification status
     const updatedLead = await prisma.lead.update({
       where: { id: leadId },
       data: { qualified },
@@ -276,12 +314,10 @@ router.get("/leads/stats", async (req, res) => {
   try {
     const { date } = req.query;
     
-    // Use provided date or today's date
     const targetDate = date ? new Date(date) : new Date();
     const startOfDay = new Date(targetDate.setHours(0, 0, 0, 0));
     const endOfDay = new Date(targetDate.setHours(23, 59, 59, 999));
 
-    // Get all leads for the target date
     const leads = await prisma.lead.findMany({
       where: {
         date: {
@@ -311,6 +347,7 @@ router.get("/leads/stats", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch lead statistics" });
   }
 });
+
 
 /* ===========================================================
    ✅ PATCH /api/employees/leads/:id/reset-qualification
