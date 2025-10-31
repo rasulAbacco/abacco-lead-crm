@@ -18,10 +18,12 @@ import {
 
 const getRole = () => localStorage.getItem("role")?.toLowerCase();
 
+
 function Layout({ children }) {
   const location = useLocation();
   const hideSidebar = location.pathname === "/";
   const role = getRole();
+  const employeeId = localStorage.getItem("employeeId");
   const [isExpanded, setIsExpanded] = useState(false);
   const [hoverTimer, setHoverTimer] = useState(null);
   const sidebarRef = useRef(null);
@@ -31,22 +33,19 @@ function Layout({ children }) {
   const NavLink = ({ to, icon: Icon, label }) => (
     <Link
       to={to}
-      className={`group flex items-center ${
-        isExpanded ? "gap-3 px-4" : "justify-center px-0"
-      } py-3 rounded-xl transition-all duration-200 ${
-        isActive(to)
+      className={`group flex items-center ${isExpanded ? "gap-3 px-4" : "justify-center px-0"
+        } py-3 rounded-xl transition-all duration-200 ${isActive(to)
           ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/30"
           : "text-gray-700 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 hover:text-indigo-600"
-      }`}
+        }`}
     >
       <Icon
-        className={`w-5 h-5 flex-shrink-0 ${
-          isActive(to) ? "text-white" : "text-gray-500 group-hover:text-indigo-600"
-        }`}
+        className={`w-5 h-5 flex-shrink-0 ${isActive(to) ? "text-white" : "text-gray-500 group-hover:text-indigo-600"
+          }`}
       />
 
-      
-   
+
+
       {/* Only show text when expanded */}
       {isExpanded && <span className="font-medium flex-1">{label}</span>}
       {isExpanded && isActive(to) && <ChevronRight className="w-4 h-4" />}
@@ -65,7 +64,7 @@ function Layout({ children }) {
 
       const timer = setTimeout(() => {
         setIsExpanded(false);
-      },2000);
+      }, 2000);
       setHoverTimer(timer);
 
       return () => {
@@ -88,9 +87,8 @@ function Layout({ children }) {
             const timer = setTimeout(() => setIsExpanded(false));
             setHoverTimer(timer);
           }}
-          className={`${
-            isExpanded ? "w-72" : "w-20"
-          } h-screen bg-white border-r border-gray-200 flex flex-col shadow-xl fixed left-0 top-0 transition-all duration-300 ease-in-out overflow-hidden`}
+          className={`${isExpanded ? "w-72" : "w-20"
+            } h-screen bg-white border-r border-gray-200 flex flex-col shadow-xl fixed left-0 top-0 transition-all duration-300 ease-in-out overflow-hidden`}
         >
           {/* Header */}
           <div className="p-6 border-b border-gray-200 flex items-center justify-center gap-3">
@@ -109,9 +107,8 @@ function Layout({ children }) {
 
           {/* User Info */}
           <div
-            className={`p-4 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-purple-50 flex items-center ${
-              isExpanded ? "gap-3" : "justify-center"
-            }`}
+            className={`p-4 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-purple-50 flex items-center ${isExpanded ? "gap-3" : "justify-center"
+              }`}
           >
             <div className="w-12 h-12 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg">
               {role === "admin"
@@ -140,6 +137,10 @@ function Layout({ children }) {
                 <NavLink to="/leadform" icon={FileText} label="Lead Management" />
                 <NavLink to="/myleads" icon={FolderOpen} label="My Leads" />
                 <NavLink to="/myreport" icon={ServerCrash} label="My Report" />
+                {/* ✅ Special Access: Only for Employee ID AT014 */}
+                {employeeId?.trim().toUpperCase() === "AT014" && (
+                  <NavLink to="/share-links" icon={CloudUpload} label="Share Links" />
+                )}
                 <NavLink to="/my-links" icon={CloudDownload} label="My Links" />
                 <NavLink to="/industry-type" icon={Briefcase} label="Industry Types" />
               </>
@@ -168,9 +169,8 @@ function Layout({ children }) {
                 localStorage.removeItem("fullName");
                 window.location.href = "/";
               }}
-              className={`w-full flex items-center ${
-                isExpanded ? "justify-center gap-2" : "justify-center"
-              } bg-gradient-to-r from-red-500 to-red-600 text-white py-3 rounded-xl hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-lg hover:shadow-xl font-medium`}
+              className={`w-full flex items-center ${isExpanded ? "justify-center gap-2" : "justify-center"
+                } bg-gradient-to-r from-red-500 to-red-600 text-white py-3 rounded-xl hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-lg hover:shadow-xl font-medium`}
             >
               <LogOut className="w-5 h-5" />
               {isExpanded && "Logout"}
@@ -181,9 +181,8 @@ function Layout({ children }) {
 
       {/* Main content */}
       <main
-        className={`flex-1 overflow-y-auto ${
-          !hideSidebar ? (isExpanded ? "ml-72" : "ml-20") : ""
-        }`}
+        className={`flex-1 overflow-y-auto ${!hideSidebar ? (isExpanded ? "ml-72" : "ml-20") : ""
+          }`}
       >
         {children}
       </main>

@@ -22,6 +22,7 @@ import ShareLink from "./pages/ShareLink";
 import MyLink from "./pages/MyLink";
 import MyReport from "./pages/MyReport";
 import Reports from "./pages/Reports";
+import ShareLinkAccessWrapper from "./components/ShareLinkAccessWrapper";
 
 function App() {
   return (
@@ -105,9 +106,9 @@ function App() {
         path="/share-links"
         element={
           <Layout>
-            <ProtectedRoute role="admin">
-              <ShareLink/>
-            </ProtectedRoute>
+            <ShareLinkAccessWrapper>
+              <ShareLink />
+            </ShareLinkAccessWrapper>
           </Layout>
         }
       />
@@ -173,7 +174,7 @@ function App() {
           </Layout>
         }
       />
-      
+
 
 
       {/* Details */}

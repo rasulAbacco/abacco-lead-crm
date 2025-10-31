@@ -121,8 +121,16 @@ router.post("/share", authenticate, authorizeRole("ADMIN"), async (req, res) => 
 /**
  * ✅ ADMIN: Get all shared link info with recipients
  */
-router.get("/shared-info", authenticate, authorizeRole("ADMIN"), async (req, res) => {
+router.get("/shared-info", authenticate, async (req, res) => {
   try {
+    const { role, employeeId } = req.user || {};
+
+    // ✅ Only allow Admin or specific Employee ID AT014
+    if (!(role === "ADMIN" || (role === "EMPLOYEE" && employeeId === "AT014"))) {
+      return res.status(403).json({ message: "Forbidden: Access denied" });
+    }
+
+    // ✅ Original logic
     const links = await prisma.sharedLink.findMany({
       include: {
         createdBy: {
@@ -150,12 +158,14 @@ router.get("/shared-info", authenticate, authorizeRole("ADMIN"), async (req, res
       },
       orderBy: { createdAt: "desc" },
     });
+
     res.json(Array.isArray(links) ? links : []);
   } catch (err) {
     console.error("❌ Error fetching shared info:", err);
     res.status(500).json({ message: "Failed to load shared info" });
   }
 });
+
 
 /**
  * ✅ EMPLOYEE: Get all links shared with this employee
