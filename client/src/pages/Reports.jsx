@@ -19,6 +19,7 @@ import {
     Filter,
     BarChart3,
 } from "lucide-react";
+import Loader from "../components/Loader";
 
 const Reports = () => {
     const [reportData, setReportData] = useState({});
@@ -208,17 +209,7 @@ const Reports = () => {
 
     if (loading)
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500">
-                <div className="text-center">
-                    <div className="relative">
-                        <div className="animate-spin h-16 w-16 border-4 border-white border-t-transparent rounded-full mx-auto mb-4"></div>
-                        <div className="absolute inset-0 flex items-center justify-center">
-                            <BarChart3 size={24} className="text-white animate-pulse" />
-                        </div>
-                    </div>
-                    <p className="text-white text-lg font-medium animate-pulse">Loading monthly reports...</p>
-                </div>
-            </div>
+            <Loader />
         );
 
     if (error)

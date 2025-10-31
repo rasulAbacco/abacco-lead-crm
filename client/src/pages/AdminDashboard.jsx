@@ -3,6 +3,7 @@ import DashboardHeader from "../components/DashboardHeader";
 import StatsGrid from "../components/StatsGrid";
 import ChartsSection from "../components/ChartsSection";
 import EmployeeSection from "../components/EmployeeSection";
+import Loader from "../components/Loader";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export default function AdminDashboard() {
@@ -30,9 +31,7 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen text-lg font-medium text-gray-600">
-        Loading dashboard...
-      </div>
+      <Loader />
     );
   }
 
@@ -56,17 +55,17 @@ export default function AdminDashboard() {
   const filteredEmployees = getFilteredEmployees();
 
   const performanceData = employees.map((emp) => ({
-  employeeId: emp.employeeId,
-  name: emp.fullName || emp.name,
-  leads: emp.monthlyLeads || emp.leads || 0,
-  target: emp.target || 0,
-  qualifiedLeads: emp.qualifiedLeads || 0,
-  disqualifiedLeads: emp.disqualifiedLeads || 0,
-  pendingLeads: emp.pendingLeads || 0,
-  dailyLeads: emp.dailyLeads || 0,
-}));
+    employeeId: emp.employeeId,
+    name: emp.fullName || emp.name,
+    leads: emp.monthlyLeads || emp.leads || 0,
+    target: emp.target || 0,
+    qualifiedLeads: emp.qualifiedLeads || 0,
+    disqualifiedLeads: emp.disqualifiedLeads || 0,
+    pendingLeads: emp.pendingLeads || 0,
+    dailyLeads: emp.dailyLeads || 0,
+  }));
 
-console.log("✅ Prepared Performance Data:", performanceData);
+  console.log("✅ Prepared Performance Data:", performanceData);
 
 
   const pieData = [

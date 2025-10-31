@@ -8,6 +8,7 @@ import DashboardDailyChart from "./DashboardDailyChart";
 import DashboardWeeklyChart from "./DashboardWeeklyChart";
 import DashboardMonthlyChart from "./DashboardMonthlyChart";
 import PerformanceChart from "../components/PerformanceChart";
+import Loader from "../components/Loader";
 
 const EmployeeDashboard = () => {
   const [leads, setLeads] = useState([]);
@@ -107,7 +108,7 @@ const EmployeeDashboard = () => {
     fetchLeads();
   }, []);
 
-  if (loading) return <div className="p-8 text-center">Loading leads...</div>;
+  if (loading) return (<Loader />);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-purple-50 to-pink-50 p-8">

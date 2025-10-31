@@ -23,6 +23,7 @@ import {
   Database,
 } from "lucide-react";
 import { toZonedTime, format } from "date-fns-tz";
+import Loader from '../components/Loader'
 
 const USA_TZ = "America/Chicago";
 
@@ -299,9 +300,7 @@ const ForwardLeads = () => {
 
   if (loading) {
     return (
-      <div className="p-10 text-center text-lg font-semibold text-gray-600">
-        ⏳ Loading employee leads...
-      </div>
+      <Loader/>
     );
   }
 

@@ -20,6 +20,7 @@ import {
     X,
     CheckCircle,
 } from "lucide-react";
+import Loader from "./Loader";
 
 const defaultFilters = {
     leadType: "all",
@@ -312,10 +313,7 @@ export default function MyLeadsTable() {
 
     if (loading) {
         return (
-            <div className="flex flex-col justify-center items-center min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-                <p className="text-slate-600 font-medium">Loading your leads...</p>
-            </div>
+            <Loader />
         );
     }
 
