@@ -26,7 +26,7 @@ const EmployeeDashboard = () => {
     const now = toZonedTime(new Date(), USA_TZ);
     return format(now, "hh:mm a zzz");
   });
-  
+
   const nowUSA = toZonedTime(new Date(), USA_TZ);
   const usaDate = format(nowUSA, "EEE, MMM dd, yyyy", { timeZone: USA_TZ });
   useEffect(() => {
@@ -63,13 +63,20 @@ const EmployeeDashboard = () => {
         }
 
         // 🔁 Populate performance chart
+        // ✅ Include qualified/disqualified/pending lead counts in performance data
         const perfData = employeesData.map((emp) => ({
-          name: emp.name,
-          leads: emp.monthlyLeads,
-          target: emp.target,
+          employeeId: emp.employeeId,
+          name: emp.fullName || emp.name,
+          leads: emp.monthlyLeads || emp.leads || 0,
+          target: emp.target || 0,
+          qualifiedLeads: emp.qualifiedLeads || 0,
+          disqualifiedLeads: emp.disqualifiedLeads || 0,
+          pendingLeads: emp.pendingLeads || 0,
+          dailyLeads: emp.dailyLeads || 0,
         }));
 
         setPerformanceData(perfData);
+
       } catch (err) {
         console.error("Failed to fetch employees:", err);
       } finally {
