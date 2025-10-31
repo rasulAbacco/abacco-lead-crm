@@ -9,6 +9,7 @@ import DashboardWeeklyChart from "./DashboardWeeklyChart";
 import DashboardMonthlyChart from "./DashboardMonthlyChart";
 import PerformanceChart from "../components/PerformanceChart";
 import Loader from "../components/Loader";
+import NotificationBell from "../components/NotificationBell";
 
 const EmployeeDashboard = () => {
   const [leads, setLeads] = useState([]);
@@ -124,31 +125,35 @@ const EmployeeDashboard = () => {
             </p>
           </div>
 
-          {/* 🕐 Elegant Central USA Time Widget (Glassmorphism Style) */}
-          <div className="text-right">
-            <div className="relative inline-flex flex-col items-end px-6 py-4 rounded-2xl backdrop-blur-xl bg-white/20 border border-white/30 shadow-lg hover:shadow-xl transition-all duration-300">
-              {/* Gradient Glow Accent */}
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-400/20 via-blue-400/20 to-indigo-400/20 opacity-40 blur-xl rounded-2xl" />
+          <div className="flex" >
+            <div className="mr-5 mt-5"><NotificationBell /></div>
+            {/* 🕐 Elegant Central USA Time Widget (Glassmorphism Style) */}
+            <div className="text-right">
+              <div className="relative inline-flex flex-col items-end px-6 py-4 rounded-2xl backdrop-blur-xl bg-white/20 border border-white/30 shadow-lg hover:shadow-xl transition-all duration-300">
+                {/* Gradient Glow Accent */}
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-400/20 via-blue-400/20 to-indigo-400/20 opacity-40 blur-xl rounded-2xl" />
 
-              {/* Label */}
-              <span className="text-[12px] uppercase tracking-wider font-semibold text-gray-700 z-10">
-                Central USA (CST/CDT)
-              </span>
+                {/* Label */}
+                <span className="text-[12px] uppercase tracking-wider font-semibold text-gray-700 z-10">
+                  Central USA (CST/CDT)
+                </span>
 
-              {/* Time */}
-              <span className="text-[18px] font-bold text-gray-900 tracking-tight mt-1 z-10">
-                {usaTime}
-              </span>
+                {/* Time */}
+                <span className="text-[18px] font-bold text-gray-900 tracking-tight mt-1 z-10">
+                  {usaTime}
+                </span>
 
-              {/* Date */}
-              <span className="text-[14px] text-gray-700 font-medium mt-1 z-10">
-                {usaDate}
-              </span>
+                {/* Date */}
+                <span className="text-[14px] text-gray-700 font-medium mt-1 z-10">
+                  {usaDate}
+                </span>
+              </div>
+
+              <p className="text-[11px] text-gray-500 mt-2 pr-1">
+                🕐 Stats shown in <strong>Central USA Time Zone</strong>
+              </p>
             </div>
 
-            <p className="text-[11px] text-gray-500 mt-2 pr-1">
-              🕐 Stats shown in <strong>Central USA Time Zone</strong>
-            </p>
           </div>
 
 
