@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, User, Mail, Target, CheckCircle, XCircle, Send, TrendingUp, RefreshCw, AlertCircle, LogOut, BarChart3, PieChart, Users, FileText, Clock, Briefcase, Building, Activity, ArrowUp, ArrowDown, Filter, Download, ChevronDown } from 'lucide-react';
 import { format } from 'date-fns';
+import Loader from '../components/Loader';
 
 const MyReport = () => {
   const [reportData, setReportData] = useState(null);
@@ -100,15 +101,7 @@ const MyReport = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="relative">
-            <div className="inline-block animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
-            <div className="absolute top-0 left-0 h-16 w-16 rounded-full border-t-2 border-b-2 border-blue-300 animate-ping"></div>
-          </div>
-          <p className="mt-6 text-gray-600 text-lg font-medium animate-pulse">Loading your report data...</p>
-        </div>
-      </div>
+      <Loader/>
     );
   }
 
