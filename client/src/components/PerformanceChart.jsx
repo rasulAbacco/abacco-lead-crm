@@ -77,7 +77,7 @@ export default function PerformanceChart({ employees, performanceData, setSelect
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="bg-white/98 backdrop-blur-xl px-6 py-4 rounded-2xl shadow-2xl border border-gray-200">
+        <div className="bg-white backdrop-blur-xl px-6 py-4 rounded-2xl shadow-2xl border border-gray-200 w-full">
           <p className="font-bold text-gray-900 mb-3 text-base">{data.name}</p>
           <div className="space-y-2.5">
             <div className="flex items-center justify-between gap-6">
@@ -139,7 +139,7 @@ export default function PerformanceChart({ employees, performanceData, setSelect
     .slice(0, 3);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 w-full">
       <div className="w-full mx-auto space-y-4 md:space-y-6">
         
         {/* Header Section */}
