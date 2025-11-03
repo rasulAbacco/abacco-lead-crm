@@ -198,6 +198,13 @@ const ShareLink = () => {
                         ) : Array.isArray(sharedInfo) && sharedInfo.length > 0 ? (
                             sharedInfo.map((sl) => (
                                 <div key={sl.id} className="bg-white rounded-2xl shadow-lg overflow-hidden">
+
+                                    <div className="mt-3 ml-7">
+                                        <span className="px-3 py-1 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-full text-xs font-medium">
+                                            Shared by: {sl.createdBy?.fullName} ({sl.createdBy?.employeeId})
+                                        </span>
+                                    </div>
+
                                     {editingLink === sl.id ? (
                                         /* Edit Mode */
                                         <div className="p-6 space-y-4">
