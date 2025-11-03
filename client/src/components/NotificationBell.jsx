@@ -40,8 +40,9 @@ const NotificationBell = () => {
             const data = Array.isArray(res.data) ? res.data : [];
             const sorted = data.sort((a, b) => new Date(b.receivedDate) - new Date(a.receivedDate));
             const unseen = data.filter((n) => !n.isSeen).length;
+            console.log("Fetched notifications:", data);
 
-            setNotifications(sorted.slice(0, 8));
+            setNotifications(sorted.filter((n) => !n.isRead).slice(0, 8));
             setUnseenCount(unseen);
         } catch (err) {
             console.error("Error fetching notifications:", err);
@@ -54,12 +55,15 @@ const NotificationBell = () => {
             await axios.put(`${API_URL}/api/links/mark-seen`, {}, {
                 headers: { Authorization: `Bearer ${token}` },
             });
+
+            // ✅ Clear all from dropdown (UI only)
+            setNotifications([]);
             setUnseenCount(0);
-            setNotifications((prev) => prev.map((n) => ({ ...n, isSeen: true })));
         } catch (err) {
             console.error("Error marking all read:", err);
         }
     };
+
 
     const markSingleAsRead = async (id) => {
         try {
@@ -67,14 +71,18 @@ const NotificationBell = () => {
             await axios.put(`${API_URL}/api/links/mark-read/${id}`, {}, {
                 headers: { Authorization: `Bearer ${token}` },
             });
-            setNotifications((prev) =>
-                prev.map((n) => (n.id === id ? { ...n, isSeen: true } : n))
-            );
+
+            // ✅ Remove that notification from UI list
+            setNotifications((prev) => prev.filter((n) => n.id !== id));
+
+            // ✅ Update unseen count
             setUnseenCount((prev) => Math.max(prev - 1, 0));
         } catch (err) {
             console.error("Error marking single read:", err);
         }
     };
+
+
 
     const clearSingleNotification = (id) => {
         setNotifications((prev) => prev.filter((n) => n.id !== id));

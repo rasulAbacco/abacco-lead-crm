@@ -444,20 +444,25 @@ router.put("/mark-seen", authenticate, authorizeRole("EMPLOYEE"), async (req, re
   try {
     const userId = req.user.id || req.user.userId;
 
-    await prisma.receivedLink.updateMany({
-      where: { recipientId: userId, isSeen: false },
+    const result = await prisma.receivedLink.updateMany({
+      where: { recipientId: userId, OR: [{ isSeen: false }, { isRead: false }] },
       data: {
         isSeen: true,
+        isRead: true,
         seenAt: new Date(),
       },
     });
 
-    res.json({ message: "Links marked as seen" });
+    res.json({
+      message: "All links marked as read and seen",
+      updatedCount: result.count,
+    });
   } catch (err) {
-    console.error("❌ Error marking links as seen:", err);
-    res.status(500).json({ message: "Failed to mark links as seen" });
+    console.error("❌ Error marking all links as read:", err);
+    res.status(500).json({ message: "Failed to mark links as read" });
   }
 });
+
 
 /**
  * ✅ EMPLOYEE: Get count of unseen links
@@ -477,6 +482,45 @@ router.get("/unseen-count", authenticate, authorizeRole("EMPLOYEE"), async (req,
   } catch (err) {
     console.error("❌ Error fetching unseen count:", err);
     res.status(500).json({ message: "Failed to fetch unseen count" });
+  }
+});
+
+/**
+ * ✅ EMPLOYEE: Mark a single received link as seen/read
+ */
+router.put("/mark-read/:id", authenticate, authorizeRole("EMPLOYEE"), async (req, res) => {
+  try {
+    const receivedLinkId = parseInt(req.params.id, 10);
+    const userId = req.user.id || req.user.userId;
+
+    if (isNaN(receivedLinkId)) {
+      return res.status(400).json({ message: "Invalid link ID" });
+    }
+
+    // Ensure this received link belongs to the requesting user
+    const received = await prisma.receivedLink.findFirst({
+      where: { id: receivedLinkId, recipientId: userId },
+    });
+
+    if (!received) {
+      return res.status(404).json({ message: "Link not found or you don't have access" });
+    }
+
+    // Update the record: mark as seen and/or read and record timestamps
+    const updated = await prisma.receivedLink.update({
+      where: { id: receivedLinkId },
+      data: {
+        isSeen: true,
+        seenAt: new Date(),
+        isRead: true,      // optional depending on your model semantics
+      // optional
+      },
+    });
+
+    return res.json({ message: "Link marked as read", updated });
+  } catch (err) {
+    console.error("❌ Error marking single link as read:", err);
+    return res.status(500).json({ message: "Failed to mark link as read" });
   }
 });
 
