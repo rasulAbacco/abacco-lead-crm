@@ -1,6 +1,6 @@
 import express from "express";
 import { PrismaClient } from "@prisma/client";
-import jwt from "jsonwebtoken"; 
+import jwt from "jsonwebtoken";
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -21,6 +21,11 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ success: false, message: "Invalid credentials" });
     }
 
+    // Check if user is active
+    if (!user.isActive) {
+      return res.status(403).json({ success: false, message: "Account is inactive. Please contact admin." });
+    }
+
     if (password !== user.password) {
       return res.status(401).json({ success: false, message: "Invalid credentials" });
     }
@@ -28,15 +33,16 @@ router.post("/login", async (req, res) => {
     const token = jwt.sign(
       { userId: user.id, email: user.email, role: user.role },
       process.env.JWT_SECRET || "your-secret-key",
-      { expiresIn: "1h" }
+      { expiresIn: "24h" }
     );
 
-    res.json({ 
-      success: true, 
-      role: user.role || "employee", 
+    res.json({
+      success: true,
+      role: user.role || "employee",
       fullName: user.fullName,
-      employeeId: user.employeeId,   // ✅ Added employeeId
-      token: token 
+      employeeId: user.employeeId,
+      isActive: user.isActive,
+      token: token
     });
   } catch (err) {
     console.error(err);
@@ -83,11 +89,11 @@ export default router;
 //     );
 
 //     // Login successful
-//     res.json({ 
-//       success: true, 
-//       role: user.role || "employee", 
+//     res.json({
+//       success: true,
+//       role: user.role || "employee",
 //       fullName: user.fullName,
-//       token: token 
+//       token: token
 //     });
 //   } catch (err) {
 //     console.error(err);

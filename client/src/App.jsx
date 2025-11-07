@@ -16,6 +16,13 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 import IndustryType from "./pages/IndustryType";
 import IndustryTypeEmployee from "./pages/IndustryTypeEmployee";
+import AllEmployees from "./pages/AllEmployees";
+import MyLeads from "./pages/MyLeads";
+import ShareLink from "./pages/ShareLink";
+import MyLink from "./pages/MyLink";
+import MyReport from "./pages/MyReport";
+import Reports from "./pages/Reports";
+import ShareLinkAccessWrapper from "./components/ShareLinkAccessWrapper";
 
 function App() {
   return (
@@ -76,12 +83,32 @@ function App() {
         }
       />
       <Route
+        path="/reports"
+        element={
+          <Layout>
+            <ProtectedRoute role="admin">
+              <Reports />
+            </ProtectedRoute>
+          </Layout>
+        }
+      />
+      <Route
         path="/industry-types"
         element={
           <Layout>
             <ProtectedRoute role="admin">
               <IndustryType />
             </ProtectedRoute>
+          </Layout>
+        }
+      />
+      <Route
+        path="/share-links"
+        element={
+          <Layout>
+            <ShareLinkAccessWrapper>
+              <ShareLink />
+            </ShareLinkAccessWrapper>
           </Layout>
         }
       />
@@ -108,6 +135,36 @@ function App() {
         }
       />
       <Route
+        path="/myleads"
+        element={
+          <Layout>
+            <ProtectedRoute role="employee">
+              <MyLeads />
+            </ProtectedRoute>
+          </Layout>
+        }
+      />
+      <Route
+        path="/myreport"
+        element={
+          <Layout>
+            <ProtectedRoute role="employee">
+              <MyReport />
+            </ProtectedRoute>
+          </Layout>
+        }
+      />
+      <Route
+        path="/my-links"
+        element={
+          <Layout>
+            <ProtectedRoute role="employee">
+              <MyLink />
+            </ProtectedRoute>
+          </Layout>
+        }
+      />
+      <Route
         path="/industry-type"
         element={
           <Layout>
@@ -119,9 +176,12 @@ function App() {
       />
 
 
+
       {/* Details */}
       <Route path="/employee/:id" element={<EmployeeDetails />} />
       <Route path="/lead/:id" element={<LeadDetails />} />
+      <Route path="/employees" element={<AllEmployees />} />
+
     </Routes>
   );
 }

@@ -1,15 +1,38 @@
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
-import { Download, Calendar, Filter, TrendingUp, Mail, Phone, Globe, MapPin, ExternalLink, Search } from "lucide-react";
+import { useParams, useNavigate } from "react-router-dom";
+import {
+  Search,
+  Download,
+  Calendar,
+  Mail,
+  Phone,
+  Globe,
+  MapPin,
+  ExternalLink,
+  MessageSquare,
+  Send,
+  MailPlus,
+  ChevronDown,
+  ChevronUp,
+  Filter,
+  UserRound,
+  ArrowLeft,
+} from "lucide-react";
+import { toZonedTime, format } from "date-fns-tz";
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const USA_TZ = "America/Chicago"; // ✅ Central USA timezone
 
 export default function EmployeeLeadsPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [employee, setEmployee] = useState(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("today");
   const [monthFilter, setMonthFilter] = useState("all");
   const [filteredLeads, setFilteredLeads] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [expandedCards, setExpandedCards] = useState(new Set());
 
   const months = [
     "January", "February", "March", "April", "May", "June",
@@ -17,10 +40,19 @@ export default function EmployeeLeadsPage() {
   ];
   const currentYear = new Date().getFullYear();
 
+  const toggleExpand = (id) => {
+    setExpandedCards((prev) => {
+      const newSet = new Set(prev);
+      newSet.has(id) ? newSet.delete(id) : newSet.add(id);
+      return newSet;
+    });
+  };
+
+  // 🔹 Fetch employee leads
   useEffect(() => {
     const fetchEmployeeLeads = async () => {
       try {
-        const res = await fetch(`http://localhost:4000/api/employees/${id}/leads`);
+        const res = await fetch(`${API_BASE_URL}/api/employees/${id}/leads`);
         if (!res.ok) throw new Error("Failed to fetch leads");
         const data = await res.json();
         setEmployee(data);
@@ -33,28 +65,35 @@ export default function EmployeeLeadsPage() {
     fetchEmployeeLeads();
   }, [id]);
 
+  // 🔹 Group leads by month
   const groupLeadsByMonth = (leads) => {
     const grouped = {};
     months.forEach((m) => (grouped[m] = []));
     leads.forEach((lead) => {
-      const date = new Date(lead.date);
-      if (date.getFullYear() === currentYear) {
-        const monthName = months[date.getMonth()];
+      const leadDate = toZonedTime(new Date(lead.date), USA_TZ);
+      if (leadDate.getFullYear() === currentYear) {
+        const monthName = months[leadDate.getMonth()];
         grouped[monthName].push(lead);
       }
     });
     return grouped;
   };
 
+  // 🔹 Filter leads by "today" (according to USA timezone)
   useEffect(() => {
     if (!employee?.leads) return;
-    const today = new Date();
+
+    const nowUSA = toZonedTime(new Date(), USA_TZ);
 
     if (filter === "today") {
+      const todayStr = format(nowUSA, "yyyy-MM-dd", { timeZone: USA_TZ });
+
       setFilteredLeads(
-        employee.leads.filter(
-          (lead) => new Date(lead.date).toDateString() === today.toDateString()
-        )
+        employee.leads.filter((lead) => {
+          const leadDateUSA = toZonedTime(new Date(lead.date), USA_TZ);
+          const leadDateStr = format(leadDateUSA, "yyyy-MM-dd", { timeZone: USA_TZ });
+          return leadDateStr === todayStr;
+        })
       );
     } else if (filter === "month") {
       const grouped = groupLeadsByMonth(employee.leads);
@@ -66,31 +105,26 @@ export default function EmployeeLeadsPage() {
     }
   }, [filter, employee, monthFilter]);
 
+  // 🔹 CSV Export
   const downloadCSV = () => {
     let leadsToDownload = [];
-
     if (filter === "today") {
       leadsToDownload = filteredLeads;
     } else if (filter === "month") {
-      if (monthFilter === "all") {
-        leadsToDownload = Object.entries(filteredLeads).flatMap(([month, leads]) => {
-          return leads.length
-            ? leads
-            : [{ id: "", subjectLine: "", leadEmail: "", clientEmail: "", phone: "", website: "", country: "", date: month, emailPitch: "", emailResponce: "", link: "" }];
-        });
-      } else {
-        leadsToDownload = filteredLeads[monthFilter].length
-          ? filteredLeads[monthFilter]
-          : [{ id: "", subjectLine: "", leadEmail: "", clientEmail: "", phone: "", website: "", country: "", date: monthFilter, emailPitch: "", emailResponce: "", link: "" }];
-      }
+      leadsToDownload =
+        monthFilter === "all"
+          ? Object.values(filteredLeads).flat()
+          : filteredLeads[monthFilter] || [];
     }
 
     if (!leadsToDownload.length) return;
 
-    const headers = ["Lead ID,Subject Line,Lead Email,Client Email,Phone,Website,Country,Date,Email Pitch,Email Resopnce, Lead Link"];
+    const headers = [
+      "Lead ID,Subject Line,Lead Email,CC Email,Client Email,Agent Name,Phone,Website,Country,Date,Email Pitch,Email Response,Link",
+    ];
     const rows = leadsToDownload.map(
       (lead) =>
-        `${lead.id},"${lead.subjectLine}",${lead.leadEmail},${lead.clientEmail},${lead.phone},${lead.website},${lead.country},${lead.date},"${lead.emailPitch}","${lead.emailResponce}",${lead.link}`
+        `${lead.id},"${lead.subjectLine}",${lead.leadEmail},"${lead.ccEmail}",${lead.clientEmail},${lead.agentName},${lead.phone},${lead.website},${lead.country},${lead.date},"${lead.emailPitch}","${lead.emailResponce}",${lead.link}`
     );
 
     const csvContent = [headers, ...rows].join("\n");
@@ -98,306 +132,255 @@ export default function EmployeeLeadsPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", `${employee?.name}_${filter}_${monthFilter}_leads.csv`);
+    link.setAttribute(
+      "download",
+      `${employee?.fullName}_${filter}_${monthFilter}_leads.csv`
+    );
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  const getLeadsCount = () => {
-    if (filter === "today") return filteredLeads.length;
-    return Object.values(filteredLeads).flat().length;
-  };
-
   const filterLeadsBySearch = (leads) => {
     if (!searchTerm) return leads;
-    return leads.filter(lead =>
-      lead.subjectLine?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      lead.leadEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      lead.clientEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      lead.website?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      lead.country?.toLowerCase().includes(searchTerm.toLowerCase())
+    return leads.filter((lead) =>
+      [lead.subjectLine, lead.leadEmail, lead.ccEmail, lead.clientEmail, lead.country, lead.agentName]
+        .some((f) => f?.toLowerCase().includes(searchTerm.toLowerCase()))
     );
   };
 
+  // ⏳ Loading & Not Found states
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-          <p className="text-slate-600 font-medium">Loading leads...</p>
-        </div>
+      <div className="flex flex-col justify-center items-center min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+        <p className="text-slate-600 font-medium">Loading leads...</p>
       </div>
     );
   }
 
   if (!employee) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
         <div className="text-center">
-          <div className="text-red-500 text-5xl mb-4">⚠️</div>
-          <p className="text-slate-700 font-semibold text-lg">Employee not found</p>
+          <div className="text-4xl mb-3">⚠️</div>
+          <p className="text-slate-700 font-semibold">Employee not found</p>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100">
-      {/* Header Section */}
-      <div className="bg-white border-b border-slate-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 py-8">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div>
-              {employee?.fullName ? (
-                <h1 className="text-3xl font-bold text-slate-900 mb-2">
-                  {employee.fullName}'s Lead Dashboard
-                </h1>
-              ) : (
-                <h1 className="text-3xl font-bold text-slate-900 mb-2">
-                  Lead Dashboard
-                </h1>
-              )}
+  // 🔹 Lead Card
+  const renderLeadCard = (lead) => {
+    const isExpanded = expandedCards.has(lead.id);
+    const ccEmails = lead.ccEmail
+      ? lead.ccEmail.split(",").map((e) => e.trim()).filter(Boolean)
+      : [];
 
+    const safe = (value) =>
+      value && value.trim() !== "" ? value : "Not available";
 
-              <p className="text-slate-600 flex items-center gap-2">
-                <TrendingUp className="w-4 h-4" />
-                Performance Overview • {currentYear}
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3 bg-blue-50 px-6 py-3 rounded-xl border border-blue-100">
-              <div className="text-center">
-                <p className="text-sm text-slate-600 font-medium">Total Leads</p>
-                <p className="text-2xl font-bold text-blue-600">{getLeadsCount()}</p>
+    return (
+      <div
+        key={lead.id}
+        className="bg-white rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-all duration-200 overflow-hidden"
+      >
+        {/* Header */}
+        <div className="p-4 sm:p-5 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
+          
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                <span className="text-xs font-semibold text-slate-500">
+                  #{lead.id}
+                </span>
+                <span className="inline-flex px-2.5 py-0.5 text-xs font-semibold rounded-full border bg-blue-100 text-blue-700 border-blue-200">
+                  {safe(lead.leadType)}
+                </span>
               </div>
+              <h3 className="text-base sm:text-lg font-semibold text-slate-900 mb-1">
+                {safe(lead.subjectLine)}
+              </h3>
             </div>
+            <div className="flex items-center gap-2">
+              {lead.link ? (
+                <a
+                  href={lead.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg border border-blue-200 transition-colors"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  View
+                </a>
+              ) : (
+                <span className="text-sm text-slate-400">No link</span>
+              )}
+              <button
+                onClick={() => toggleExpand(lead.id)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors"
+              >
+                {isExpanded ? (
+                  <>
+                    <ChevronUp className="w-4 h-4" /> Hide
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="w-4 h-4" /> View
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="p-4 sm:p-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <InfoCard icon={Mail} title="Lead Email" value={safe(lead.leadEmail)} color="pink" />
+            <InfoCard icon={MailPlus} title="CC Emails" value={ccEmails.length ? ccEmails.join(", ") : "Not available"} color="violet" />
+            <InfoCard icon={Mail} title="Client Email" value={safe(lead.clientEmail)} color="orange" />
+            <InfoCard icon={UserRound} title="Agent Name" value={safe(lead.agentName)} color="emerald" />
+            <InfoCard icon={Phone} title="Phone" value={safe(lead.phone)} color="green" />
+            <InfoCard icon={Globe} title="Website" value={safe(lead.website)} color="indigo" />
+            <InfoCard icon={MapPin} title="Country" value={safe(lead.country)} color="teal" />
+          </div>
+
+          {isExpanded && (
+            <div className="mt-6 pt-6 border-t border-slate-200 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+              {lead.emailPitch && (
+                <EmailSection title="Email Pitch" icon={Send} color="blue" text={lead.emailPitch} />
+              )}
+              {lead.emailResponce && (
+                <EmailSection title="Email Response" icon={MessageSquare} color="emerald" text={lead.emailResponce} />
+              )}
+              {!lead.emailPitch && !lead.emailResponce && (
+                <p className="text-center text-slate-500 py-4">No pitch or response available</p>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const InfoCard = ({ icon: Icon, title, value, color }) => (
+    <div className="flex items-start gap-3">
+      <div className={`flex-shrink-0 w-10 h-10 bg-${color}-100 rounded-lg flex items-center justify-center`}>
+        <Icon className={`w-5 h-5 text-${color}-600`} />
+      </div>
+      <div>
+        <p className="text-xs text-slate-500 mb-0.5">{title}</p>
+        <p className="font-medium text-slate-900 text-sm break-all">{value}</p>
+      </div>
+    </div>
+  );
+
+  const EmailSection = ({ title, icon: Icon, color, text }) => (
+    <div className={`bg-gradient-to-br from-${color}-50 to-${color}-100 rounded-lg p-4 border border-${color}-200`}>
+      <div className="flex items-center gap-2 mb-3">
+        <div className={`w-8 h-8 bg-${color}-600 rounded-lg flex items-center justify-center`}>
+          <Icon className="w-4 h-4 text-white" />
+        </div>
+        <h4 className="font-semibold text-slate-900">{title}</h4>
+      </div>
+      <div className="bg-white rounded-lg p-4 border border-slate-200">
+        <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+          {text}
+        </p>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 p-6">
+      {/* Header */}
+      <div className="max-w-[1600px] mx-auto mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          {/* Back Button */}
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-100 transition-all shadow-sm hover:shadow-md font-medium w-fit"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back
+          </button>
+          <div>
+            <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-1">
+              {employee.fullName}’s Leads
+            </h1>
+            <p className="text-slate-600 text-sm sm:text-base">
+              Filtered and grouped leads • {currentYear}
+            </p>
+          </div>
+          <button
+            onClick={downloadCSV}
+            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-md hover:shadow-lg font-medium"
+          >
+            <Download className="w-4 h-4" />
+            Export
+          </button>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="max-w-[1600px] mx-auto bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6 mb-6">
+        <div className="flex flex-wrap items-center gap-4">
+          <Filter className="w-4 h-4 text-slate-400" />
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-slate-700"
+          >
+            <option value="today">Today</option>
+            <option value="month">By Month</option>
+          </select>
+          {filter === "month" && (
+            <select
+              value={monthFilter}
+              onChange={(e) => setMonthFilter(e.target.value)}
+              className="px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-slate-700"
+            >
+              <option value="all">All Months</option>
+              {months.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          )}
+          <div className="relative flex-1 sm:flex-none sm:w-64">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search by subject, email, etc..."
+              className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-slate-700"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
         </div>
       </div>
 
-      {/* Controls Section */}
-      <div className="max-w-7xl mx-auto px-6 py-6">
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 mb-6">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="flex items-center gap-2">
-                <Filter className="w-5 h-5 text-slate-500" />
-                <span className="text-sm font-semibold text-slate-700">Filters:</span>
+      {/* Cards */}
+      <div className="max-w-[1600px] mx-auto space-y-4">
+        {filter === "today"
+          ? filterLeadsBySearch(filteredLeads).map(renderLeadCard)
+          : Object.entries(filteredLeads).map(([month, leads]) => {
+            const searchFiltered = filterLeadsBySearch(leads);
+            if (!searchFiltered.length) return null;
+            return (
+              <div key={month}>
+                <h2 className="text-xl font-bold text-slate-800 mb-3 flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-blue-600" />
+                  {month}
+                </h2>
+                <div className="space-y-4">
+                  {searchFiltered.map(renderLeadCard)}
+                </div>
               </div>
-
-              <select
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                className="px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-              >
-                <option value="today">📅 Today</option>
-                <option value="month">📊 By Month</option>
-              </select>
-
-              {filter === "month" && (
-                <select
-                  value={monthFilter}
-                  onChange={(e) => setMonthFilter(e.target.value)}
-                  className="px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                >
-                  <option value="all">All Months</option>
-                  {months.map((m) => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
-              )}
-
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Search leads..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all w-64"
-                />
-              </div>
-            </div>
-
-            <button
-              onClick={downloadCSV}
-              className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg font-semibold hover:from-blue-700 hover:to-blue-800 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
-            >
-              <Download className="w-4 h-4" />
-              Export CSV
-            </button>
-          </div>
-        </div>
-
-        {/* Leads Table */}
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Subject</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Lead Email</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Client Email</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Email Body</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Email Responce</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Phone</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Website</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Country</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Lead</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filter === "today" ? (
-                  filterLeadsBySearch(filteredLeads).length ? (
-                    filterLeadsBySearch(filteredLeads).map((lead, idx) => (
-                      <tr key={lead.id} className={`hover:bg-blue-50 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <Mail className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                            <span className="font-medium text-slate-900 text-sm">{lead.subjectLine}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-slate-700">{lead.leadEmail}</td>
-                        <td className="px-6 py-4 text-sm text-slate-700">{lead.clientEmail}</td>
-                         <td className="px-6 py-4 text-sm text-slate-700">{lead.emailPitch}</td>
-                        <td className="px-6 py-4 text-sm text-slate-700">{lead.emailResponce}</td>
-                        <td className="px-6 py-4 text-sm text-slate-700">
-                          <div className="flex items-center gap-1">
-                            <Phone className="w-3 h-3 text-slate-400" />
-                            {lead.phone || '-'}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-slate-700">
-                          <div className="flex items-center gap-1">
-                            <Globe className="w-3 h-3 text-slate-400" />
-                            {lead.website || '-'}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-sm">
-                          <div className="flex items-center gap-1">
-                            <MapPin className="w-3 h-3 text-slate-400" />
-                            <span className="text-slate-700">{lead.country || '-'}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-slate-600">
-                          <div className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3 text-slate-400" />
-                            {new Date(lead.date).toLocaleDateString()}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          {lead.link ? (
-                            <a
-                              href={lead.link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold hover:bg-blue-200 transition-colors"
-                            >
-                              <ExternalLink className="w-3 h-3" />
-                              View
-                            </a>
-                          ) : (
-                            <span className="text-slate-400 text-sm">-</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan="8" className="px-6 py-12 text-center">
-                        <div className="text-slate-400 text-4xl mb-3">📭</div>
-                        <p className="text-slate-600 font-medium">No leads found</p>
-                        <p className="text-slate-500 text-sm mt-1">Try adjusting your filters or search term</p>
-                      </td>
-                    </tr>
-                  )
-                ) : (
-                  Object.entries(filteredLeads).map(([month, leads]) => {
-                    const searchFilteredLeads = filterLeadsBySearch(leads);
-                    return (
-                      <React.Fragment key={month}>
-                        {monthFilter === "all" && (
-                          <tr className="bg-gradient-to-r from-slate-100 to-slate-50">
-                            <td colSpan="8" className="px-6 py-3">
-                              <div className="flex items-center gap-2">
-                                <Calendar className="w-5 h-5 text-blue-600" />
-                                <span className="font-bold text-slate-800 text-base">{month} {currentYear}</span>
-                                <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">
-                                  {searchFilteredLeads.length} leads
-                                </span>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                        {searchFilteredLeads.length ? (
-                          searchFilteredLeads.map((lead, idx) => (
-                            <tr key={lead.id} className={`hover:bg-blue-50 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>
-                              <td className="px-6 py-4">
-                                <div className="flex items-center gap-2">
-                                  <Mail className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                                  <span className="font-medium text-slate-900 text-sm">{lead.subjectLine}</span>
-                                </div>
-                              </td>
-                              <td className="px-6 py-4 text-sm text-slate-700">{lead.leadEmail}</td>
-                              <td className="px-6 py-4 text-sm text-slate-700">{lead.clientEmail}</td>
-                              <td className="px-6 py-4 text-sm text-slate-700">
-                                <div className="flex items-center gap-1">
-                                  <Phone className="w-3 h-3 text-slate-400" />
-                                  {lead.phone || '-'}
-                                </div>
-                              </td>
-                              <td className="px-6 py-4 text-sm text-slate-700">
-                                <div className="flex items-center gap-1">
-                                  <Globe className="w-3 h-3 text-slate-400" />
-                                  {lead.website || '-'}
-                                </div>
-                              </td>
-                              <td className="px-6 py-4 text-sm">
-                                <div className="flex items-center gap-1">
-                                  <MapPin className="w-3 h-3 text-slate-400" />
-                                  <span className="text-slate-700">{lead.country || '-'}</span>
-                                </div>
-                              </td>
-                              <td className="px-6 py-4 text-sm text-slate-600">
-                                <div className="flex items-center gap-1">
-                                  <Calendar className="w-3 h-3 text-slate-400" />
-                                  {new Date(lead.date).toLocaleDateString()}
-                                </div>
-                              </td>
-                              <td className="px-6 py-4">
-                                {lead.link ? (
-                                  <a
-                                    href={lead.link}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold hover:bg-blue-200 transition-colors"
-                                  >
-                                    <ExternalLink className="w-3 h-3" />
-                                    View
-                                  </a>
-                                ) : (
-                                  <span className="text-slate-400 text-sm">-</span>
-                                )}
-                              </td>
-                            </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td colSpan="8" className="px-6 py-8 text-center">
-                              <p className="text-slate-500 text-sm">No data available for {month}</p>
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+            );
+          })}
       </div>
     </div>
   );

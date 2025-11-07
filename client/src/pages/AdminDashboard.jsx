@@ -3,6 +3,8 @@ import DashboardHeader from "../components/DashboardHeader";
 import StatsGrid from "../components/StatsGrid";
 import ChartsSection from "../components/ChartsSection";
 import EmployeeSection from "../components/EmployeeSection";
+import Loader from "../components/Loader";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export default function AdminDashboard() {
   const [employees, setEmployees] = useState([]);
@@ -13,7 +15,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
-        const res = await fetch("http://localhost:4000/api/employees");
+        const res = await fetch(`${API_BASE_URL}/api/employees`);
         if (!res.ok) throw new Error("Network response was not ok");
         const data = await res.json();
         console.log("Fetched employees:", data);
@@ -29,9 +31,7 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen text-lg font-medium text-gray-600">
-        Loading dashboard...
-      </div>
+      <Loader />
     );
   }
 
@@ -55,10 +55,18 @@ export default function AdminDashboard() {
   const filteredEmployees = getFilteredEmployees();
 
   const performanceData = employees.map((emp) => ({
-    name: emp.name.split(" ")[0],
-    leads: emp.monthlyLeads,
-    target: emp.target,
+    employeeId: emp.employeeId,
+    name: emp.fullName || emp.name,
+    leads: emp.monthlyLeads || emp.leads || 0,
+    target: emp.target || 0,
+    qualifiedLeads: emp.qualifiedLeads || 0,
+    disqualifiedLeads: emp.disqualifiedLeads || 0,
+    pendingLeads: emp.pendingLeads || 0,
+    dailyLeads: emp.dailyLeads || 0,
   }));
+
+  console.log("✅ Prepared Performance Data:", performanceData);
+
 
   const pieData = [
     { name: "Achieved", value: achievedCount },

@@ -3,21 +3,26 @@ import axios from "axios";
 import { TrendingUp, Users, Building2, UserCheck, Calendar, ChevronDown } from "lucide-react";
 
 const months = [
-  "January","February","March","April","May","June",
-  "July","August","September","October","November","December"
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
 ];
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const AllLeadsSummary = ({ employeeId }) => {
   const [filterType, setFilterType] = useState("today");
-  const [month, setMonth] = useState(new Date().getMonth());
+  const [month, setMonth] = useState(
+    new Date(
+      new Date().toLocaleString("en-US", { timeZone: "America/New_York" })
+    ).getMonth()
+  );
+
   const [leads, setLeads] = useState({ total: 0, associations: 0, industry: 0, attendees: 0 });
   const [allLeads, setAllLeads] = useState({ today: {}, months: {} });
 
   useEffect(() => {
     const fetchLeads = async () => {
       try {
-        const res = await axios.get(`http://localhost:4001/api/employees/leads-summary`);
-
+        const res = await axios.get(`${API_BASE_URL}/api/employees/leads-summary`);
         if (res.data.success) {
           const today = {
             total: res.data.today?.total || 0,
@@ -100,7 +105,7 @@ const AllLeadsSummary = ({ employeeId }) => {
         <div className="bg-gradient-to-br from-indigo-600 via-purple-500 to-indigo-500 rounded-2xl shadow-xl p-8 mb-8 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full -mr-32 -mt-32"></div>
           <div className="absolute bottom-0 left-0 w-48 h-48 bg-white opacity-5 rounded-full -ml-24 -mb-24"></div>
-          
+
           <div className="relative z-10">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
               <div className="flex-1">
@@ -180,7 +185,15 @@ const AllLeadsSummary = ({ employeeId }) => {
         {/* Footer Info */}
         <div className="mt-8 text-center">
           <p className="text-slate-500 text-sm">
-            Data updates in real-time • Last synced: {new Date().toLocaleTimeString()}
+            Data updates in real-time • Last synced:{" "}
+            {new Date(
+              new Date().toLocaleString("en-US", { timeZone: "America/New_York" })
+            ).toLocaleTimeString("en-US", {
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+              hour12: true,
+            })}
           </p>
         </div>
       </div>

@@ -10,6 +10,7 @@ import {
   Send as SendIcon,
 } from "lucide-react";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const LeadForm = () => {
   const employeeId = localStorage.getItem("employeeId");
@@ -35,7 +36,7 @@ const LeadForm = () => {
   const [errors, setErrors] = useState({});
   const [toast, setToast] = React.useState({ message: "", type: "" });
 
-  // Show toast for 3 seconds
+  // Toast helper
   const showToast = (message, type = "info") => {
     setToast({ message, type });
     setTimeout(() => setToast({ message: "", type: "" }), 3000);
@@ -43,18 +44,37 @@ const LeadForm = () => {
 
   const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-
   const validateForm = () => {
     const newErrors = {};
-    // if (!formData.agentName.trim()) newErrors.agentName = "Agent name is required";
-    if (!formData.clientEmail.trim()) newErrors.clientEmail = "Client email is required";
-    else if (!validateEmail(formData.clientEmail)) newErrors.clientEmail = "Invalid email";
-    if (!formData.leadEmail.trim()) newErrors.leadEmail = "Lead email is required";
-    else if (!validateEmail(formData.leadEmail)) newErrors.leadEmail = "Invalid email";
-    if (!formData.subjectLine.trim()) newErrors.subjectLine = "Subject line is required";
-    if (!formData.emailPitch.trim()) newErrors.emailPitch = "Email pitch is required";
-    if (!formData.emailResponce.trim()) newErrors.emailResponce = "Email Responce is required";
-    
+
+    if (!formData.clientEmail.trim())
+      newErrors.clientEmail = "Client email is required";
+    else if (!validateEmail(formData.clientEmail))
+      newErrors.clientEmail = "Invalid email";
+
+    if (!formData.leadEmail.trim())
+      newErrors.leadEmail = "Lead email is required";
+    else if (!validateEmail(formData.leadEmail))
+      newErrors.leadEmail = "Invalid email";
+
+    if (!formData.subjectLine.trim())
+      newErrors.subjectLine = "Subject line is required";
+
+    if (!formData.emailPitch.trim())
+      newErrors.emailPitch = "Email pitch is required";
+
+    if (!formData.emailResponce.trim())
+      newErrors.emailResponce = "Email Response is required";
+
+    // ✅ NEW required fields
+    if (!formData.website.trim())
+      newErrors.website = "Website is required";
+
+    if (!formData.link.trim())
+      newErrors.link = "Association/Expo link is required";
+
+    if (!formData.phone.trim())
+      newErrors.phone = "Phone number is required";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -74,13 +94,13 @@ const LeadForm = () => {
       ccEmail: "",
       subjectLine: "",
       emailPitch: "",
-      emailResponce:"",
+      emailResponce: "",
       website: "",
       phone: "",
       country: "",
       leadType: "Association Lead",
       date: "",
-      link: ""
+      link: "",
     });
     setErrors({});
   };
@@ -96,7 +116,7 @@ const LeadForm = () => {
     setIsSubmitting(true);
 
     try {
-      const res = await fetch("http://localhost:4000/api/leads", {
+      const res = await fetch(`${API_BASE_URL}/api/leads`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ leads: [{ ...formData, employeeId }] }),
@@ -110,7 +130,6 @@ const LeadForm = () => {
         handleClear();
         showToast("Lead submitted successfully!", "success");
       } else if (data.duplicate) {
-        // Use toast for duplicate error
         showToast(data.message, "error");
       } else {
         showToast(data.message || "Submission failed", "error");
@@ -123,13 +142,14 @@ const LeadForm = () => {
     }
   };
 
-
-  // Dynamic label for client website based on lead type
   const getWebsiteLabel = () => {
     if (formData.leadType === "Association Lead") return "Association Link";
     if (formData.leadType === "Attendees Lead") return "Expo Link";
     return "Link";
   };
+
+  // ✅ Restrict future date
+  const today = new Date().toISOString().split("T")[0];
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
@@ -202,10 +222,10 @@ const LeadForm = () => {
             onSubmit={handleSubmit}
             className="grid grid-cols-1 lg:grid-cols-2 gap-6"
           >
-            {/* Agent Name */}
+            {/* Client Name */}
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
-                Client Name 
+                Client Name
               </label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -214,8 +234,9 @@ const LeadForm = () => {
                   name="agentName"
                   value={formData.agentName}
                   onChange={handleChange}
-                  className={`w-full pl-10 pr-4 py-3 border rounded-lg ${errors.agentName ? "border-red-500" : "border-gray-300"
-                    }`}
+                  className={`w-full pl-10 pr-4 py-3 border rounded-lg ${
+                    errors.agentName ? "border-red-500" : "border-gray-300"
+                  }`}
                   placeholder="Enter agent full name"
                 />
               </div>
@@ -254,8 +275,9 @@ const LeadForm = () => {
                 name="clientEmail"
                 value={formData.clientEmail}
                 onChange={handleChange}
-                className={`w-full px-4 py-3 border rounded-lg ${errors.clientEmail ? "border-red-500" : "border-gray-300"
-                  }`}
+                className={`w-full px-4 py-3 border rounded-lg ${
+                  errors.clientEmail ? "border-red-500" : "border-gray-300"
+                }`}
                 placeholder="client@company.com"
               />
               {errors.clientEmail && (
@@ -273,8 +295,9 @@ const LeadForm = () => {
                 name="leadEmail"
                 value={formData.leadEmail}
                 onChange={handleChange}
-                className={`w-full px-4 py-3 border rounded-lg ${errors.leadEmail ? "border-red-500" : "border-gray-300"
-                  }`}
+                className={`w-full px-4 py-3 border rounded-lg ${
+                  errors.leadEmail ? "border-red-500" : "border-gray-300"
+                }`}
                 placeholder="lead@company.com"
               />
               {errors.leadEmail && (
@@ -288,12 +311,13 @@ const LeadForm = () => {
                 CC Email
               </label>
               <input
-                type="email"
+                type="text"
                 name="ccEmail"
                 value={formData.ccEmail}
                 onChange={handleChange}
-                className={`w-full px-4 py-3 border rounded-lg ${errors.ccEmail ? "border-red-500" : "border-gray-300"
-                  }`}
+                className={`w-full px-4 py-3 border rounded-lg ${
+                  errors.ccEmail ? "border-red-500" : "border-gray-300"
+                }`}
                 placeholder="manager@company.com"
               />
               {errors.ccEmail && (
@@ -301,36 +325,47 @@ const LeadForm = () => {
               )}
             </div>
 
-            {/* Client Website */}
+            {/* Website - required */}
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
-                Client Website
+                Client Website <span className="text-red-500">*</span>
               </label>
               <input
                 type="url"
                 name="website"
                 value={formData.website}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg"
+                className={`w-full px-4 py-3 border rounded-lg ${
+                  errors.website ? "border-red-500" : "border-gray-300"
+                }`}
                 placeholder="https://website.com"
               />
+              {errors.website && (
+                <p className="text-red-500 text-sm">{errors.website}</p>
+              )}
             </div>
-            {/* / Link */}
+
+            {/* Association / Expo Link - required */}
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
-                {getWebsiteLabel()}
+                {getWebsiteLabel()} <span className="text-red-500">*</span>
               </label>
               <input
                 type="url"
                 name="link"
                 value={formData.link}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg"
+                className={`w-full px-4 py-3 border rounded-lg ${
+                  errors.link ? "border-red-500" : "border-gray-300"
+                }`}
                 placeholder="https://link.com"
               />
+              {errors.link && (
+                <p className="text-red-500 text-sm">{errors.link}</p>
+              )}
             </div>
 
-            {/* Phone */}
+            {/* Phone - required */}
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
                 Phone <span className="text-red-500">*</span>
@@ -340,9 +375,14 @@ const LeadForm = () => {
                 name="phone"
                 value={formData.phone}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg"
+                className={`w-full px-4 py-3 border rounded-lg ${
+                  errors.phone ? "border-red-500" : "border-gray-300"
+                }`}
                 placeholder="+1 (555) 123-4567"
               />
+              {errors.phone && (
+                <p className="text-red-500 text-sm">{errors.phone}</p>
+              )}
             </div>
 
             {/* Country */}
@@ -360,7 +400,7 @@ const LeadForm = () => {
               />
             </div>
 
-            {/* Date */}
+            {/* Date (no future date) */}
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
                 Contact Date
@@ -370,6 +410,7 @@ const LeadForm = () => {
                 name="date"
                 value={formData.date}
                 onChange={handleChange}
+                max={today} // ✅ prevent future dates
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg"
               />
             </div>
@@ -384,8 +425,9 @@ const LeadForm = () => {
                 name="subjectLine"
                 value={formData.subjectLine}
                 onChange={handleChange}
-                className={`w-full px-4 py-3 border rounded-lg ${errors.subjectLine ? "border-red-500" : "border-gray-300"
-                  }`}
+                className={`w-full px-4 py-3 border rounded-lg ${
+                  errors.subjectLine ? "border-red-500" : "border-gray-300"
+                }`}
                 placeholder="Partnership Opportunity"
               />
               {errors.subjectLine && (
@@ -402,8 +444,9 @@ const LeadForm = () => {
                 name="emailPitch"
                 value={formData.emailPitch}
                 onChange={handleChange}
-                className={`w-full px-4 py-3 border rounded-lg resize-none ${errors.emailPitch ? "border-red-500" : "border-gray-300"
-                  }`}
+                className={`w-full px-4 py-3 border rounded-lg resize-none ${
+                  errors.emailPitch ? "border-red-500" : "border-gray-300"
+                }`}
                 rows="5"
                 placeholder="Enter your professional email pitch here..."
               />
@@ -412,8 +455,8 @@ const LeadForm = () => {
               )}
             </div>
 
-              {/* Email Responce */}
-                <div className="lg:col-span-2 space-y-2">
+            {/* Email Response */}
+            <div className="lg:col-span-2 space-y-2">
               <label className="block text-sm font-medium text-gray-700">
                 Response <span className="text-red-500">*</span>
               </label>
@@ -421,10 +464,11 @@ const LeadForm = () => {
                 name="emailResponce"
                 value={formData.emailResponce}
                 onChange={handleChange}
-                className={`w-full px-4 py-3 border rounded-lg resize-none ${errors.emailResponce ? "border-red-500" : "border-gray-300"
-                  }`}
+                className={`w-full px-4 py-3 border rounded-lg resize-none ${
+                  errors.emailResponce ? "border-red-500" : "border-gray-300"
+                }`}
                 rows="5"
-                placeholder="Enter your professional email Responce here..."
+                placeholder="Enter your professional email Response here..."
               />
               {errors.emailResponce && (
                 <p className="text-red-500 text-sm">{errors.emailResponce}</p>
@@ -437,30 +481,27 @@ const LeadForm = () => {
                 type="submit"
                 disabled={isSubmitting}
                 className={`flex-1 flex items-center justify-center gap-3 px-6 py-3 font-medium rounded-lg
-    ${isSubmitting
-                    ? "bg-blue-600 opacity-70 cursor-not-allowed"
-                    : "bg-blue-600 hover:bg-blue-700 text-white"
-                  }`}
-                aria-busy={isSubmitting}
-                aria-disabled={isSubmitting}
+    ${
+      isSubmitting
+        ? "bg-blue-600 opacity-70 cursor-not-allowed"
+        : "bg-blue-600 hover:bg-blue-700 text-white"
+    }`}
               >
                 {isSubmitting ? (
                   <>
                     <div
                       className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"
                       role="status"
-                      aria-label="loading"
                     ></div>
                     <span>Processing...</span>
                   </>
                 ) : (
                   <>
-                    <SendIcon className="w-5 h-5 text-white" aria-hidden="true" />
+                    <SendIcon className="w-5 h-5 text-white" />
                     <span>Submit Lead</span>
                   </>
                 )}
               </button>
-
 
               <button
                 type="button"
