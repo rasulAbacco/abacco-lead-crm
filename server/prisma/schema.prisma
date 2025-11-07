@@ -21,7 +21,7 @@ model Lead {
   ccEmail       String?
   subjectLine   String
   emailPitch    String
-  emailResponce String
+  emailResponce String?
   website       String?
   phone         String?
   country       String?
@@ -34,6 +34,7 @@ model Lead {
   forwarded     Boolean  @default(false)
   qualified     Boolean?
 }
+
 
 model Employee {
   id            Int            @id @default(autoincrement())

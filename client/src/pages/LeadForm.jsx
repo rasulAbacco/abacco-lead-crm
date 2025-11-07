@@ -63,18 +63,16 @@ const LeadForm = () => {
     if (!formData.emailPitch.trim())
       newErrors.emailPitch = "Email pitch is required";
 
-    if (!formData.emailResponce.trim())
-      newErrors.emailResponce = "Email Response is required";
+    // if (!formData.emailResponce.trim())
+    //   newErrors.emailResponce = "Email Response is required";
 
     // ✅ NEW required fields
-    if (!formData.website.trim())
-      newErrors.website = "Website is required";
+    if (!formData.website.trim()) newErrors.website = "Website is required";
 
     if (!formData.link.trim())
       newErrors.link = "Association/Expo link is required";
 
-    if (!formData.phone.trim())
-      newErrors.phone = "Phone number is required";
+    if (!formData.phone.trim()) newErrors.phone = "Phone number is required";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -456,7 +454,7 @@ const LeadForm = () => {
             </div>
 
             {/* Email Response */}
-            <div className="lg:col-span-2 space-y-2">
+            {/* <div className="lg:col-span-2 space-y-2">
               <label className="block text-sm font-medium text-gray-700">
                 Response <span className="text-red-500">*</span>
               </label>
@@ -473,7 +471,7 @@ const LeadForm = () => {
               {errors.emailResponce && (
                 <p className="text-red-500 text-sm">{errors.emailResponce}</p>
               )}
-            </div>
+            </div> */}
 
             {/* Buttons */}
             <div className="lg:col-span-2 flex gap-4 pt-6 border-t border-gray-200">
