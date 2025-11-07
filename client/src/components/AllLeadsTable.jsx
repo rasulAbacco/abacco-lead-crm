@@ -109,7 +109,8 @@ export default function AllLeadsTable() {
           String(lead.employeeId).trim() === filters.employee;
 
         const fromDateMatch =
-          !filters.fromDate || new Date(lead.date) >= new Date(filters.fromDate);
+          !filters.fromDate ||
+          new Date(lead.date) >= new Date(filters.fromDate);
         const toDateMatch =
           !filters.toDate || new Date(lead.date) <= new Date(filters.toDate);
 
@@ -201,16 +202,17 @@ export default function AllLeadsTable() {
       formatDate(lead.date),
       safe(lead.link),
       safe(lead.emailPitch),
-      safe(lead.emailResponce),
+      // safe(lead.emailResponce),
       lead.isEdited ? "Yes" : "No",
     ]);
 
-    const csvContent =
-      [headers, ...rows]
-        .map((row) =>
-          row.map((val) => `"${(val || "").toString().replace(/"/g, '""')}"`).join(",")
-        )
-        .join("\n");
+    const csvContent = [headers, ...rows]
+      .map((row) =>
+        row
+          .map((val) => `"${(val || "").toString().replace(/"/g, '""')}"`)
+          .join(",")
+      )
+      .join("\n");
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -223,15 +225,12 @@ export default function AllLeadsTable() {
   };
 
   if (loading) {
-    return (
-      <Loader />
-    );
+    return <Loader />;
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100">
       <div className="max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8">
-
         {/* Header */}
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -345,10 +344,16 @@ export default function AllLeadsTable() {
             filteredLeads.map((lead) => {
               const isExpanded = expandedCards.has(lead.id);
               const ccEmails = lead.ccEmail
-                ? lead.ccEmail.split(",").map((e) => e.trim()).filter(Boolean)
+                ? lead.ccEmail
+                    .split(",")
+                    .map((e) => e.trim())
+                    .filter(Boolean)
                 : [];
               const phoneNumbers = lead.phone
-                ? lead.phone.split(",").map((p) => p.trim()).filter(Boolean)
+                ? lead.phone
+                    .split(",")
+                    .map((p) => p.trim())
+                    .filter(Boolean)
                 : [];
 
               return (
@@ -389,7 +394,9 @@ export default function AllLeadsTable() {
                             <ExternalLink className="w-4 h-4" /> View
                           </a>
                         ) : (
-                          <span className="text-slate-400 text-sm">No link</span>
+                          <span className="text-slate-400 text-sm">
+                            No link
+                          </span>
                         )}
                         <button
                           onClick={() => toggleExpand(lead.id)}
@@ -415,7 +422,9 @@ export default function AllLeadsTable() {
                       icon={User}
                       color="blue"
                       title="Employee"
-                      value={`${safe(lead.employee?.fullName)} (${safe(lead.employeeId)})`}
+                      value={`${safe(lead.employee?.fullName)} (${safe(
+                        lead.employeeId
+                      )})`}
                     />
                     <InfoCard
                       icon={Building2}
@@ -442,7 +451,9 @@ export default function AllLeadsTable() {
                         <Phone className="w-5 h-5 text-blue-600" />
                       </div>
                       <div>
-                        <p className="text-xs text-slate-500 mb-0.5">Phone Number(s)</p>
+                        <p className="text-xs text-slate-500 mb-0.5">
+                          Phone Number(s)
+                        </p>
                         {phoneNumbers.length ? (
                           <div className="flex flex-col gap-1">
                             {phoneNumbers.map((num, i) => (
@@ -455,7 +466,9 @@ export default function AllLeadsTable() {
                             ))}
                           </div>
                         ) : (
-                          <p className="text-sm text-slate-700">Not available</p>
+                          <p className="text-sm text-slate-700">
+                            Not available
+                          </p>
                         )}
                       </div>
                     </div>
@@ -479,7 +492,9 @@ export default function AllLeadsTable() {
                         <MailPlus className="w-5 h-5 text-violet-600" />
                       </div>
                       <div>
-                        <p className="text-xs text-slate-500 mb-0.5">CC Emails</p>
+                        <p className="text-xs text-slate-500 mb-0.5">
+                          CC Emails
+                        </p>
                         {ccEmails.length ? (
                           <div className="flex flex-col gap-1">
                             {ccEmails.map((email, i) => (
@@ -492,7 +507,9 @@ export default function AllLeadsTable() {
                             ))}
                           </div>
                         ) : (
-                          <p className="text-sm text-slate-700">Not available</p>
+                          <p className="text-sm text-slate-700">
+                            Not available
+                          </p>
                         )}
                       </div>
                     </div>
@@ -543,14 +560,14 @@ const ExpandedContent = ({ lead }) => (
         text={lead.emailPitch}
       />
     )}
-    {lead.emailResponce && (
+    {/* {lead.emailResponce && (
       <EmailSection
         title="Email Response"
         color="emerald"
         icon={MessageSquare}
         text={lead.emailResponce}
       />
-    )}
+    )} */}
   </div>
 );
 
