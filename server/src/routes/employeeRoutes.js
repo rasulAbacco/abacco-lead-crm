@@ -18,8 +18,22 @@ const USA_TZ = "America/Chicago";
    =========================================================== */
 function getUSAMonthRange() {
   const nowUSA = getUSADateTime();
-  const startOfMonth = new Date(nowUSA.getFullYear(), nowUSA.getMonth(), 1, 0, 0, 0);
-  const endOfMonth = new Date(nowUSA.getFullYear(), nowUSA.getMonth() + 1, 0, 23, 59, 59);
+  const startOfMonth = new Date(
+    nowUSA.getFullYear(),
+    nowUSA.getMonth(),
+    1,
+    0,
+    0,
+    0
+  );
+  const endOfMonth = new Date(
+    nowUSA.getFullYear(),
+    nowUSA.getMonth() + 1,
+    0,
+    23,
+    59,
+    59
+  );
   return {
     start: fromZonedTime(startOfMonth, USA_TZ),
     end: fromZonedTime(endOfMonth, USA_TZ),
@@ -31,7 +45,6 @@ function getUSAMonthRange() {
    Fetch employees with daily/monthly leads in CST
    =========================================================== */
 // src/routes/employeeRoutes.js
-
 
 /* ===========================================================
    ✅ GET /api/employees
@@ -198,6 +211,7 @@ router.get("/with-leads", async (req, res) => {
             forwarded: true,
             qualified: true,
             createdAt: true,
+            isEdited: true,
           },
           orderBy: {
             date: "desc",
@@ -256,6 +270,100 @@ router.post("/leads/:id/forward", async (req, res) => {
     res.status(500).json({ error: "Failed to forward lead" });
   }
 });
+// router.post("/leads/:id/forward", async (req, res) => {
+//   try {
+//     const leadId = parseInt(req.params.id);
+//     if (isNaN(leadId)) {
+//       return res.status(400).json({ error: "Invalid lead ID" });
+//     }
+
+//     console.log("🔹 Forward request received for lead ID:", leadId);
+
+//     // Fetch lead
+//     const existingLead = await prisma.lead.findUnique({
+//       where: { id: leadId },
+//     });
+
+//     if (!existingLead) {
+//       return res.status(404).json({ error: "Lead not found" });
+//     }
+
+//     console.log(
+//       "🟢 Lead fetched successfully:",
+//       existingLead.id,
+//       existingLead.email
+//     );
+
+//     // Build payload for Sales CRM
+//     const payload = {
+//       clientEmail: existingLead.clientEmail,
+//       leadEmail: existingLead.leadEmail,
+//       ccEmail: existingLead.ccEmail,
+//       phone: existingLead.phone,
+//       country: existingLead.country,
+//       subjectLine: existingLead.subjectLine,
+//       emailPitch: existingLead.emailPitch,
+//       // emailResponce: existingLead.emailResponce,
+//       leadType: existingLead.leadType,
+//       createdAt: existingLead.createdAt,
+//       empId: existingLead.employeeId || null,
+//     };
+
+//     console.log("📤 Sending payload to Sales CRM:", payload);
+
+//     // Send to Sales CRM
+//     const crmResponse = await fetch("http://localhost:4002/api/sales/leads", {
+//       method: "POST",
+//       headers: { "Content-Type": "application/json" },
+//       body: JSON.stringify(payload),
+//     });
+
+//     const crmData = await crmResponse.json();
+//     console.log("✅ Sales CRM Response:", crmData);
+
+//     if (!crmResponse.ok) {
+//       return res.status(502).json({
+//         error: "Failed to forward lead to Sales CRM",
+//         crmResponse: crmData,
+//       });
+//     }
+
+//     // Update forwarded flag
+//     const updatedLead = await prisma.lead.update({
+//       where: { id: leadId },
+//       data: { forwarded: true },
+//       select: {
+//         id: true,
+//         forwarded: true,
+//         clientEmail: true,
+//         leadEmail: true,
+//         ccEmail: true,
+//         subjectLine: true,
+//         emailPitch: true,
+//         // emailResponce: true,
+//         phone: true,
+//         country: true,
+//         leadType: true,
+//         createdAt: true,
+//         employeeId: true,
+//       },
+//     });
+
+//     console.log(`✅ Lead ${leadId} marked as forwarded`);
+//     res.json({
+//       message: "Lead forwarded successfully",
+//       forwardedLead: updatedLead,
+//       crmResponse: crmData,
+//     });
+//   } catch (error) {
+//     console.error("💥 SERVER ERROR:", error);
+//     return res.status(500).json({
+//       error: "Internal Server Error",
+//       details: error.message,
+//       stack: error.stack,
+//     });
+//   }
+// });
 
 /* ===========================================================
    ✅ POST /api/employees/leads/:id/qualify
@@ -271,8 +379,8 @@ router.post("/leads/:id/qualify", async (req, res) => {
     }
 
     if (typeof qualified !== "boolean") {
-      return res.status(400).json({ 
-        error: "Invalid qualified value. Must be true or false" 
+      return res.status(400).json({
+        error: "Invalid qualified value. Must be true or false",
       });
     }
 
@@ -313,7 +421,7 @@ router.post("/leads/:id/qualify", async (req, res) => {
 router.get("/leads/stats", async (req, res) => {
   try {
     const { date } = req.query;
-    
+
     const targetDate = date ? new Date(date) : new Date();
     const startOfDay = new Date(targetDate.setHours(0, 0, 0, 0));
     const endOfDay = new Date(targetDate.setHours(23, 59, 59, 999));
@@ -334,20 +442,22 @@ router.get("/leads/stats", async (req, res) => {
 
     const stats = {
       totalLeads: leads.length,
-      forwarded: leads.filter(l => l.forwarded).length,
-      qualified: leads.filter(l => l.qualified === true).length,
-      disqualified: leads.filter(l => l.qualified === false).length,
-      pending: leads.filter(l => l.qualified === null).length,
+      forwarded: leads.filter((l) => l.forwarded).length,
+      qualified: leads.filter((l) => l.qualified === true).length,
+      disqualified: leads.filter((l) => l.qualified === false).length,
+      pending: leads.filter((l) => l.qualified === null).length,
     };
 
-    console.log(`✅ Stats fetched for ${targetDate.toISOString().split('T')[0]}:`, stats);
+    console.log(
+      `✅ Stats fetched for ${targetDate.toISOString().split("T")[0]}:`,
+      stats
+    );
     res.json(stats);
   } catch (error) {
     console.error("❌ Error fetching lead stats:", error);
     res.status(500).json({ error: "Failed to fetch lead statistics" });
   }
 });
-
 
 /* ===========================================================
    ✅ PATCH /api/employees/leads/:id/reset-qualification
@@ -405,11 +515,11 @@ router.patch("/leads/:id/bulk-update", async (req, res) => {
 
     // Build update data object
     const updateData = {};
-    
+
     if (typeof forwarded === "boolean") {
       updateData.forwarded = forwarded;
     }
-    
+
     if (qualified !== undefined) {
       updateData.qualified = qualified;
     }
@@ -487,13 +597,15 @@ router.get("/leads/today/count", async (req, res) => {
       },
     });
 
-    const result = employees.map(emp => ({
+    const result = employees.map((emp) => ({
       employeeId: emp.employeeId,
       fullName: emp.fullName,
       todayLeadsCount: emp._count.leads,
     }));
 
-    console.log(`✅ Today's lead count fetched for ${employees.length} employees`);
+    console.log(
+      `✅ Today's lead count fetched for ${employees.length} employees`
+    );
     res.json(result);
   } catch (error) {
     console.error("❌ Error fetching today's lead count:", error);
@@ -509,8 +621,18 @@ router.get("/leads-summary", async (req, res) => {
   try {
     const nowUSA = getUSADateTime();
     const months = [
-      "January", "February", "March", "April", "May", "June",
-      "July", "August", "September", "October", "November", "December"
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
     ];
 
     const getSummary = async (start, end) => {
@@ -546,11 +668,25 @@ router.get("/leads-summary", async (req, res) => {
       if (dayUSA.getDay() === 0) continue; // skip Sunday
 
       const start = fromZonedTime(
-        new Date(dayUSA.getFullYear(), dayUSA.getMonth(), dayUSA.getDate(), 0, 0, 0),
+        new Date(
+          dayUSA.getFullYear(),
+          dayUSA.getMonth(),
+          dayUSA.getDate(),
+          0,
+          0,
+          0
+        ),
         USA_TZ
       );
       const end = fromZonedTime(
-        new Date(dayUSA.getFullYear(), dayUSA.getMonth(), dayUSA.getDate(), 23, 59, 59),
+        new Date(
+          dayUSA.getFullYear(),
+          dayUSA.getMonth(),
+          dayUSA.getDate(),
+          23,
+          59,
+          59
+        ),
         USA_TZ
       );
 
@@ -564,8 +700,14 @@ router.get("/leads-summary", async (req, res) => {
     // --- Monthly ---
     const monthsData = {};
     for (let m = 0; m < 12; m++) {
-      const start = fromZonedTime(new Date(nowUSA.getFullYear(), m, 1, 0, 0, 0), USA_TZ);
-      const end = fromZonedTime(new Date(nowUSA.getFullYear(), m + 1, 0, 23, 59, 59), USA_TZ);
+      const start = fromZonedTime(
+        new Date(nowUSA.getFullYear(), m, 1, 0, 0, 0),
+        USA_TZ
+      );
+      const end = fromZonedTime(
+        new Date(nowUSA.getFullYear(), m + 1, 0, 23, 59, 59),
+        USA_TZ
+      );
       monthsData[months[m]] = await getSummary(start, end);
     }
 
@@ -651,7 +793,9 @@ router.post("/", async (req, res) => {
         email: employeeData.email,
         password: employeeData.password,
         target: employeeData.target ? parseInt(employeeData.target, 10) : null,
-        joiningDate: employeeData.joiningDate ? new Date(employeeData.joiningDate) : null,
+        joiningDate: employeeData.joiningDate
+          ? new Date(employeeData.joiningDate)
+          : null,
       },
     });
 
@@ -689,7 +833,9 @@ router.get("/leads/:employeeId", async (req, res) => {
     });
 
     if (!leads.length) {
-      return res.status(404).json({ message: "No leads found for this employee" });
+      return res
+        .status(404)
+        .json({ message: "No leads found for this employee" });
     }
 
     res.json(leads);

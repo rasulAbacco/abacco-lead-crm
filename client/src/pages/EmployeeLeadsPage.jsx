@@ -35,8 +35,18 @@ export default function EmployeeLeadsPage() {
   const [expandedCards, setExpandedCards] = useState(new Set());
 
   const months = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December"
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
   ];
   const currentYear = new Date().getFullYear();
 
@@ -91,7 +101,9 @@ export default function EmployeeLeadsPage() {
       setFilteredLeads(
         employee.leads.filter((lead) => {
           const leadDateUSA = toZonedTime(new Date(lead.date), USA_TZ);
-          const leadDateStr = format(leadDateUSA, "yyyy-MM-dd", { timeZone: USA_TZ });
+          const leadDateStr = format(leadDateUSA, "yyyy-MM-dd", {
+            timeZone: USA_TZ,
+          });
           return leadDateStr === todayStr;
         })
       );
@@ -120,11 +132,13 @@ export default function EmployeeLeadsPage() {
     if (!leadsToDownload.length) return;
 
     const headers = [
-      "Lead ID,Subject Line,Lead Email,CC Email,Client Email,Agent Name,Phone,Website,Country,Date,Email Pitch,Email Response,Link",
+      "Lead ID,Subject Line,Lead Email,CC Email,Client Email,Agent Name,Phone,Website,Country,Date,Email Pitch,Link",
+      // "Lead ID,Subject Line,Lead Email,CC Email,Client Email,Agent Name,Phone,Website,Country,Date,Email Pitch,Email Response,Link",
     ];
     const rows = leadsToDownload.map(
       (lead) =>
-        `${lead.id},"${lead.subjectLine}",${lead.leadEmail},"${lead.ccEmail}",${lead.clientEmail},${lead.agentName},${lead.phone},${lead.website},${lead.country},${lead.date},"${lead.emailPitch}","${lead.emailResponce}",${lead.link}`
+        `${lead.id},"${lead.subjectLine}",${lead.leadEmail},"${lead.ccEmail}",${lead.clientEmail},${lead.agentName},${lead.phone},${lead.website},${lead.country},${lead.date},"${lead.emailPitch}",${lead.link}`
+      // `${lead.id},"${lead.subjectLine}",${lead.leadEmail},"${lead.ccEmail}",${lead.clientEmail},${lead.agentName},${lead.phone},${lead.website},${lead.country},${lead.date},"${lead.emailPitch}","${lead.emailResponce}",${lead.link}`
     );
 
     const csvContent = [headers, ...rows].join("\n");
@@ -144,8 +158,14 @@ export default function EmployeeLeadsPage() {
   const filterLeadsBySearch = (leads) => {
     if (!searchTerm) return leads;
     return leads.filter((lead) =>
-      [lead.subjectLine, lead.leadEmail, lead.ccEmail, lead.clientEmail, lead.country, lead.agentName]
-        .some((f) => f?.toLowerCase().includes(searchTerm.toLowerCase()))
+      [
+        lead.subjectLine,
+        lead.leadEmail,
+        lead.ccEmail,
+        lead.clientEmail,
+        lead.country,
+        lead.agentName,
+      ].some((f) => f?.toLowerCase().includes(searchTerm.toLowerCase()))
     );
   };
 
@@ -174,7 +194,10 @@ export default function EmployeeLeadsPage() {
   const renderLeadCard = (lead) => {
     const isExpanded = expandedCards.has(lead.id);
     const ccEmails = lead.ccEmail
-      ? lead.ccEmail.split(",").map((e) => e.trim()).filter(Boolean)
+      ? lead.ccEmail
+          .split(",")
+          .map((e) => e.trim())
+          .filter(Boolean)
       : [];
 
     const safe = (value) =>
@@ -187,7 +210,6 @@ export default function EmployeeLeadsPage() {
       >
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
-          
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-2 flex-wrap">
@@ -237,25 +259,70 @@ export default function EmployeeLeadsPage() {
         {/* Body */}
         <div className="p-4 sm:p-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <InfoCard icon={Mail} title="Lead Email" value={safe(lead.leadEmail)} color="pink" />
-            <InfoCard icon={MailPlus} title="CC Emails" value={ccEmails.length ? ccEmails.join(", ") : "Not available"} color="violet" />
-            <InfoCard icon={Mail} title="Client Email" value={safe(lead.clientEmail)} color="orange" />
-            <InfoCard icon={UserRound} title="Agent Name" value={safe(lead.agentName)} color="emerald" />
-            <InfoCard icon={Phone} title="Phone" value={safe(lead.phone)} color="green" />
-            <InfoCard icon={Globe} title="Website" value={safe(lead.website)} color="indigo" />
-            <InfoCard icon={MapPin} title="Country" value={safe(lead.country)} color="teal" />
+            <InfoCard
+              icon={Mail}
+              title="Lead Email"
+              value={safe(lead.leadEmail)}
+              color="pink"
+            />
+            <InfoCard
+              icon={MailPlus}
+              title="CC Emails"
+              value={ccEmails.length ? ccEmails.join(", ") : "Not available"}
+              color="violet"
+            />
+            <InfoCard
+              icon={Mail}
+              title="Client Email"
+              value={safe(lead.clientEmail)}
+              color="orange"
+            />
+            <InfoCard
+              icon={UserRound}
+              title="Agent Name"
+              value={safe(lead.agentName)}
+              color="emerald"
+            />
+            <InfoCard
+              icon={Phone}
+              title="Phone"
+              value={safe(lead.phone)}
+              color="green"
+            />
+            <InfoCard
+              icon={Globe}
+              title="Website"
+              value={safe(lead.website)}
+              color="indigo"
+            />
+            <InfoCard
+              icon={MapPin}
+              title="Country"
+              value={safe(lead.country)}
+              color="teal"
+            />
           </div>
 
           {isExpanded && (
             <div className="mt-6 pt-6 border-t border-slate-200 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
               {lead.emailPitch && (
-                <EmailSection title="Email Pitch" icon={Send} color="blue" text={lead.emailPitch} />
+                <EmailSection
+                  title="Email Pitch"
+                  icon={Send}
+                  color="blue"
+                  text={lead.emailPitch}
+                />
               )}
-              {lead.emailResponce && (
+              {/* {lead.emailResponce && (
                 <EmailSection title="Email Response" icon={MessageSquare} color="emerald" text={lead.emailResponce} />
-              )}
-              {!lead.emailPitch && !lead.emailResponce && (
+              )} */}
+              {/* {!lead.emailPitch && !lead.emailResponce && (
                 <p className="text-center text-slate-500 py-4">No pitch or response available</p>
+              )} */}
+              {!lead.emailPitch && (
+                <p className="text-center text-slate-500 py-4">
+                  No pitch or response available
+                </p>
               )}
             </div>
           )}
@@ -266,7 +333,9 @@ export default function EmployeeLeadsPage() {
 
   const InfoCard = ({ icon: Icon, title, value, color }) => (
     <div className="flex items-start gap-3">
-      <div className={`flex-shrink-0 w-10 h-10 bg-${color}-100 rounded-lg flex items-center justify-center`}>
+      <div
+        className={`flex-shrink-0 w-10 h-10 bg-${color}-100 rounded-lg flex items-center justify-center`}
+      >
         <Icon className={`w-5 h-5 text-${color}-600`} />
       </div>
       <div>
@@ -277,9 +346,13 @@ export default function EmployeeLeadsPage() {
   );
 
   const EmailSection = ({ title, icon: Icon, color, text }) => (
-    <div className={`bg-gradient-to-br from-${color}-50 to-${color}-100 rounded-lg p-4 border border-${color}-200`}>
+    <div
+      className={`bg-gradient-to-br from-${color}-50 to-${color}-100 rounded-lg p-4 border border-${color}-200`}
+    >
       <div className="flex items-center gap-2 mb-3">
-        <div className={`w-8 h-8 bg-${color}-600 rounded-lg flex items-center justify-center`}>
+        <div
+          className={`w-8 h-8 bg-${color}-600 rounded-lg flex items-center justify-center`}
+        >
           <Icon className="w-4 h-4 text-white" />
         </div>
         <h4 className="font-semibold text-slate-900">{title}</h4>
@@ -367,20 +440,20 @@ export default function EmployeeLeadsPage() {
         {filter === "today"
           ? filterLeadsBySearch(filteredLeads).map(renderLeadCard)
           : Object.entries(filteredLeads).map(([month, leads]) => {
-            const searchFiltered = filterLeadsBySearch(leads);
-            if (!searchFiltered.length) return null;
-            return (
-              <div key={month}>
-                <h2 className="text-xl font-bold text-slate-800 mb-3 flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-blue-600" />
-                  {month}
-                </h2>
-                <div className="space-y-4">
-                  {searchFiltered.map(renderLeadCard)}
+              const searchFiltered = filterLeadsBySearch(leads);
+              if (!searchFiltered.length) return null;
+              return (
+                <div key={month}>
+                  <h2 className="text-xl font-bold text-slate-800 mb-3 flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-blue-600" />
+                    {month}
+                  </h2>
+                  <div className="space-y-4">
+                    {searchFiltered.map(renderLeadCard)}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
       </div>
     </div>
   );
