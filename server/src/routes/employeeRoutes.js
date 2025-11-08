@@ -53,14 +53,19 @@ function getUSAMonthRange() {
 router.get("/", async (req, res) => {
   try {
     const employees = await prisma.employee.findMany({
-      where: { role: "EMPLOYEE" },
+      where: {
+        role: "EMPLOYEE",
+        isActive: true
+      },
       select: {
         employeeId: true,
         fullName: true,
         email: true,
         target: true,
+        isActive: true,
       },
     });
+
 
     const { start: startOfMonth, end: endOfMonth } = getUSAMonthRange();
     const { start: startOfToday, end: endOfToday } = getUSATodayRange();
@@ -116,6 +121,7 @@ router.get("/", async (req, res) => {
           name: emp.fullName,
           fullName: emp.fullName,
           email: emp.email,
+          isActive: emp.isActive,
           dailyLeads,
           monthlyLeads,
           leads: monthlyLeads, // For compatibility with existing code
