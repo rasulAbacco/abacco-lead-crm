@@ -122,7 +122,7 @@ export default function MyLeadsTable() {
       date: formatDateForInput(lead.date),
       link: lead.link || "",
       emailPitch: lead.emailPitch || "",
-    //   emailResponce: lead.emailResponce || "",
+      emailResponce: lead.emailResponce || "",
     });
     // Auto-expand the card when editing
     setExpandedCards((prev) => new Set(prev).add(lead.id));
@@ -298,7 +298,7 @@ export default function MyLeadsTable() {
       formatDate(lead.date),
       safe(lead.link),
       safe(lead.emailPitch),
-    //   safe(lead.emailResponce),
+      safe(lead.emailResponce),
       lead.isEdited ? "Yes" : "No",
     ]);
 
@@ -843,7 +843,7 @@ const ExpandedContent = ({ lead, isEditing, editForm, setEditForm }) => (
             className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
           />
         </div>
-        {/* <div>
+         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">
             Email Response
           </label>
@@ -855,7 +855,7 @@ const ExpandedContent = ({ lead, isEditing, editForm, setEditForm }) => (
             rows={6}
             className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
           />
-        </div> */}
+        </div> 
       </>
     ) : (
       <>
@@ -871,7 +871,7 @@ const ExpandedContent = ({ lead, isEditing, editForm, setEditForm }) => (
             No pitch available
           </p>
         )}
-        {/* {lead.emailResponce ? (
+        {lead.emailResponce ? (
           <EmailSection
             title="Email Response"
             color="emerald"
@@ -882,7 +882,7 @@ const ExpandedContent = ({ lead, isEditing, editForm, setEditForm }) => (
           <p className="text-sm text-slate-500 bg-emerald-50 p-3 rounded-md">
             No response available
           </p>
-        )} */}
+        )}
       </>
     )}
   </div>
