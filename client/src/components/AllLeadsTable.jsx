@@ -202,7 +202,7 @@ export default function AllLeadsTable() {
       formatDate(lead.date),
       safe(lead.link),
       safe(lead.emailPitch),
-      // safe(lead.emailResponce),
+      safe(lead.emailResponce),
       lead.isEdited ? "Yes" : "No",
     ]);
 
@@ -345,15 +345,15 @@ export default function AllLeadsTable() {
               const isExpanded = expandedCards.has(lead.id);
               const ccEmails = lead.ccEmail
                 ? lead.ccEmail
-                    .split(",")
-                    .map((e) => e.trim())
-                    .filter(Boolean)
+                  .split(",")
+                  .map((e) => e.trim())
+                  .filter(Boolean)
                 : [];
               const phoneNumbers = lead.phone
                 ? lead.phone
-                    .split(",")
-                    .map((p) => p.trim())
-                    .filter(Boolean)
+                  .split(",")
+                  .map((p) => p.trim())
+                  .filter(Boolean)
                 : [];
 
               return (
@@ -560,14 +560,14 @@ const ExpandedContent = ({ lead }) => (
         text={lead.emailPitch}
       />
     )}
-    {/* {lead.emailResponce && (
+    {lead.emailResponce && (
       <EmailSection
         title="Email Response"
         color="emerald"
         icon={MessageSquare}
         text={lead.emailResponce}
       />
-    )} */}
+    )}
   </div>
 );
 

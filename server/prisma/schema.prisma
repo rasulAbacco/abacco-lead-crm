@@ -35,7 +35,6 @@ model Lead {
   qualified     Boolean?
 }
 
-
 model Employee {
   id            Int            @id @default(autoincrement())
   employeeId    String         @unique

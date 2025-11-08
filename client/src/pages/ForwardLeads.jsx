@@ -131,7 +131,7 @@ const ForwardLeads = () => {
                 time: format(leadDateUSA, "hh:mm a", { timeZone: USA_TZ }),
                 subjectLine: lead.subjectLine,
                 emailPitch: lead.emailPitch,
-                // emailResponce: lead.emailResponce,
+                emailResponce: lead.emailResponce,
                 link: lead.link,
                 forwarded: lead.forwarded || false,
                 qualified: lead.qualified,
@@ -156,7 +156,7 @@ const ForwardLeads = () => {
                 time: format(leadDateUSA, "hh:mm a", { timeZone: USA_TZ }),
                 subjectLine: lead.subjectLine,
                 emailPitch: lead.emailPitch,
-                // emailResponce: lead.emailResponce,
+                emailResponce: lead.emailResponce,
                 link: lead.link,
                 forwarded: lead.forwarded || false,
                 qualified: lead.qualified,
@@ -1135,7 +1135,7 @@ const LeadCard = ({
 
     {/* Response & Pitch */}
     <div className="flex flex-col gap-4 mb-4">
-      {/* <TextBlock icon={<FileText />} label="Response" value={lead.emailResponce} /> */}
+      <TextBlock icon={<FileText />} label="Response" value={lead.emailResponce} />
       <TextBlock
         icon={<FileText />}
         label="Email Pitch"
