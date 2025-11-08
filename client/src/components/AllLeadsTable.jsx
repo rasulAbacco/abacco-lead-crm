@@ -95,6 +95,76 @@ export default function AllLeadsTable() {
   }, [leads]);
 
   // Filtering logic
+  // const filteredLeads = useMemo(() => {
+  //   return leads
+  //     .filter((lead) => {
+  //       const leadTypeMatch =
+  //         filters.leadType === "all" ||
+  //         String(lead.leadType || "")
+  //           .trim()
+  //           .toLowerCase() === filters.leadType.toLowerCase();
+
+  //       const employeeMatch =
+  //         filters.employee === "all" ||
+  //         // String(lead.employeeId).trim() === filters.employee;
+  //         String(lead.employeeId) === String(filters.employee);
+
+
+  //       const fromDateMatch =
+  //         !filters.fromDate ||
+  //         new Date(lead.date) >= new Date(filters.fromDate);
+  //       const toDateMatch =
+  //         !filters.toDate || new Date(lead.date) <= new Date(filters.toDate);
+
+  //       const searchMatch =
+  //         filters.search === "" ||
+  //         [
+  //           lead.employeeId,
+  //           lead.employee?.fullName,
+  //           lead.agentName,
+  //           lead.clientEmail,
+  //           lead.leadEmail,
+  //           lead.ccEmail,
+  //           lead.leadType,
+  //           lead.subjectLine,
+  //           lead.country,
+  //           lead.phone, // ✅ Include phone number in search
+  //         ].some((field) =>
+  //           (field || "")
+  //             .toString()
+  //             .toLowerCase()
+  //             .includes(filters.search.toLowerCase())
+  //         );
+
+  //       const leadEmailMatch =
+  //         filters.leadEmail === "all" ||
+  //         (lead.leadEmail &&
+  //           lead.leadEmail.toLowerCase() === filters.leadEmail.toLowerCase());
+
+  //       return (
+  //         leadTypeMatch &&
+  //         employeeMatch &&
+  //         fromDateMatch &&
+  //         toDateMatch &&
+  //         searchMatch &&
+  //         leadEmailMatch
+  //       );
+  //     })
+  //     .sort((a, b) => {
+  //       switch (filters.sortBy) {
+  //         case "id-asc":
+  //           return a.id - b.id;
+  //         case "id-desc":
+  //           return b.id - a.id;
+  //         case "date-asc":
+  //           return new Date(a.date) - new Date(b.date);
+  //         case "date-desc":
+  //           return new Date(b.date) - new Date(a.date);
+  //         default:
+  //           return 0;
+  //       }
+  //     });
+  // }, [leads, filters]);
   const filteredLeads = useMemo(() => {
     return leads
       .filter((lead) => {
@@ -104,15 +174,26 @@ export default function AllLeadsTable() {
             .trim()
             .toLowerCase() === filters.leadType.toLowerCase();
 
+        // ✅ Employee filter fixed
         const employeeMatch =
           filters.employee === "all" ||
-          String(lead.employeeId).trim() === filters.employee;
+          String(lead.employeeId) === String(filters.employee);
+
+        // ✅ Date normalization (prevents timezone issues)
+        const leadDate = lead.date
+          ? new Date(lead.date).setHours(0, 0, 0, 0)
+          : null;
 
         const fromDateMatch =
           !filters.fromDate ||
-          new Date(lead.date) >= new Date(filters.fromDate);
+          (leadDate !== null &&
+            leadDate >=
+            new Date(filters.fromDate).setHours(0, 0, 0, 0));
+
         const toDateMatch =
-          !filters.toDate || new Date(lead.date) <= new Date(filters.toDate);
+          !filters.toDate ||
+          (leadDate !== null &&
+            leadDate <= new Date(filters.toDate).setHours(0, 0, 0, 0));
 
         const searchMatch =
           filters.search === "" ||
@@ -126,7 +207,7 @@ export default function AllLeadsTable() {
             lead.leadType,
             lead.subjectLine,
             lead.country,
-            lead.phone, // ✅ Include phone number in search
+            lead.phone,
           ].some((field) =>
             (field || "")
               .toString()
@@ -137,7 +218,8 @@ export default function AllLeadsTable() {
         const leadEmailMatch =
           filters.leadEmail === "all" ||
           (lead.leadEmail &&
-            lead.leadEmail.toLowerCase() === filters.leadEmail.toLowerCase());
+            lead.leadEmail.toLowerCase() ===
+            filters.leadEmail.toLowerCase());
 
         return (
           leadTypeMatch &&
@@ -149,20 +231,31 @@ export default function AllLeadsTable() {
         );
       })
       .sort((a, b) => {
+        const aDate = a.date
+          ? new Date(a.date).setHours(0, 0, 0, 0)
+          : 0;
+        const bDate = b.date
+          ? new Date(b.date).setHours(0, 0, 0, 0)
+          : 0;
+
         switch (filters.sortBy) {
           case "id-asc":
             return a.id - b.id;
           case "id-desc":
             return b.id - a.id;
+
+          // ✅ Date sorting fixed
           case "date-asc":
-            return new Date(a.date) - new Date(b.date);
+            return aDate - bDate;
           case "date-desc":
-            return new Date(b.date) - new Date(a.date);
+            return bDate - aDate;
+
           default:
             return 0;
         }
       });
   }, [leads, filters]);
+
 
   // CSV Export
   const downloadCSV = () => {
