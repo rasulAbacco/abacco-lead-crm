@@ -8,14 +8,28 @@ const prisma = new PrismaClient();
 /**
  * ✅ ADMIN: Share a new link with employees
  */
-router.post("/share", authenticate, authorizeRole("ADMIN"), async (req, res) => {
+router.post("/share", authenticate, async (req, res) => {
   try {
-    const { link, linkType, country, recipientIds } = req.body;
-    const createdById = req.user?.id || req.user?.userId;
+    // -- normalize & inspect incoming user for robust authorization --
+    const rawRole = req.user?.role;
+    const rawEmployeeId = req.user?.employeeId || req.user?.employee_id || req.user?.empId;
+    const role = rawRole ? String(rawRole).trim().toUpperCase() : null;
+    const employeeId = rawEmployeeId ? String(rawEmployeeId).trim().toUpperCase() : null;
 
-    // Validate user identity
+    console.log("/share - req.user:", JSON.stringify(req.user, null, 2));
+
+    // Allow ADMIN or the special employee AT014
+    if (!(role === "ADMIN" || (role === "EMPLOYEE" && employeeId === "AT014"))) {
+      return res.status(403).json({ message: "Forbidden: Access denied" });
+    }
+
+    // -- inputs --
+    const { link, linkType, country, recipientIds } = req.body;
+
+    // Prefer DB id from token, but keep previous fallbacks and log if missing
+    const createdById = req.user?.id || req.user?.userId;
     if (!createdById) {
-      console.warn("⚠️ Missing user ID in token:", req.user);
+      console.warn("⚠️ Missing user ID in token (createdById). req.user:", req.user);
       return res.status(401).json({ message: "Invalid or missing user ID in token" });
     }
 
@@ -56,7 +70,7 @@ router.post("/share", authenticate, authorizeRole("ADMIN"), async (req, res) => 
       });
     }
 
-    // ✅ Create Shared Link with recipients (with notification fields)
+    // Create Shared Link with recipients (with notification fields)
     const shared = await prisma.sharedLink.create({
       data: {
         link: link.trim(),
@@ -66,9 +80,9 @@ router.post("/share", authenticate, authorizeRole("ADMIN"), async (req, res) => 
         recipients: {
           create: recipientIds.map((rid) => ({
             recipientId: rid,
-            isSeen: false,    // 🔔 new notification — not seen yet
-            isRead: false,    // optional — not clicked/opened yet
-            receivedDate: new Date(), // track when it was sent
+            isSeen: false,    // new notification — not seen yet
+            isRead: false,    // not clicked/opened yet
+            receivedDate: new Date(),
           })),
         },
       },
@@ -116,6 +130,7 @@ router.post("/share", authenticate, authorizeRole("ADMIN"), async (req, res) => 
     return res.status(500).json({ message: "Error creating shared link" });
   }
 });
+
 
 
 /**
@@ -287,9 +302,26 @@ router.delete("/received/:id", authenticate, authorizeRole("EMPLOYEE"), async (r
 /**
  * ✅ ADMIN: Update link details (link, linkType, country)
  */
-router.put("/:id", authenticate, authorizeRole("ADMIN"), async (req, res) => {
+/**
+ * ✅ ADMIN (or special employee AT014): Update link details (link, linkType, country)
+ */
+router.put("/:id", authenticate, async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    // --- normalize & debug incoming user ---
+    const rawRole = req.user?.role;
+    const rawEmployeeId = req.user?.employeeId || req.user?.employee_id || req.user?.empId;
+    const role = rawRole ? String(rawRole).trim().toUpperCase() : null;
+    const employeeId = rawEmployeeId ? String(rawEmployeeId).trim().toUpperCase() : null;
+
+    console.log("/links/:id - req.user:", JSON.stringify(req.user, null, 2));
+
+    // Allow ADMIN or the special employee AT014
+    if (!(role === "ADMIN" || (role === "EMPLOYEE" && employeeId === "AT014"))) {
+      return res.status(403).json({ message: "Forbidden: Access denied" });
+    }
+
+    // --- inputs ---
+    const id = parseInt(req.params.id, 10);
     const { link, linkType, country } = req.body;
 
     if (isNaN(id)) {
@@ -350,19 +382,32 @@ router.put("/:id", authenticate, authorizeRole("ADMIN"), async (req, res) => {
     });
 
     console.log("✅ Link updated successfully:", id);
-    res.json(updated);
+    return res.json(updated);
   } catch (err) {
     console.error("❌ Error updating link:", err);
-    res.status(500).json({ message: "Failed to update link" });
+    return res.status(500).json({ message: "Failed to update link" });
   }
 });
 
 /**
- * ✅ ADMIN: Update recipients for a link (add/remove employees)
+ * ✅ ADMIN (or special employee AT014): Update recipients for a link (add/remove employees)
  */
-router.put("/:id/recipients", authenticate, authorizeRole("ADMIN"), async (req, res) => {
+router.put("/:id/recipients", authenticate, async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    // --- normalize & debug incoming user ---
+    const rawRole = req.user?.role;
+    const rawEmployeeId = req.user?.employeeId || req.user?.employee_id || req.user?.empId;
+    const role = rawRole ? String(rawRole).trim().toUpperCase() : null;
+    const employeeId = rawEmployeeId ? String(rawEmployeeId).trim().toUpperCase() : null;
+
+    console.log("/links/:id/recipients - req.user:", JSON.stringify(req.user, null, 2));
+
+    // Allow ADMIN or the special employee AT014
+    if (!(role === "ADMIN" || (role === "EMPLOYEE" && employeeId === "AT014"))) {
+      return res.status(403).json({ message: "Forbidden: Access denied" });
+    }
+
+    const id = parseInt(req.params.id, 10);
     const { recipientIds } = req.body;
 
     if (isNaN(id)) {
@@ -398,18 +443,18 @@ router.put("/:id/recipients", authenticate, authorizeRole("ADMIN"), async (req, 
       });
     }
 
-    // Delete existing recipients
-    await prisma.receivedLink.deleteMany({
-      where: { sharedLinkId: id },
-    });
-
-    // Create new recipients
-    await prisma.receivedLink.createMany({
-      data: recipientIds.map((rid) => ({
-        sharedLinkId: id,
-        recipientId: rid,
-      })),
-    });
+    // Use a transaction so delete + create is atomic
+    await prisma.$transaction([
+      prisma.receivedLink.deleteMany({
+        where: { sharedLinkId: id },
+      }),
+      prisma.receivedLink.createMany({
+        data: recipientIds.map((rid) => ({
+          sharedLinkId: id,
+          recipientId: rid,
+        })),
+      }),
+    ]);
 
     // Fetch updated link
     const updated = await prisma.sharedLink.findUnique({
@@ -430,12 +475,13 @@ router.put("/:id/recipients", authenticate, authorizeRole("ADMIN"), async (req, 
     });
 
     console.log("✅ Recipients updated successfully for link:", id);
-    res.json(updated);
+    return res.json(updated);
   } catch (err) {
     console.error("❌ Error updating recipients:", err);
-    res.status(500).json({ message: "Failed to update recipients" });
+    return res.status(500).json({ message: "Failed to update recipients" });
   }
 });
+
 
 /**
  * ✅ EMPLOYEE: Mark all received links as seen
