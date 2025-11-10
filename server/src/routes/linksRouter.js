@@ -10,67 +10,89 @@ const prisma = new PrismaClient();
  */
 router.post("/share", authenticate, async (req, res) => {
   try {
-    // -- normalize & inspect incoming user for robust authorization --
+    // Debug: log incoming token user and body
+    console.log("POST /share - req.user:", JSON.stringify(req.user, null, 2));
+    console.log("POST /share - req.body:", JSON.stringify(req.body, null, 2));
+
+    // Normalize role/employeeId and authorize ADMIN or special employee AT014
     const rawRole = req.user?.role;
     const rawEmployeeId = req.user?.employeeId || req.user?.employee_id || req.user?.empId;
     const role = rawRole ? String(rawRole).trim().toUpperCase() : null;
     const employeeId = rawEmployeeId ? String(rawEmployeeId).trim().toUpperCase() : null;
 
-    console.log("/share - req.user:", JSON.stringify(req.user, null, 2));
-
-    // Allow ADMIN or the special employee AT014
     if (!(role === "ADMIN" || (role === "EMPLOYEE" && employeeId === "AT014"))) {
       return res.status(403).json({ message: "Forbidden: Access denied" });
     }
 
-    // -- inputs --
+    // Extract inputs
     const { link, linkType, country, recipientIds } = req.body;
 
-    // Prefer DB id from token, but keep previous fallbacks and log if missing
-    const createdById = req.user?.id || req.user?.userId;
-    if (!createdById) {
-      console.warn("⚠️ Missing user ID in token (createdById). req.user:", req.user);
-      return res.status(401).json({ message: "Invalid or missing user ID in token" });
-    }
-
-    // Validate link
+    // Basic shape validation
     if (!link || typeof link !== "string" || link.trim() === "") {
       return res.status(400).json({ message: "Valid link URL is required" });
     }
 
-    // Validate link type
     const validTypes = ["Association Type", "Industry Type", "Attendees Type", "World Wide"];
-    if (!linkType || !validTypes.includes(linkType)) {
-      return res.status(400).json({ message: "Valid link type is required" });
+    if (!linkType || typeof linkType !== "string" || !validTypes.includes(linkType)) {
+      return res.status(400).json({ message: `Valid link type is required. Acceptable: ${validTypes.join(", ")}` });
     }
 
-    // Validate country
     if (!country || typeof country !== "string" || country.trim() === "") {
       return res.status(400).json({ message: "Country is required" });
     }
 
-    // Validate recipients
     if (!Array.isArray(recipientIds) || recipientIds.length === 0) {
-      return res.status(400).json({ message: "Please select at least one employee" });
+      return res.status(400).json({ message: "Please select at least one employee (recipientIds array required)" });
     }
 
-    // Verify recipients exist and are employees
+    // Normalize/coerce recipientIds to integers (if your DB uses numeric IDs)
+    const normalizedRecipientIds = recipientIds.map((rid) => {
+      // Accept numeric or string ids
+      if (typeof rid === "number") return rid;
+      if (typeof rid === "string") return parseInt(rid, 10);
+      return NaN;
+    });
+
+    if (normalizedRecipientIds.some((id) => Number.isNaN(id))) {
+      return res.status(400).json({ message: "recipientIds must be an array of numeric IDs (or numeric strings)" });
+    }
+
+    // Resolve createdById:
+    // Prefer numeric DB id in token (req.user.id or req.user.userId). If missing, try to lookup employee by employeeId (AT014 form).
+    let createdById = req.user?.id || req.user?.userId;
+    if (!createdById && employeeId) {
+      const creator = await prisma.employee.findUnique({
+        where: { employeeId }, // assumes employeeId column is unique
+        select: { id: true, employeeId: true },
+      });
+      if (creator) {
+        createdById = creator.id;
+      } else {
+        console.warn("POST /share - could not resolve createdById from token employeeId:", employeeId);
+        return res.status(401).json({ message: "Invalid token: cannot resolve user id from token employeeId" });
+      }
+    }
+
+    if (!createdById) {
+      console.warn("POST /share - Missing user ID in token and no employeeId fallback. req.user:", req.user);
+      return res.status(401).json({ message: "Invalid or missing user ID in token" });
+    }
+
+    // Verify recipients exist and are employees (use numeric ids)
     const validRecipients = await prisma.employee.findMany({
       where: {
-        id: { in: recipientIds },
+        id: { in: normalizedRecipientIds },
         role: "EMPLOYEE",
         isActive: true,
       },
       select: { id: true },
     });
 
-    if (validRecipients.length !== recipientIds.length) {
-      return res.status(400).json({
-        message: "One or more invalid employee IDs provided",
-      });
+    if (validRecipients.length !== normalizedRecipientIds.length) {
+      return res.status(400).json({ message: "One or more invalid employee IDs provided (recipients must exist, be active employees)" });
     }
 
-    // Create Shared Link with recipients (with notification fields)
+    // Create Shared Link with recipients (use nested create)
     const shared = await prisma.sharedLink.create({
       data: {
         link: link.trim(),
@@ -78,10 +100,10 @@ router.post("/share", authenticate, async (req, res) => {
         country: country.trim(),
         createdById,
         recipients: {
-          create: recipientIds.map((rid) => ({
+          create: normalizedRecipientIds.map((rid) => ({
             recipientId: rid,
-            isSeen: false,    // new notification — not seen yet
-            isRead: false,    // not clicked/opened yet
+            isSeen: false,
+            isRead: false,
             receivedDate: new Date(),
           })),
         },
@@ -114,23 +136,23 @@ router.post("/share", authenticate, async (req, res) => {
   } catch (err) {
     console.error("❌ Error creating shared link:", err);
 
-    if (err.name === "PrismaClientValidationError") {
-      return res.status(400).json({
-        message: "Invalid data provided. Please check your inputs.",
-        error: err.message,
-      });
+    // Helpful Prisma / validation error responses for debugging
+    if (err?.name === "PrismaClientValidationError") {
+      return res.status(400).json({ message: "Invalid data provided. Please check your inputs.", error: err.message });
     }
 
-    if (err.code === "P2003") {
-      return res.status(400).json({
-        message: "Foreign key constraint failed – invalid employee IDs.",
-      });
+    if (err?.code === "P2002") { // unique constraint failed
+      return res.status(400).json({ message: "Unique constraint failed", error: err.meta || err.message });
     }
 
-    return res.status(500).json({ message: "Error creating shared link" });
+    if (err?.code === "P2003") { // foreign key
+      return res.status(400).json({ message: "Foreign key constraint failed – invalid employee IDs.", error: err.meta || err.message });
+    }
+
+    // Fallback: return a bit of detail in dev
+    return res.status(500).json({ message: "Error creating shared link", error: err?.message });
   }
 });
-
 
 
 /**
