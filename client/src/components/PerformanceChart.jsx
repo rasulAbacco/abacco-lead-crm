@@ -885,7 +885,7 @@ export default function PerformanceChart({ employees, performanceData, setSelect
 
               {/* Top 3 badge (for 2nd and 3rd place) */}
               {isTop3 && !isHighest && (
-                <div className="absolute -top-2 -right-2 bg-gradient-to-br from-cyan-400 to-blue-500 text-white text-[10px] font-black px-2 py-1 rounded-full shadow-md z-10">
+                <div className="absolute -top-2 -right-2 bg-gradient-to-br from-amber-400 to-orange-500 text-black text-[10px] font-black px-2 py-1 rounded-full shadow-md z-10">
                   #{index + 1}
                 </div>
               )}
@@ -917,7 +917,7 @@ export default function PerformanceChart({ employees, performanceData, setSelect
                     isHighest
                       ? 'bg-gradient-to-r from-amber-600 via-orange-600 to-yellow-600 bg-clip-text text-transparent animate-gradient-shift'
                       : isTop3
-                      ? 'bg-gradient-to-r from-cyan-600 to-blue-700 bg-clip-text text-transparent'
+                      ? 'bg-gradient-to-r from-amber-600 via-orange-600 to-yellow-600 bg-clip-text text-transparent'
                       : 'bg-gradient-to-r from-cyan-600 to-blue-700 bg-clip-text text-transparent'
                   }`}>
                     {emp.leads}
