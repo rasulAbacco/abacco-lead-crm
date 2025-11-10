@@ -249,40 +249,55 @@ router.get("/my", authenticate, authorizeRole("EMPLOYEE"), async (req, res) => {
 /**
  * ✅ ADMIN: Delete a shared link and all its assignments
  */
-router.delete("/:id", authenticate, authorizeRole("ADMIN"), async (req, res) => {
+// DELETE /api/links/:id  (ADMIN or special employee AT014 allowed)
+router.delete("/:id", authenticate, async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    // --- normalize & debug incoming user ---
+    const rawRole = req.user?.role;
+    const rawEmployeeId = req.user?.employeeId || req.user?.employee_id || req.user?.empId;
+    const role = rawRole ? String(rawRole).trim().toUpperCase() : null;
+    const employeeId = rawEmployeeId ? String(rawEmployeeId).trim().toUpperCase() : null;
 
-    if (isNaN(id)) {
+    console.log("DELETE /links/:id - req.user:", JSON.stringify(req.user, null, 2));
+
+    // Allow ADMIN or the special employee AT014
+    if (!(role === "ADMIN" || (role === "EMPLOYEE" && employeeId === "AT014"))) {
+      return res.status(403).json({ message: "Forbidden: Access denied" });
+    }
+
+    // --- parse and validate id ---
+    const id = parseInt(req.params.id, 10);
+    if (Number.isNaN(id)) {
       return res.status(400).json({ message: "Invalid link ID" });
     }
 
-    // Check if link exists
-    const existingLink = await prisma.sharedLink.findUnique({
-      where: { id },
-    });
-
+    // --- check existence ---
+    const existingLink = await prisma.sharedLink.findUnique({ where: { id } });
     if (!existingLink) {
       return res.status(404).json({ message: "Link not found" });
     }
 
-    // Delete all received links first (cascade)
-    await prisma.receivedLink.deleteMany({
-      where: { sharedLinkId: id },
-    });
-
-    // Delete the shared link
-    await prisma.sharedLink.delete({
-      where: { id },
-    });
+    // --- delete in a transaction (delete child receivedLink rows then the sharedLink) ---
+    await prisma.$transaction([
+      prisma.receivedLink.deleteMany({ where: { sharedLinkId: id } }),
+      prisma.sharedLink.delete({ where: { id } }),
+    ]);
 
     console.log("✅ Shared link deleted successfully:", id);
-    res.json({ message: "Shared link deleted successfully" });
+    return res.json({ message: "Shared link deleted successfully" });
   } catch (err) {
     console.error("❌ Error deleting link:", err);
-    res.status(500).json({ message: "Failed to delete link" });
+
+    // Prisma "not found" error
+    if (err?.code === "P2025") {
+      return res.status(404).json({ message: "Link not found (prisma)" });
+    }
+
+    // Foreign key / constraint errors or other issues
+    return res.status(500).json({ message: "Failed to delete link", error: err?.message });
   }
 });
+
 
 /**
  * ✅ EMPLOYEE: Delete a received link (remove from their list)
