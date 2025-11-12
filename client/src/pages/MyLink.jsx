@@ -95,7 +95,7 @@ const MyLinks = () => {
                                                         Shared Link
                                                     </p>
                                                     <a
-                                                        href={rl.sharedLink.link}
+                                                        href={`${API_URL}/api/links/open/${rl.id}`}
                                                         target="_blank"
                                                         rel="noreferrer"
                                                         className="text-indigo-600 hover:text-indigo-700 font-medium break-all inline-flex items-center gap-2 group/link"
@@ -105,6 +105,7 @@ const MyLinks = () => {
                                                         </span>
                                                         <ExternalLink className="w-4 h-4 group-hover/link:translate-x-1 transition-transform" />
                                                     </a>
+
                                                 </div>
                                             </div>
 
@@ -148,13 +149,43 @@ const MyLinks = () => {
                                                         </p>
                                                     </div>
                                                 </div>
+
+                                                <div className="flex items-center gap-3 p-3 bg-white rounded-lg  transition-all duration-200 hover:shadow-md">
+                                                    {/* Icon Container */}
+                                                    <div className={`p-2 rounded-lg ${rl.isOpen ? 'bg-gradient-to-br from-emerald-50 to-teal-50' : 'bg-gradient-to-br from-red-50 to-orange-50'} border ${rl.isOpen ? 'border-emerald-200' : 'border-red-200'} transition-all duration-300`}>
+                                                        <Tag className={`w-3 h-3 ${rl.isOpen ? 'text-emerald-600' : 'text-red-500'} transition-colors duration-300`} />
+                                                    </div>
+
+                                                    {/* Text Content */}
+                                                    <div className="space-y-0.5">
+                                                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Status</p>
+                                                        <p className={`text-sm font-medium ${rl.isOpen ? 'text-emerald-700' : 'text-red-600'}`}>
+                                                            {rl.isOpen ? (
+                                                                <span className="flex items-center gap-1">
+                                                                    <svg className="w-3.5 h-3.5 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
+                                                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                                                    </svg>
+                                                                    Opened {new Date(rl.openedAt).toLocaleDateString()}
+                                                                </span>
+                                                            ) : (
+                                                                <span className="flex items-center gap-1">
+                                                                    <svg className="w-3.5 h-3.5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                                                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                                                    </svg>
+                                                                    Not opened yet
+                                                                </span>
+                                                            )}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
                                             </div>
                                         </div>
 
                                         {/* Right Actions */}
                                         <div className="flex lg:flex-col gap-3">
                                             <a
-                                                href={rl.sharedLink.link}
+                                                href={`${API_URL}/api/links/open/${rl.id}`}
                                                 target="_blank"
                                                 rel="noreferrer"
                                                 className="flex-1 lg:flex-none px-6 py-3 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-xl hover:from-indigo-700 hover:to-blue-700 transition-all duration-300 font-medium text-center shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
@@ -162,6 +193,7 @@ const MyLinks = () => {
                                                 <ExternalLink className="w-4 h-4" />
                                                 Open Link
                                             </a>
+
                                             <button
                                                 onClick={() => handleDelete(rl.id)}
                                                 disabled={deleting === rl.id}

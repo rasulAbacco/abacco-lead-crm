@@ -608,4 +608,43 @@ router.put("/mark-read/:id", authenticate, authorizeRole("EMPLOYEE"), async (req
 });
 
 
+/**
+ * ✅ Track and redirect when employee clicks a shared link
+ * e.g. GET /api/links/open/:receivedLinkId
+ */
+// REMOVE authenticate + authorizeRole middlewares
+router.get("/open/:id", async (req, res) => {
+  try {
+    const receivedLinkId = parseInt(req.params.id, 10);
+
+    if (isNaN(receivedLinkId)) {
+      return res.status(400).json({ message: "Invalid link ID" });
+    }
+
+    // Find the record and its shared link
+    const record = await prisma.receivedLink.findUnique({
+      where: { id: receivedLinkId },
+      include: { sharedLink: true },
+    });
+
+    if (!record) {
+      return res.status(404).json({ message: "Link not found" });
+    }
+
+    // ✅ Mark as opened (no need for token; anyone opening the unique link means employee clicked it)
+    await prisma.receivedLink.update({
+      where: { id: receivedLinkId },
+      data: { isOpen: true, openedAt: new Date() },
+    });
+
+    // Redirect to actual link
+    return res.redirect(record.sharedLink.link);
+  } catch (err) {
+    console.error("❌ Error tracking open:", err);
+    res.status(500).json({ message: "Failed to track link open" });
+  }
+});
+
+
+
 export default router;
