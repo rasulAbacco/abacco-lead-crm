@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import Layout from "../components/Layout";
 import axios from "axios";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+import { GiImperialCrown, GiTargetShot, GiCalendar } from "react-icons/gi";
 
 const AllEmployees = () => {
   const [employees, setEmployees] = useState([]);
@@ -236,7 +237,7 @@ const AllEmployees = () => {
                             : "bg-white text-gray-700 border border-gray-200"
                         }`}
                       >
-                        {emp.role === "ADMIN" ? "👑 " : ""}
+                        {emp.role === "ADMIN" ? <GiImperialCrown className="h-4 w-4 mr-1 mb-1" /> : ""}
                         {emp.role || "EMPLOYEE"}
                       </span>
                     </div>
@@ -246,7 +247,7 @@ const AllEmployees = () => {
                         Target
                       </span>
                       <div className="flex items-center gap-1">
-                        <span className="text-2xl">🎯</span>
+                        <span className="text-2xl  text-purple-700"><GiTargetShot /></span>
                         <span className="font-bold text-purple-700 text-lg">
                           {emp.target}
                         </span>
@@ -258,7 +259,7 @@ const AllEmployees = () => {
                         Joined Date
                       </span>
                       <div className="flex items-center gap-2">
-                        <span className="text-lg">📅</span>
+                        <span className="text-lg"><GiCalendar /></span>
                         <span className="text-sm font-semibold text-gray-700">
                           {emp.joiningDate
                             ? new Date(emp.joiningDate).toLocaleDateString(
