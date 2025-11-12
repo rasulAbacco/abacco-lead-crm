@@ -326,11 +326,36 @@ const ShareLink = () => {
                                                         <p className="text-xs font-medium text-gray-500 mb-2">Shared with:</p>
                                                         <div className="flex flex-wrap gap-2">
                                                             {sl.recipients?.map((r) => (
+                                                                
                                                                 <span
                                                                     key={r.recipientId}
-                                                                    className="px-3 py-1 bg-purple-50 text-purple-700 rounded-full text-xs font-medium"
+                                                                    className={`
+    inline-flex items-center px-4 py-1 rounded-full text-sm font-medium transition-all duration-200
+    ${r.isOpen
+                                                                            ? "bg-gradient-to-r from-emerald-50 to-teal-50 text-emerald-800 border border-emerald-200 shadow-sm hover:shadow-md"
+                                                                            : "bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-800 border border-indigo-200 shadow-sm hover:shadow-md"
+                                                                        }
+  `}
                                                                 >
-                                                                    {r.recipient.fullName} ({r.recipient.employeeId})
+                                                                    <span className="font-semibold">{r.recipient.fullName}</span>
+                                                                    <span className="text-xs opacity-75 ml-1">({r.recipient.employeeId})</span>
+                                                                    <span className={`ml-2 flex items-center ${r.isOpen ? "text-emerald-600" : "text-indigo-600"}`}>
+                                                                        {r.isOpen ? (
+                                                                            <>
+                                                                                <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                                                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                                                                </svg>
+                                                                                Opened
+                                                                            </>
+                                                                        ) : (
+                                                                                <p className="text-red-500 flex items-center justify-center" >
+                                                                                <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                                                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                                                                </svg>
+                                                                                Not Opened
+                                                                            </p>
+                                                                        )}
+                                                                    </span>
                                                                 </span>
                                                             ))}
                                                         </div>

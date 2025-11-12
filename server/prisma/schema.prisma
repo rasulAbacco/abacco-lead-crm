@@ -87,6 +87,9 @@ model ReceivedLink {
   isRead Boolean   @default(false)
   seenAt DateTime?
 
+  isOpen   Boolean   @default(false)
+  openedAt DateTime?
+
   @@unique([sharedLinkId, recipientId]) // Prevent duplicate assignments
   @@index([recipientId])
   @@index([sharedLinkId])
