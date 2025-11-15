@@ -359,7 +359,7 @@ const ShareLink = () => {
                                         // Original card content
                                         <>
                                             <div className="mt-3 ml-7">
-                                                <span className="px-3 py-1 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-full text-sm font-bold">
+                                                <span className="px-3 py-1 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-full text-sm font-semibold">
                                                     Shared by: {sl.createdBy?.fullName} ({sl.createdBy?.employeeId})
                                                 </span>
                                             </div>
@@ -402,8 +402,8 @@ const ShareLink = () => {
                                                                     <Tag className="w-5 h-5 text-blue-600" />
                                                                 </div>
                                                                 <div>
-                                                                    <p className="text-sm font-bold text-gray-500">Type</p>
-                                                                    <p className="text-base font-bold text-gray-900">{sl.linkType}</p>
+                                                                    <p className="text-sm font-semibold text-gray-500">Type</p>
+                                                                    <p className="text-base font-semibold text-gray-900">{sl.linkType}</p>
                                                                 </div>
                                                             </div>
                                                             <div className="flex items-center gap-2">
@@ -411,8 +411,8 @@ const ShareLink = () => {
                                                                     <Globe className="w-5 h-5 text-green-600" />
                                                                 </div>
                                                                 <div>
-                                                                    <p className="text-sm font-bold text-gray-500">Country</p>
-                                                                    <p className="text-base font-bold text-gray-900">{sl.country.toUpperCase()}</p>
+                                                                    <p className="text-sm font-semibold text-gray-500">Country</p>
+                                                                    <p className="text-base font-semibold text-gray-900">{sl.country.toUpperCase()}</p>
                                                                 </div>
                                                             </div>
                                                             <div className="flex items-center gap-2">
@@ -420,8 +420,8 @@ const ShareLink = () => {
                                                                     <Users className="w-5 h-5 text-orange-600" />
                                                                 </div>
                                                                 <div>
-                                                                    <p className="text-sm font-bold text-gray-500">Recipients</p>
-                                                                    <p className="text-base font-bold text-gray-900">
+                                                                    <p className="text-sm font-semibold text-gray-500">Recipients</p>
+                                                                    <p className="text-base font-semibold text-gray-900">
                                                                         {sl.recipients?.length || 0} employees
                                                                     </p>
                                                                 </div>
@@ -430,7 +430,7 @@ const ShareLink = () => {
 
                                                         {/* Recipients List */}
                                                         <div>
-                                                            <p className="text-sm font-bold text-gray-500 mb-2">Shared with:</p>
+                                                            <p className="text-sm font-semibold text-gray-500 mb-2">Shared with:</p>
                                                             <div className="flex flex-wrap gap-2">
                                                                 {sl.recipients?.map((r) => (
                                                                     <span
@@ -440,7 +440,7 @@ const ShareLink = () => {
                                                                             : "bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-800 border border-indigo-200 shadow-sm hover:shadow-md"
                                                                             }`}
                                                                     >
-                                                                        <span className="font-bold">{r.recipient.fullName}</span>
+                                                                        <span className="font-semibold">{r.recipient.fullName}</span>
                                                                         <span className="text-xs opacity-75 ml-1">({r.recipient.employeeId})</span>
                                                                         <span className={`ml-2 flex items-center ${r.isOpen ? "text-emerald-600" : "text-indigo-600"}`}>
                                                                             {r.isOpen ? (
