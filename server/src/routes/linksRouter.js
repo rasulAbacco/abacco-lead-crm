@@ -8,14 +8,11 @@ const prisma = new PrismaClient();
 /**
  * ✅ ADMIN: Share a new link with employees
  */
+// inside linksRouter.js (replace previous /share implementation)
 router.post("/share", authenticate, async (req, res) => {
   try {
-    console.log("POST /share - req.user:", JSON.stringify(req.user, null, 2));
-    console.log("POST /share - req.body:", JSON.stringify(req.body, null, 2));
-
-    // Authorization (ADMIN or special employee AT014)
     const rawRole = req.user?.role;
-    const rawEmployeeId = req.user?.employeeId || req.user?.employee_id || req.user?.empId;
+    const rawEmployeeId = req.user?.employeeId;
     const role = rawRole ? String(rawRole).trim().toUpperCase() : null;
     const employeeId = rawEmployeeId ? String(rawEmployeeId).trim().toUpperCase() : null;
 
@@ -23,135 +20,112 @@ router.post("/share", authenticate, async (req, res) => {
       return res.status(403).json({ message: "Forbidden: Access denied" });
     }
 
-    // Inputs
-    const { link, linkType, country, recipientIds } = req.body;
+    const { links, linkType, country, recipientIds } = req.body;
 
-    // Basic validation
-    if (!link || typeof link !== "string" || link.trim() === "") {
-      return res.status(400).json({ message: "Valid link URL is required" });
+    // Validate links
+    if (!Array.isArray(links) || links.length === 0) {
+      return res.status(400).json({ message: "links must be a non-empty array" });
     }
+
+    const cleanedLinks = links
+      .map((u) => (typeof u === "string" ? u.trim() : ""))
+      .filter(Boolean);
+
+    if (cleanedLinks.length === 0) {
+      return res.status(400).json({ message: "At least one valid URL is required" });
+    }
+
+    // Validate type
     const validTypes = ["Association Type", "Industry Type", "Attendees Type", "World Wide"];
-    if (!linkType || typeof linkType !== "string" || !validTypes.includes(linkType)) {
-      return res.status(400).json({ message: `Valid link type is required. One of: ${validTypes.join(", ")}` });
+    if (!validTypes.includes(linkType)) {
+      return res.status(400).json({ message: "Invalid link type" });
     }
-    if (!country || typeof country !== "string" || country.trim() === "") {
-      return res.status(400).json({ message: "Country is required" });
+
+    if (!country.trim()) {
+      return res.status(400).json({ message: "Country required" });
     }
+
     if (!Array.isArray(recipientIds) || recipientIds.length === 0) {
-      return res.status(400).json({ message: "Please select at least one employee (recipientIds array required)" });
+      return res.status(400).json({ message: "recipientIds must be non-empty array" });
     }
 
-    // Normalize recipientIds to numeric IDs
-    const normalizedRecipientIds = recipientIds.map((rid) => {
-      if (typeof rid === "number") return rid;
-      if (typeof rid === "string") return parseInt(rid, 10);
-      return NaN;
-    });
-    if (normalizedRecipientIds.some((id) => Number.isNaN(id))) {
-      return res.status(400).json({ message: "recipientIds must be an array of numeric IDs (or numeric strings)" });
-    }
+    const normalizedRecipientIds = recipientIds.map((id) => Number(id));
 
-    // Resolve createdById (prefer DB id in token, else lookup by employeeId)
-    let createdById = req.user?.id || req.user?.userId;
-    if (!createdById && employeeId) {
-      const creator = await prisma.employee.findUnique({
-        where: { employeeId }, // assumes employeeId column is unique
-        select: { id: true },
-      });
-      if (creator) createdById = creator.id;
-      else return res.status(401).json({ message: "Invalid token: cannot resolve user id from token employeeId" });
-    }
-    if (!createdById) return res.status(401).json({ message: "Invalid or missing user ID in token" });
-
-    // Verify recipients exist and are active employees
+    // Validate recipients exist
     const validRecipients = await prisma.employee.findMany({
       where: { id: { in: normalizedRecipientIds }, role: "EMPLOYEE", isActive: true },
       select: { id: true },
     });
+
     if (validRecipients.length !== normalizedRecipientIds.length) {
-      return res.status(400).json({ message: "One or more invalid employee IDs provided" });
+      return res.status(400).json({ message: "Invalid employee IDs" });
     }
 
-    // Attempt to create with the richer payload (with isSeen/isRead). If Prisma complains about unknown args,
-    // retry with a minimal payload (recipientId only / plus receivedDate if you want).
-    const nestedCreateWithFlags = normalizedRecipientIds.map((rid) => ({
+    // Resolve createdById
+    let createdById = req.user?.id || req.user?.userId;
+    if (!createdById && employeeId) {
+      const emp = await prisma.employee.findUnique({
+        where: { employeeId },
+        select: { id: true },
+      });
+      createdById = emp?.id;
+    }
+
+    if (!createdById) {
+      return res.status(401).json({ message: "Cannot resolve creator ID" });
+    }
+
+    // Build URL entries
+    const urlCreateObjects = cleanedLinks.map((u) => ({ url: u }));
+
+    // Build recipients
+    const recipientCreateObjects = normalizedRecipientIds.map((rid) => ({
       recipientId: rid,
+      receivedDate: new Date(),
       isSeen: false,
       isRead: false,
-      receivedDate: new Date(),
+      isOpen: false,
     }));
 
-    let shared;
-    try {
-      shared = await prisma.sharedLink.create({
-        data: {
-          link: link.trim(),
-          linkType,
-          country: country.trim(),
-          createdById,
-          recipients: { create: nestedCreateWithFlags },
-        },
-        include: {
-          recipients: {
-            include: {
-              recipient: { select: { id: true, employeeId: true, fullName: true, email: true } },
-            },
-          },
-          createdBy: { select: { id: true, employeeId: true, fullName: true } },
-        },
-      });
-    } catch (innerErr) {
-      // If Prisma complains about unknown argument(s) like isSeen/isRead, retry with a safe minimal payload.
-      const msg = innerErr?.message || String(innerErr);
-      console.warn("POST /share - initial Prisma create failed:", msg);
+    // MAIN CREATE
+    const created = await prisma.sharedLink.create({
+      data: {
+        linkType,
+        country,
+        createdById,
 
-      // Detect unknown-argument error for isSeen/isRead (common message includes 'Unknown argument `isSeen`')
-      if (msg.includes("Unknown argument") || msg.includes("Unknown field")) {
-        const minimalRecipients = normalizedRecipientIds.map((rid) => ({
-          recipientId: rid,
-          // keep receivedDate if your schema likely supports it; if not, remove it
-          receivedDate: new Date(),
-        }));
+        // New multiple-URL creation
+        urls: {
+          create: urlCreateObjects,
+        },
 
-        // Retry with minimal payload (recipientId [+ receivedDate])
-        shared = await prisma.sharedLink.create({
-          data: {
-            link: link.trim(),
-            linkType,
-            country: country.trim(),
-            createdById,
-            recipients: { create: minimalRecipients },
-          },
+        // Create recipient records
+        recipients: {
+          create: recipientCreateObjects,
+        },
+
+        // Legacy: Store first URL in old `link`
+        link: cleanedLinks[0] || null,
+      },
+      include: {
+        urls: true,
+        createdBy: true,
+        recipients: {
           include: {
-            recipients: {
-              include: {
-                recipient: { select: { id: true, employeeId: true, fullName: true, email: true } },
-              },
-            },
-            createdBy: { select: { id: true, employeeId: true, fullName: true } },
+            recipient: true,
           },
-        });
-      } else {
-        // Not an unknown-argument issue — rethrow to be handled below
-        throw innerErr;
-      }
-    }
+        },
+      },
+    });
 
-    console.log("✅ Shared link created successfully:", shared.id);
-    return res.status(201).json(shared);
+    res.status(201).json(created);
   } catch (err) {
-    console.error("❌ Error creating shared link:", err);
-
-    if (err?.name === "PrismaClientValidationError") {
-      return res.status(400).json({ message: "Invalid data provided. Please check your inputs.", error: err.message });
-    }
-    if (err?.code === "P2003") {
-      return res.status(400).json({ message: "Foreign key constraint failed – invalid employee IDs." });
-    }
-    // Return Prisma message for quicker debugging in dev
-    return res.status(400).json({ message: err?.message || "Error creating shared link" });
+    console.error("❌ Error in POST /share:", err);
+    res.status(400).json({ message: err.message || "Failed to share" });
   }
 });
+
+
 
 
 
@@ -160,22 +134,19 @@ router.post("/share", authenticate, async (req, res) => {
  */
 router.get("/shared-info", authenticate, async (req, res) => {
   try {
-    const { role, employeeId } = req.user || {};
+    const { role, employeeId } = req.user;
 
-    // ✅ Only allow Admin or specific Employee ID AT014
     if (!(role === "ADMIN" || (role === "EMPLOYEE" && employeeId === "AT014"))) {
       return res.status(403).json({ message: "Forbidden: Access denied" });
     }
 
-    // ✅ Original logic
     const links = await prisma.sharedLink.findMany({
       include: {
         createdBy: {
-          select: {
-            id: true,
-            employeeId: true,
-            fullName: true,
-          },
+          select: { id: true, employeeId: true, fullName: true },
+        },
+        urls: {
+          select: { id: true, url: true },
         },
         recipients: {
           include: {
@@ -188,20 +159,30 @@ router.get("/shared-info", authenticate, async (req, res) => {
               },
             },
           },
-          orderBy: {
-            receivedDate: "desc",
-          },
+          orderBy: { receivedDate: "desc" },
         },
       },
       orderBy: { createdAt: "desc" },
     });
 
-    res.json(Array.isArray(links) ? links : []);
+    const result = links.map((sl) => ({
+  ...sl,
+  allUrls:
+    sl.urls && sl.urls.length > 0
+      ? sl.urls.map((u) => ({ id: u.id, url: u.url }))
+      : sl.link
+      ? [{ id: null, url: sl.link }]
+      : []
+}));
+
+res.json(result);
+
   } catch (err) {
-    console.error("❌ Error fetching shared info:", err);
-    res.status(500).json({ message: "Failed to load shared info" });
+    console.error("❌ Error in GET /shared-info:", err);
+    res.status(500).json({ message: "Failed to load shared links" });
   }
 });
+
 
 
 /**
@@ -211,15 +192,12 @@ router.get("/my", authenticate, authorizeRole("EMPLOYEE"), async (req, res) => {
   try {
     const userId = req.user.id || req.user.userId;
 
-    if (!userId) {
-      return res.status(401).json({ message: "Invalid user ID in token" });
-    }
-
     const recs = await prisma.receivedLink.findMany({
       where: { recipientId: userId },
       include: {
         sharedLink: {
           include: {
+            urls: true, // ⭐ IMPORTANT: include new multi-URL field
             createdBy: {
               select: {
                 id: true,
@@ -239,12 +217,14 @@ router.get("/my", authenticate, authorizeRole("EMPLOYEE"), async (req, res) => {
       },
       orderBy: { receivedDate: "desc" },
     });
-    res.json(Array.isArray(recs) ? recs : []);
+
+    res.json(recs);
   } catch (err) {
     console.error("❌ Error fetching employee links:", err);
     res.status(500).json({ message: "Failed to load employee links" });
   }
 });
+
 
 /**
  * ✅ ADMIN: Delete a shared link and all its assignments
@@ -613,37 +593,39 @@ router.put("/mark-read/:id", authenticate, authorizeRole("EMPLOYEE"), async (req
  * e.g. GET /api/links/open/:receivedLinkId
  */
 // REMOVE authenticate + authorizeRole middlewares
-router.get("/open/:id", async (req, res) => {
+router.get("/open/:urlId", async (req, res) => {
   try {
-    const receivedLinkId = parseInt(req.params.id, 10);
-
-    if (isNaN(receivedLinkId)) {
-      return res.status(400).json({ message: "Invalid link ID" });
+    const urlId = Number(req.params.urlId);
+    if (isNaN(urlId)) {
+      return res.status(400).json({ message: "Invalid URL ID" });
     }
 
-    // Find the record and its shared link
-    const record = await prisma.receivedLink.findUnique({
-      where: { id: receivedLinkId },
+    // Find the URL and its sharedLink
+    const urlEntry = await prisma.sharedLinkUrl.findUnique({
+      where: { id: urlId },
       include: { sharedLink: true },
     });
 
-    if (!record) {
-      return res.status(404).json({ message: "Link not found" });
+    if (!urlEntry) {
+      return res.status(404).json({ message: "URL not found" });
     }
 
-    // ✅ Mark as opened (no need for token; anyone opening the unique link means employee clicked it)
-    await prisma.receivedLink.update({
-      where: { id: receivedLinkId },
-      data: { isOpen: true, openedAt: new Date() },
+    // Mark ALL recipients of this SharedLink as "opened"
+    await prisma.receivedLink.updateMany({
+      where: { sharedLinkId: urlEntry.sharedLinkId },
+      data: {
+        isOpen: true,
+        openedAt: new Date(),
+      },
     });
 
-    // Redirect to actual link
-    return res.redirect(record.sharedLink.link);
+    return res.redirect(urlEntry.url);
   } catch (err) {
-    console.error("❌ Error tracking open:", err);
-    res.status(500).json({ message: "Failed to track link open" });
+    console.error("❌ Error in GET /open/:urlId:", err);
+    res.status(500).json({ message: "Failed to open URL" });
   }
 });
+
 
 
 
