@@ -295,35 +295,36 @@ router.post("/leads/:id/forward", async (req, res) => {
       return res.status(404).json({ error: "Lead not found" });
     }
 
-    console.log(
-      "🟢 Lead fetched successfully:",
-      existingLead.id,
-      existingLead.email
-    );
+    console.log("🟢 Lead fetched successfully:", existingLead.id);
 
     // Build payload for Sales CRM
     const payload = {
-      clientEmail: existingLead.clientEmail,
-      leadEmail: existingLead.leadEmail,
-      ccEmail: existingLead.ccEmail,
+      client: existingLead.clientEmail,
+      email: existingLead.leadEmail,
+      cc: existingLead.ccEmail,
       phone: existingLead.phone,
       country: existingLead.country,
-      subjectLine: existingLead.subjectLine,
-      emailPitch: existingLead.emailPitch,
-      // emailResponce: existingLead.emailResponce,
+      subject: existingLead.subjectLine,
+      body: existingLead.emailPitch,
       leadType: existingLead.leadType,
       createdAt: existingLead.createdAt,
       empId: existingLead.employeeId || null,
+
+      // 👇 OPTIONAL (currently always null unless you add it later)
+      leadDetailsId: null,
     };
 
     console.log("📤 Sending payload to Sales CRM:", payload);
 
     // Send to Sales CRM
-    const crmResponse = await fetch("https://abacco-sales-crm.onrender.com/api/sales/leads", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    const crmResponse = await fetch(
+      "https://abacco-sales-crm.onrender.com/api/sales/leads",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }
+    );
 
     const crmData = await crmResponse.json();
     console.log("✅ Sales CRM Response:", crmData);
@@ -347,7 +348,6 @@ router.post("/leads/:id/forward", async (req, res) => {
         ccEmail: true,
         subjectLine: true,
         emailPitch: true,
-        // emailResponce: true,
         phone: true,
         country: true,
         leadType: true,
