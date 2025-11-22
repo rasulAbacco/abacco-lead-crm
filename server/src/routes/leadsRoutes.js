@@ -15,16 +15,23 @@ const prisma = new PrismaClient();
 // ==========================================================
 
 
+// ==========================================================
+// ✅ Create Lead (Central USA Time) — Updated with Domain + Keyword Subject Match
+// ==========================================================
+
 router.post("/", async (req, res) => {
   try {
     const { leads } = req.body;
 
     if (!Array.isArray(leads) || leads.length === 0) {
-      return res.status(400).json({ success: false, message: "No leads provided" });
+      return res.status(400).json({
+        success: false,
+        message: "No leads provided",
+      });
     }
 
     const lead = leads[0];
-    const { id, clientEmail, link, subjectLine, date } = lead;
+    const { clientEmail, link, subjectLine, date } = lead;
 
     if (!clientEmail || !link || !subjectLine) {
       return res.status(400).json({
@@ -33,8 +40,11 @@ router.post("/", async (req, res) => {
       });
     }
 
-    // Normalize email and link
+    // -----------------------------------------------------------
+    // Normalizers
+    // -----------------------------------------------------------
     const normalizeEmail = (e) => (e || "").trim().toLowerCase();
+
     const normalizeLink = (raw) => {
       if (!raw) return "";
       let s = raw.trim();
@@ -43,56 +53,112 @@ router.post("/", async (req, res) => {
         const u = new URL(s);
         u.hash = "";
         u.searchParams.forEach((v, k) => {
-          if (k.startsWith("utm_") || ["fbclid", "gclid"].includes(k))
+          if (k.startsWith("utm_") || ["fbclid", "gclid"].includes(k)) {
             u.searchParams.delete(k);
+          }
         });
-        u.pathname = u.pathname.replace(/\/+$/, "");
-        return `${u.protocol}//${u.hostname}${u.pathname}${u.search || ""}`.toLowerCase();
+        return `${u.protocol}//${u.hostname}${u.pathname.replace(/\/+$/, "")}`;
       } catch {
-        return s.replace(/\/+$/, "").toLowerCase();
+        return s.replace(/\/+$/, "");
       }
     };
 
-    // Normalize subject line
-    const normalizeSubject = (s) => {
-      if (!s) return "";
-      return s.trim().toLowerCase();
+    const normalizeSubject = (s) => (s || "").trim().toLowerCase();
+
+    // -----------------------------------------------------------
+    // NEW: Extract Domain Only
+    // -----------------------------------------------------------
+    const extractDomain = (raw) => {
+      try {
+        const u = new URL(normalizeLink(raw));
+        return u.hostname.toLowerCase();
+      } catch {
+        return "";
+      }
     };
 
-    const normalizedClientEmail = normalizeEmail(clientEmail);
-    const normalizedLink = normalizeLink(link);
-    const normalizedSubjectLine = normalizeSubject(subjectLine);
+    // -----------------------------------------------------------
+    // NEW: Keyword Extraction
+    // Removes filler words like: list, mailing, professionals, verified, etc.
+    // -----------------------------------------------------------
+    const extractKeywords = (text) => {
+      if (!text) return [];
+      const blacklist = [
+        "list",
+        "mailing",
+        "verified",
+        "professional",
+        "professionals",
+        "email",
+        "contacts",
+        "contact",
+        "database"
+      ];
 
-    // Prevent duplicates (within last 3 months)
+      return text
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((w) => w && !blacklist.includes(w));
+    };
+
+    // Apply Normalization
+    const normalizedEmail = normalizeEmail(clientEmail);
+    const normalizedLink = normalizeLink(link);
+    const normalizedSubject = normalizeSubject(subjectLine);
+    const domain = extractDomain(normalizedLink);
+    const subjectKeywords = extractKeywords(normalizedSubject);
+
+    // -----------------------------------------------------------
+    // NEW: Duplicate Logic (Last 3 months)
+    // -----------------------------------------------------------
     const threeMonthsAgo = new Date();
     threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
 
-    const existingLead = await prisma.lead.findFirst({
+    // Fetch all leads from same domain + email (within 3 months)
+    const possibleDuplicates = await prisma.lead.findMany({
       where: {
-        clientEmail: normalizedClientEmail,
-        link: normalizedLink,
-        subjectLine: normalizedSubjectLine, // Added subjectLine to duplicate check
-        createdAt: { gte: threeMonthsAgo },
-      },
+        clientEmail: normalizedEmail,
+        createdAt: { gte: threeMonthsAgo }
+      }
     });
 
-    if (existingLead) {
-      const retryAfter = new Date(existingLead.createdAt);
+    // Check keyword similarity
+    const isSubjectSimilar = (a, b) => {
+      const aWords = extractKeywords(a);
+      const bWords = extractKeywords(b);
+      return aWords.join(" ") === bWords.join(" ");
+    };
+
+    const foundDuplicate = possibleDuplicates.find((item) => {
+      const itemDomain = extractDomain(item.link);
+      const itemSubject = item.subjectLine;
+
+      const sameDomain = itemDomain === domain;
+      const sameSubjectMeaning =
+        isSubjectSimilar(itemSubject, normalizedSubject);
+
+      return sameDomain && sameSubjectMeaning;
+    });
+
+    if (foundDuplicate) {
+      const retryAfter = new Date(foundDuplicate.createdAt);
       retryAfter.setMonth(retryAfter.getMonth() + 3);
-      const remainingDays = Math.ceil((retryAfter - new Date()) / (1000 * 60 * 60 * 24));
+      const remainingDays = Math.ceil(
+        (retryAfter - new Date()) / (1000 * 60 * 60 * 24)
+      );
 
       return res.status(400).json({
         success: false,
         duplicate: true,
-        message: `Duplicate found (created on ${existingLead.createdAt.toLocaleDateString(
-          "en-IN"
-        )}). You can resubmit after ${remainingDays} day(s).`,
-        existingDate: existingLead.createdAt,
+        message: `This lead looks similar to one already submitted within the last 3 months.`,
+        reason: "Same domain and similar subject meaning.",
         retryAfterDays: remainingDays,
       });
     }
 
-    // ✅ Use Central USA timezone-based UTC date
+    // -----------------------------------------------------------
+    // Save Lead
+    // -----------------------------------------------------------
     const usaDate = getUSADateTime();
     const utcDate = fromZonedTime(usaDate, "America/Chicago");
 
@@ -101,10 +167,9 @@ router.post("/", async (req, res) => {
     const newLead = await prisma.lead.create({
       data: {
         ...leadData,
-        clientEmail: normalizedClientEmail,
+        clientEmail: normalizedEmail,
         link: normalizedLink,
-        subjectLine: normalizedSubjectLine, // Store normalized subject line
-        // ✅ FIXED: ensure selected date falls in US day (noon CST)
+        subjectLine: normalizedSubject,
         date: date
           ? fromZonedTime(`${date}T12:00:00`, "America/Chicago")
           : utcDate,
@@ -114,16 +179,13 @@ router.post("/", async (req, res) => {
     return res.status(201).json({ success: true, lead: newLead });
   } catch (error) {
     console.error("❌ Error creating lead:", error);
-    if (error.code === "P2002") {
-      return res.status(400).json({
-        success: false,
-        duplicate: true,
-        message: "Duplicate lead already exists.",
-      });
-    }
-    return res.status(500).json({ success: false, message: "Server error" });
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
   }
 });
+
 
 // ==========================================================
 // ✅ Get all leads by employee ID

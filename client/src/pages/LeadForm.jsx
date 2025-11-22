@@ -234,9 +234,8 @@ const LeadForm = () => {
                   name="agentName"
                   value={formData.agentName}
                   onChange={handleChange}
-                  className={`w-full pl-10 pr-4 py-3 border rounded-lg ${
-                    errors.agentName ? "border-red-500" : "border-gray-300"
-                  }`}
+                  className={`w-full pl-10 pr-4 py-3 border rounded-lg ${errors.agentName ? "border-red-500" : "border-gray-300"
+                    }`}
                   placeholder="Enter agent full name"
                 />
               </div>
@@ -275,9 +274,8 @@ const LeadForm = () => {
                 name="clientEmail"
                 value={formData.clientEmail}
                 onChange={handleChange}
-                className={`w-full px-4 py-3 border rounded-lg ${
-                  errors.clientEmail ? "border-red-500" : "border-gray-300"
-                }`}
+                className={`w-full px-4 py-3 border rounded-lg ${errors.clientEmail ? "border-red-500" : "border-gray-300"
+                  }`}
                 placeholder="client@company.com"
               />
               {errors.clientEmail && (
@@ -295,9 +293,8 @@ const LeadForm = () => {
                 name="leadEmail"
                 value={formData.leadEmail}
                 onChange={handleChange}
-                className={`w-full px-4 py-3 border rounded-lg ${
-                  errors.leadEmail ? "border-red-500" : "border-gray-300"
-                }`}
+                className={`w-full px-4 py-3 border rounded-lg ${errors.leadEmail ? "border-red-500" : "border-gray-300"
+                  }`}
                 placeholder="lead@company.com"
               />
               {errors.leadEmail && (
@@ -315,9 +312,8 @@ const LeadForm = () => {
                 name="ccEmail"
                 value={formData.ccEmail}
                 onChange={handleChange}
-                className={`w-full px-4 py-3 border rounded-lg ${
-                  errors.ccEmail ? "border-red-500" : "border-gray-300"
-                }`}
+                className={`w-full px-4 py-3 border rounded-lg ${errors.ccEmail ? "border-red-500" : "border-gray-300"
+                  }`}
                 placeholder="manager@company.com"
               />
               {errors.ccEmail && (
@@ -335,9 +331,8 @@ const LeadForm = () => {
                 name="website"
                 value={formData.website}
                 onChange={handleChange}
-                className={`w-full px-4 py-3 border rounded-lg ${
-                  errors.website ? "border-red-500" : "border-gray-300"
-                }`}
+                className={`w-full px-4 py-3 border rounded-lg ${errors.website ? "border-red-500" : "border-gray-300"
+                  }`}
                 placeholder="https://website.com"
               />
               {errors.website && (
@@ -355,9 +350,8 @@ const LeadForm = () => {
                 name="link"
                 value={formData.link}
                 onChange={handleChange}
-                className={`w-full px-4 py-3 border rounded-lg ${
-                  errors.link ? "border-red-500" : "border-gray-300"
-                }`}
+                className={`w-full px-4 py-3 border rounded-lg ${errors.link ? "border-red-500" : "border-gray-300"
+                  }`}
                 placeholder="https://link.com"
               />
               {errors.link && (
@@ -375,9 +369,8 @@ const LeadForm = () => {
                 name="phone"
                 value={formData.phone}
                 onChange={handleChange}
-                className={`w-full px-4 py-3 border rounded-lg ${
-                  errors.phone ? "border-red-500" : "border-gray-300"
-                }`}
+                className={`w-full px-4 py-3 border rounded-lg ${errors.phone ? "border-red-500" : "border-gray-300"
+                  }`}
                 placeholder="+1 (555) 123-4567"
               />
               {errors.phone && (
@@ -425,9 +418,8 @@ const LeadForm = () => {
                 name="subjectLine"
                 value={formData.subjectLine}
                 onChange={handleChange}
-                className={`w-full px-4 py-3 border rounded-lg ${
-                  errors.subjectLine ? "border-red-500" : "border-gray-300"
-                }`}
+                className={`w-full px-4 py-3 border rounded-lg ${errors.subjectLine ? "border-red-500" : "border-gray-300"
+                  }`}
                 placeholder="Partnership Opportunity"
               />
               {errors.subjectLine && (
@@ -444,9 +436,8 @@ const LeadForm = () => {
                 name="emailPitch"
                 value={formData.emailPitch}
                 onChange={handleChange}
-                className={`w-full px-4 py-3 border rounded-lg resize-none ${
-                  errors.emailPitch ? "border-red-500" : "border-gray-300"
-                }`}
+                className={`w-full px-4 py-3 border rounded-lg resize-none ${errors.emailPitch ? "border-red-500" : "border-gray-300"
+                  }`}
                 rows="5"
                 placeholder="Enter your professional email pitch here..."
               />
@@ -464,9 +455,8 @@ const LeadForm = () => {
                 name="emailResponce"
                 value={formData.emailResponce}
                 onChange={handleChange}
-                className={`w-full px-4 py-3 border rounded-lg resize-none ${
-                  errors.emailResponce ? "border-red-500" : "border-gray-300"
-                }`}
+                className={`w-full px-4 py-3 border rounded-lg resize-none ${errors.emailResponce ? "border-red-500" : "border-gray-300"
+                  }`}
                 rows="5"
                 placeholder="Enter your professional email Response here..."
               />
@@ -481,11 +471,10 @@ const LeadForm = () => {
                 type="submit"
                 disabled={isSubmitting}
                 className={`flex-1 flex items-center justify-center gap-3 px-6 py-3 font-medium rounded-lg
-    ${
-      isSubmitting
-        ? "bg-blue-600 opacity-70 cursor-not-allowed"
-        : "bg-blue-600 hover:bg-blue-700 text-white"
-    }`}
+    ${isSubmitting
+                    ? "bg-blue-600 opacity-70 cursor-not-allowed"
+                    : "bg-blue-600 hover:bg-blue-700 text-white"
+                  }`}
               >
                 {isSubmitting ? (
                   <>
