@@ -65,7 +65,7 @@ router.post("/", async (req, res) => {
 
     // Prevent duplicates (within last 3 months)
     const threeMonthsAgo = new Date();
-    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 2);
 
     // const existingLead = await prisma.lead.findFirst({
     //   where: {
