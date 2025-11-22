@@ -95,6 +95,76 @@ export default function AllLeadsTable() {
   }, [leads]);
 
   // Filtering logic
+  // const filteredLeads = useMemo(() => {
+  //   return leads
+  //     .filter((lead) => {
+  //       const leadTypeMatch =
+  //         filters.leadType === "all" ||
+  //         String(lead.leadType || "")
+  //           .trim()
+  //           .toLowerCase() === filters.leadType.toLowerCase();
+
+  //       const employeeMatch =
+  //         filters.employee === "all" ||
+  //         // String(lead.employeeId).trim() === filters.employee;
+  //         String(lead.employeeId) === String(filters.employee);
+
+
+  //       const fromDateMatch =
+  //         !filters.fromDate ||
+  //         new Date(lead.date) >= new Date(filters.fromDate);
+  //       const toDateMatch =
+  //         !filters.toDate || new Date(lead.date) <= new Date(filters.toDate);
+
+  //       const searchMatch =
+  //         filters.search === "" ||
+  //         [
+  //           lead.employeeId,
+  //           lead.employee?.fullName,
+  //           lead.agentName,
+  //           lead.clientEmail,
+  //           lead.leadEmail,
+  //           lead.ccEmail,
+  //           lead.leadType,
+  //           lead.subjectLine,
+  //           lead.country,
+  //           lead.phone, // ✅ Include phone number in search
+  //         ].some((field) =>
+  //           (field || "")
+  //             .toString()
+  //             .toLowerCase()
+  //             .includes(filters.search.toLowerCase())
+  //         );
+
+  //       const leadEmailMatch =
+  //         filters.leadEmail === "all" ||
+  //         (lead.leadEmail &&
+  //           lead.leadEmail.toLowerCase() === filters.leadEmail.toLowerCase());
+
+  //       return (
+  //         leadTypeMatch &&
+  //         employeeMatch &&
+  //         fromDateMatch &&
+  //         toDateMatch &&
+  //         searchMatch &&
+  //         leadEmailMatch
+  //       );
+  //     })
+  //     .sort((a, b) => {
+  //       switch (filters.sortBy) {
+  //         case "id-asc":
+  //           return a.id - b.id;
+  //         case "id-desc":
+  //           return b.id - a.id;
+  //         case "date-asc":
+  //           return new Date(a.date) - new Date(b.date);
+  //         case "date-desc":
+  //           return new Date(b.date) - new Date(a.date);
+  //         default:
+  //           return 0;
+  //       }
+  //     });
+  // }, [leads, filters]);
   const filteredLeads = useMemo(() => {
     return leads
       .filter((lead) => {
@@ -104,14 +174,26 @@ export default function AllLeadsTable() {
             .trim()
             .toLowerCase() === filters.leadType.toLowerCase();
 
+        // ✅ Employee filter fixed
         const employeeMatch =
           filters.employee === "all" ||
-          String(lead.employeeId).trim() === filters.employee;
+          String(lead.employeeId) === String(filters.employee);
+
+        // ✅ Date normalization (prevents timezone issues)
+        const leadDate = lead.date
+          ? new Date(lead.date).setHours(0, 0, 0, 0)
+          : null;
 
         const fromDateMatch =
-          !filters.fromDate || new Date(lead.date) >= new Date(filters.fromDate);
+          !filters.fromDate ||
+          (leadDate !== null &&
+            leadDate >=
+            new Date(filters.fromDate).setHours(0, 0, 0, 0));
+
         const toDateMatch =
-          !filters.toDate || new Date(lead.date) <= new Date(filters.toDate);
+          !filters.toDate ||
+          (leadDate !== null &&
+            leadDate <= new Date(filters.toDate).setHours(0, 0, 0, 0));
 
         const searchMatch =
           filters.search === "" ||
@@ -125,7 +207,7 @@ export default function AllLeadsTable() {
             lead.leadType,
             lead.subjectLine,
             lead.country,
-            lead.phone, // ✅ Include phone number in search
+            lead.phone,
           ].some((field) =>
             (field || "")
               .toString()
@@ -136,7 +218,8 @@ export default function AllLeadsTable() {
         const leadEmailMatch =
           filters.leadEmail === "all" ||
           (lead.leadEmail &&
-            lead.leadEmail.toLowerCase() === filters.leadEmail.toLowerCase());
+            lead.leadEmail.toLowerCase() ===
+            filters.leadEmail.toLowerCase());
 
         return (
           leadTypeMatch &&
@@ -148,20 +231,31 @@ export default function AllLeadsTable() {
         );
       })
       .sort((a, b) => {
+        const aDate = a.date
+          ? new Date(a.date).setHours(0, 0, 0, 0)
+          : 0;
+        const bDate = b.date
+          ? new Date(b.date).setHours(0, 0, 0, 0)
+          : 0;
+
         switch (filters.sortBy) {
           case "id-asc":
             return a.id - b.id;
           case "id-desc":
             return b.id - a.id;
+
+          // ✅ Date sorting fixed
           case "date-asc":
-            return new Date(a.date) - new Date(b.date);
+            return aDate - bDate;
           case "date-desc":
-            return new Date(b.date) - new Date(a.date);
+            return bDate - aDate;
+
           default:
             return 0;
         }
       });
   }, [leads, filters]);
+
 
   // CSV Export
   const downloadCSV = () => {
@@ -205,12 +299,13 @@ export default function AllLeadsTable() {
       lead.isEdited ? "Yes" : "No",
     ]);
 
-    const csvContent =
-      [headers, ...rows]
-        .map((row) =>
-          row.map((val) => `"${(val || "").toString().replace(/"/g, '""')}"`).join(",")
-        )
-        .join("\n");
+    const csvContent = [headers, ...rows]
+      .map((row) =>
+        row
+          .map((val) => `"${(val || "").toString().replace(/"/g, '""')}"`)
+          .join(",")
+      )
+      .join("\n");
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -223,15 +318,12 @@ export default function AllLeadsTable() {
   };
 
   if (loading) {
-    return (
-      <Loader />
-    );
+    return <Loader />;
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100">
       <div className="max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8">
-
         {/* Header */}
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -345,10 +437,16 @@ export default function AllLeadsTable() {
             filteredLeads.map((lead) => {
               const isExpanded = expandedCards.has(lead.id);
               const ccEmails = lead.ccEmail
-                ? lead.ccEmail.split(",").map((e) => e.trim()).filter(Boolean)
+                ? lead.ccEmail
+                  .split(",")
+                  .map((e) => e.trim())
+                  .filter(Boolean)
                 : [];
               const phoneNumbers = lead.phone
-                ? lead.phone.split(",").map((p) => p.trim()).filter(Boolean)
+                ? lead.phone
+                  .split(",")
+                  .map((p) => p.trim())
+                  .filter(Boolean)
                 : [];
 
               return (
@@ -389,7 +487,9 @@ export default function AllLeadsTable() {
                             <ExternalLink className="w-4 h-4" /> View
                           </a>
                         ) : (
-                          <span className="text-slate-400 text-sm">No link</span>
+                          <span className="text-slate-400 text-sm">
+                            No link
+                          </span>
                         )}
                         <button
                           onClick={() => toggleExpand(lead.id)}
@@ -415,7 +515,9 @@ export default function AllLeadsTable() {
                       icon={User}
                       color="blue"
                       title="Employee"
-                      value={`${safe(lead.employee?.fullName)} (${safe(lead.employeeId)})`}
+                      value={`${safe(lead.employee?.fullName)} (${safe(
+                        lead.employeeId
+                      )})`}
                     />
                     <InfoCard
                       icon={Building2}
@@ -442,7 +544,9 @@ export default function AllLeadsTable() {
                         <Phone className="w-5 h-5 text-blue-600" />
                       </div>
                       <div>
-                        <p className="text-xs text-slate-500 mb-0.5">Phone Number(s)</p>
+                        <p className="text-xs text-slate-500 mb-0.5">
+                          Phone Number(s)
+                        </p>
                         {phoneNumbers.length ? (
                           <div className="flex flex-col gap-1">
                             {phoneNumbers.map((num, i) => (
@@ -455,7 +559,9 @@ export default function AllLeadsTable() {
                             ))}
                           </div>
                         ) : (
-                          <p className="text-sm text-slate-700">Not available</p>
+                          <p className="text-sm text-slate-700">
+                            Not available
+                          </p>
                         )}
                       </div>
                     </div>
@@ -479,7 +585,9 @@ export default function AllLeadsTable() {
                         <MailPlus className="w-5 h-5 text-violet-600" />
                       </div>
                       <div>
-                        <p className="text-xs text-slate-500 mb-0.5">CC Emails</p>
+                        <p className="text-xs text-slate-500 mb-0.5">
+                          CC Emails
+                        </p>
                         {ccEmails.length ? (
                           <div className="flex flex-col gap-1">
                             {ccEmails.map((email, i) => (
@@ -492,7 +600,9 @@ export default function AllLeadsTable() {
                             ))}
                           </div>
                         ) : (
-                          <p className="text-sm text-slate-700">Not available</p>
+                          <p className="text-sm text-slate-700">
+                            Not available
+                          </p>
                         )}
                       </div>
                     </div>

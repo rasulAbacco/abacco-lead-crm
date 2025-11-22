@@ -28,7 +28,14 @@ function App() {
   return (
     <Routes>
       {/* Login Page */}
-      <Route path="/" element={<Layout><Login /></Layout>} />
+      <Route
+        path="/"
+        element={
+          <Layout>
+            <Login />
+          </Layout>
+        }
+      />
       <Route path="/employee/:id" element={<EmployeeLeadsPage />} />
 
       {/* Admin Routes */}
@@ -175,13 +182,10 @@ function App() {
         }
       />
 
-
-
       {/* Details */}
       <Route path="/employee/:id" element={<EmployeeDetails />} />
       <Route path="/lead/:id" element={<LeadDetails />} />
       <Route path="/employees" element={<AllEmployees />} />
-
     </Routes>
   );
 }

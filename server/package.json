@@ -4,6 +4,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
+    "postinstall": "npx prisma generate",
     "start": "cross-env TZ=America/Chicago nodemon server.js",
     "dev": "cross-env TZ=America/Chicago nodemon server.js"
   },
