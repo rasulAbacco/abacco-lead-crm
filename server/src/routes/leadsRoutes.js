@@ -67,14 +67,22 @@ router.post("/", async (req, res) => {
     const threeMonthsAgo = new Date();
     threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
 
+    // const existingLead = await prisma.lead.findFirst({
+    //   where: {
+    //     clientEmail: normalizedClientEmail,
+    //     link: normalizedLink,
+    //     subjectLine: normalizedSubjectLine, 
+    //     createdAt: { gte: threeMonthsAgo },
+    //   },
+    // });
+    
     const existingLead = await prisma.lead.findFirst({
       where: {
         clientEmail: normalizedClientEmail,
-        link: normalizedLink,
-        subjectLine: normalizedSubjectLine, // Added subjectLine to duplicate check
         createdAt: { gte: threeMonthsAgo },
       },
     });
+
 
     if (existingLead) {
       const retryAfter = new Date(existingLead.createdAt);
