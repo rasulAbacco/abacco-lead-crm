@@ -1,66 +1,62 @@
 import React from 'react'
 
 const Loader = () => {
-    return (
-        <div>
-            <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50">
-      {/* Loader */}
-      <span className="loader"></span>
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50">
+      {/* Logo with Loading Animation */}
+      <div className="relative flex items-center justify-center w-32 h-32 md:w-40 md:h-40">
+        {/* Loading Ring */}
+        <div className="loader-ring"></div>
+
+        {/* Logo */}
+        <img
+          src="/image.svg"
+          alt="Abacco Technology Logo"
+          className="absolute w-20 h-20 md:w-24 md:h-24 object-contain logo-rotate"
+        />
+      </div>
 
       {/* Brand Text */}
-      <h1 className="mt-8 text-2xl md:text-3xl font-black bg-gradient-to-r from-[#7F27FF] via-purple-500 to-pink-500 bg-clip-text text-transparent animate-pulse tracking-wide">
+      <h1 className="mt-8 text-2xl md:text-3xl font-black bg-gradient-to-r from-[#7F27FF] via-purple-500 to-pink-500 bg-clip-text text-transparent tracking-wide">
         Abacco Technology
       </h1>
 
       {/* Tagline */}
-      <p className="text-sm md:text-base text-blak mt-2 animate-fade-in">
-        Empowering Innovation, One Line of Code at a Time 💡
+      <p className="text-md font-bold md:text-base text-black mt-2 animate-fade-in">
+        Smart Solutions For a Digital World 💡
       </p>
 
       {/* Custom CSS */}
       <style jsx>{`
-        .loader {
-          width: 96px;
-          height: 48px;
-          background: #ffffff;
-          border-color: #7f27ff;
-          border-style: solid;
-          border-width: 2px 2px 50px 2px;
-          border-radius: 100%;
-          position: relative;
-          animation: yinYang 3s linear infinite;
-          box-sizing: content-box;
-          box-shadow: 0 0 20px rgba(127, 39, 255, 0.3);
-        }
-
-        .loader::before {
-          content: "";
+        .loader-ring {
           position: absolute;
-          top: 50%;
-          left: 0;
-          background: #ffffff;
-          border: 18px solid #7f27ff;
-          border-radius: 100%;
-          width: 12px;
-          height: 12px;
-          box-sizing: content-box;
+          width: 100%;
+          height: 100%;
+          border: 3px solid #e5e7eb;
+          border-top-color: #7F27FF;
+          border-right-color: #a855f7;
+          border-radius: 50%;
+          animation: spin 1.5s linear infinite;
         }
 
-        .loader::after {
-          content: "";
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          background: #7f27ff;
-          border: 18px solid #ffffff;
-          border-radius: 100%;
-          width: 12px;
-          height: 12px;
-          box-sizing: content-box;
+        .logo-rotate {
+          animation: logo-spin 3s ease-in-out infinite;
         }
 
-        @keyframes yinYang {
+        @keyframes spin {
+          0% {
+            transform: rotate(0deg);
+          }
           100% {
+            transform: rotate(360deg);
+          }
+        }
+
+        @keyframes logo-spin {
+          0%, 100% {
+            transform: rotate(0deg);
+          }
+          50% {
             transform: rotate(360deg);
           }
         }
@@ -81,8 +77,7 @@ const Loader = () => {
         }
       `}</style>
     </div>
-        </div>
-    )
+  )
 }
 
 export default Loader

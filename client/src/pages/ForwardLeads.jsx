@@ -21,6 +21,7 @@ import {
   Info,
   Filter,
   Database,
+  Users,
 } from "lucide-react";
 import { toZonedTime, format } from "date-fns-tz";
 import Loader from "../components/Loader";
@@ -54,27 +55,8 @@ const ForwardLeads = () => {
       const todayUSA = toZonedTime(new Date(), USA_TZ);
       const todayStr = format(todayUSA, "yyyy-MM-dd", { timeZone: USA_TZ });
 
-      // Debug: Log today's date in USA timezone
-      console.log("Today's date (USA):", todayStr);
-
       setEmployees(
         data.map((emp) => {
-          // Debug: Log all leads for this employee
-          if (debugMode) {
-            console.log(
-              `Employee ${emp.fullName} has ${emp.leads.length} leads`
-            );
-            emp.leads.forEach((lead, index) => {
-              const leadDateUSA = toZonedTime(new Date(lead.date), USA_TZ);
-              const leadDateStr = format(leadDateUSA, "yyyy-MM-dd", {
-                timeZone: USA_TZ,
-              });
-              console.log(
-                `Lead ${index}: date=${lead.date}, formatted=${leadDateStr}, forwarded=${lead.forwarded}, qualified=${lead.qualified}`
-              );
-            });
-          }
-
           // Separate today's leads and previous unforwarded leads
           const todayLeads = emp.leads.filter((lead) => {
             const leadDateUSA = toZonedTime(new Date(lead.date), USA_TZ);
@@ -84,14 +66,13 @@ const ForwardLeads = () => {
             return leadDateStr === todayStr;
           });
 
-          // FIXED: Updated filtering logic for old unforwarded leads
+          // Updated filtering logic for old unforwarded leads
           const oldUnforwardedLeads = emp.leads.filter((lead) => {
             const leadDateUSA = toZonedTime(new Date(lead.date), USA_TZ);
             const leadDateStr = format(leadDateUSA, "yyyy-MM-dd", {
               timeZone: USA_TZ,
             });
 
-            // Scenario 1: Fetch if forwarded is false AND qualified is null or true
             const isNotToday = leadDateStr !== todayStr;
             const isNotForwarded = lead.forwarded === false;
             const isQualifiedOrNull =
@@ -99,13 +80,6 @@ const ForwardLeads = () => {
 
             return isNotToday && isNotForwarded && isQualifiedOrNull;
           });
-
-          // Debug: Log filtered results
-          if (debugMode) {
-            console.log(
-              `Filtered results for ${emp.fullName}: today=${todayLeads.length}, old=${oldUnforwardedLeads.length}`
-            );
-          }
 
           return {
             id: emp.employeeId,
@@ -121,8 +95,10 @@ const ForwardLeads = () => {
                 leadType: lead.leadType,
                 clientEmail: lead.clientEmail,
                 leadEmail: lead.leadEmail,
-                ccEmail: lead.ccEmail,
-                phone: lead.phone,
+                // Process CC emails - convert comma-separated string to array
+                ccEmail: lead.ccEmail ? lead.ccEmail.split(',').map(email => email.trim()) : [],
+                // Process phone numbers - convert comma-separated string to array
+                phone: lead.phone ? lead.phone.split(',').map(phone => phone.trim()) : [],
                 website: lead.website,
                 country: lead.country,
                 contactDate: format(leadDateUSA, "MMM dd, yyyy", {
@@ -136,6 +112,7 @@ const ForwardLeads = () => {
                 forwarded: lead.forwarded || false,
                 qualified: lead.qualified,
                 isEdited: lead.isEdited,
+                attendeesCount: lead.attendeesCount || null, // Add attendees count
               };
             }),
             oldLeads: oldUnforwardedLeads.map((lead) => {
@@ -146,8 +123,10 @@ const ForwardLeads = () => {
                 leadType: lead.leadType,
                 clientEmail: lead.clientEmail,
                 leadEmail: lead.leadEmail,
-                ccEmail: lead.ccEmail,
-                phone: lead.phone,
+                // Process CC emails - convert comma-separated string to array
+                ccEmail: lead.ccEmail ? lead.ccEmail.split(',').map(email => email.trim()) : [],
+                // Process phone numbers - convert comma-separated string to array
+                phone: lead.phone ? lead.phone.split(',').map(phone => phone.trim()) : [],
                 website: lead.website,
                 country: lead.country,
                 contactDate: format(leadDateUSA, "MMM dd, yyyy", {
@@ -161,6 +140,7 @@ const ForwardLeads = () => {
                 forwarded: lead.forwarded || false,
                 qualified: lead.qualified,
                 isEdited: lead.isEdited,
+                attendeesCount: lead.attendeesCount || null, // Add attendees count
               };
             }),
           };
@@ -211,51 +191,6 @@ const ForwardLeads = () => {
   }, [employees]);
 
   // Forward a lead
-  // const forwardLead = async (leadId, empId, isOldLead = false) => {
-  //   setActionLoading((prev) => ({ ...prev, [leadId]: "forwarding" }));
-  //   try {
-  //     const res = await fetch(
-  //       `${API_BASE_URL}/api/employees/leads/${leadId}/forward`,
-  //       {
-  //         method: "POST",
-  //       }
-  //     );
-
-  //     if (!res.ok) throw new Error("Failed to forward lead");
-
-  //     // Update local state
-  //     setEmployees((prevEmployees) =>
-  //       prevEmployees.map((emp) => {
-  //         if (emp.id !== empId) return emp;
-
-  //         const updatedEmp = { ...emp };
-
-  //         if (isOldLead) {
-  //           updatedEmp.oldLeads = emp.oldLeads.map((lead) =>
-  //             lead.id === leadId ? { ...lead, forwarded: true } : lead
-  //           );
-  //           // Update count
-  //           updatedEmp.oldUnforwardedLeads = emp.oldLeads.filter(
-  //             (l) => l.id !== leadId && !l.forwarded
-  //           ).length;
-  //         } else {
-  //           updatedEmp.leads = emp.leads.map((lead) =>
-  //             lead.id === leadId ? { ...lead, forwarded: true } : lead
-  //           );
-  //         }
-
-  //         return updatedEmp;
-  //       })
-  //     );
-
-  //     showSuccessMessage("Lead forwarded to CRM successfully!");
-  //   } catch (error) {
-  //     console.error("❌ Error forwarding lead:", error);
-  //     alert("Failed to forward lead. Please try again.");
-  //   } finally {
-  //     setActionLoading((prev) => ({ ...prev, [leadId]: null }));
-  //   }
-  // };
   const forwardLead = async (leadId, empId, isOldLead = false) => {
     setActionLoading((prev) => ({ ...prev, [leadId]: "forwarding" }));
     try {
@@ -299,7 +234,6 @@ const ForwardLeads = () => {
       setActionLoading((prev) => ({ ...prev, [leadId]: null }));
     }
   };
-
 
   // Mark lead as qualified
   const markQualified = async (
@@ -389,12 +323,12 @@ const ForwardLeads = () => {
   const currentUSATime = format(currentUSA, "hh:mm a", { timeZone: USA_TZ });
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 p-8">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 p-4 md:p-8">
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-1">
+            <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-1">
               Forward Leads to CRM
             </h1>
             <p className="text-gray-600">
@@ -501,11 +435,10 @@ const ForwardLeads = () => {
         <div className="flex justify-between">
           <button
             onClick={() => setDebugMode(!debugMode)}
-            className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-all ${
-              debugMode
-                ? "bg-gradient-to-r from-purple-500 to-indigo-500 text-white hover:from-purple-600 hover:to-indigo-600"
-                : "bg-gray-600 text-white hover:bg-gray-700"
-            }`}
+            className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-all ${debugMode
+              ? "bg-gradient-to-r from-purple-500 to-indigo-500 text-white hover:from-purple-600 hover:to-indigo-600"
+              : "bg-gray-600 text-white hover:bg-gray-700"
+              }`}
           >
             {debugMode ? (
               <Bug className="w-4 h-4" />
@@ -527,9 +460,10 @@ const ForwardLeads = () => {
           </button>
         </div>
 
-        {/* Redesigned Debug Section */}
+        {/* Debug Section - Unchanged */}
         {debugMode && (
           <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-2xl shadow-xl border border-purple-200 overflow-hidden">
+            {/* Debug content remains the same */}
             <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -547,7 +481,6 @@ const ForwardLeads = () => {
               </div>
             </div>
 
-            {/* Debug Tabs */}
             <div className="flex border-b border-purple-200">
               {[
                 {
@@ -564,11 +497,10 @@ const ForwardLeads = () => {
                 <button
                   key={tab.id}
                   onClick={() => setDebugTab(tab.id)}
-                  className={`flex items-center gap-2 px-4 py-3 font-medium transition-colors ${
-                    debugTab === tab.id
-                      ? "text-purple-600 border-b-2 border-purple-600 bg-purple-50"
-                      : "text-gray-600 hover:text-purple-600 hover:bg-purple-50"
-                  }`}
+                  className={`flex items-center gap-2 px-4 py-3 font-medium transition-colors ${debugTab === tab.id
+                    ? "text-purple-600 border-b-2 border-purple-600 bg-purple-50"
+                    : "text-gray-600 hover:text-purple-600 hover:bg-purple-50"
+                    }`}
                 >
                   {tab.icon}
                   {tab.label}
@@ -576,7 +508,6 @@ const ForwardLeads = () => {
               ))}
             </div>
 
-            {/* Debug Tab Content */}
             <div className="p-6">
               {debugTab === "overview" && (
                 <div className="space-y-4">
@@ -748,11 +679,10 @@ const ForwardLeads = () => {
                                   Forwarded:
                                 </span>
                                 <span
-                                  className={`font-semibold ${
-                                    lead.forwarded
-                                      ? "text-green-600"
-                                      : "text-red-600"
-                                  }`}
+                                  className={`font-semibold ${lead.forwarded
+                                    ? "text-green-600"
+                                    : "text-red-600"
+                                    }`}
                                 >
                                   {lead.forwarded ? "Yes" : "No"}
                                 </span>
@@ -762,19 +692,18 @@ const ForwardLeads = () => {
                                   Qualified:
                                 </span>
                                 <span
-                                  className={`font-semibold ${
-                                    lead.qualified === true
-                                      ? "text-green-600"
-                                      : lead.qualified === false
+                                  className={`font-semibold ${lead.qualified === true
+                                    ? "text-green-600"
+                                    : lead.qualified === false
                                       ? "text-red-600"
                                       : "text-gray-600"
-                                  }`}
+                                    }`}
                                 >
                                   {lead.qualified === true
                                     ? "Yes"
                                     : lead.qualified === false
-                                    ? "No"
-                                    : "Not Set"}
+                                      ? "No"
+                                      : "Not Set"}
                                 </span>
                               </div>
                             </div>
@@ -873,7 +802,7 @@ const ForwardLeads = () => {
                               className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg hover:from-blue-600 hover:to-indigo-600 transition-all font-medium text-sm shadow-md"
                             >
                               {selectedEmployee?.id === emp.id &&
-                              !selectedEmployee?.isOldLead
+                                !selectedEmployee?.isOldLead
                                 ? "Hide Details"
                                 : "View Details"}
                             </button>
@@ -1004,7 +933,7 @@ const ForwardLeads = () => {
                               className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg hover:from-amber-600 hover:to-orange-600 transition-all font-medium text-sm shadow-md"
                             >
                               {selectedEmployee?.id === emp.id &&
-                              selectedEmployee?.isOldLead
+                                selectedEmployee?.isOldLead
                                 ? "Hide Details"
                                 : "View Details"}
                             </button>
@@ -1053,7 +982,7 @@ const ForwardLeads = () => {
   );
 };
 
-// Lead Card Component
+// Lead Card Component - Redesigned with modern styling
 const LeadCard = ({
   lead,
   empId,
@@ -1063,17 +992,17 @@ const LeadCard = ({
   isOldLead,
 }) => (
   <div
-    className={`bg-white rounded-xl p-6 shadow-md border-2 ${
-      lead.qualified === true
-        ? "border-green-300 bg-green-50/30"
-        : lead.qualified === false
+    className={`bg-white rounded-xl shadow-lg border-2 overflow-hidden transition-all duration-300 hover:shadow-xl ${lead.qualified === true
+      ? "border-green-300 bg-green-50/30"
+      : lead.qualified === false
         ? "border-red-300 bg-red-50/30"
         : "border-gray-200"
-    }`}
+      }`}
   >
-    <div className="flex items-start justify-between mb-4">
-      <div className="flex-1">
-        <div className="flex items-center gap-2 mb-2">
+    {/* Header with status badges */}
+    <div className="p-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800">
             {lead.leadType || "Not Available"}
           </span>
@@ -1083,7 +1012,6 @@ const LeadCard = ({
               Edited
             </span>
           )}
-
           {lead.forwarded && (
             <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
               <Send className="w-3 h-3 mr-1" />
@@ -1109,53 +1037,169 @@ const LeadCard = ({
             </span>
           )}
         </div>
-        <h4 className="text-lg font-bold text-gray-900">
-          {lead.subjectLine || "No Subject"}
-        </h4>
+        <div className="text-sm text-gray-500">
+          {lead.contactDate} {lead.time && `• ${lead.time}`}
+        </div>
       </div>
+      <h4 className="text-lg font-bold text-gray-900 mt-3">
+        {lead.subjectLine || "No Subject"}
+      </h4>
     </div>
 
     {/* Information Grid */}
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-      <InfoRow icon={<Mail />} label="Lead" value={lead.leadEmail} />
-      <InfoRow icon={<Mail />} label="Client" value={lead.clientEmail} />
-      <InfoRow icon={<Mail />} label="CC" value={lead.ccEmail} />
-      <InfoRow icon={<Phone />} label="Phone" value={lead.phone} />
-      <InfoRow icon={<Globe />} label="Website" link={lead.website} />
-      <InfoRow icon={<Globe />} label="Lead Link" link={lead.link} />
-      <InfoRow
-        icon={<Calendar />}
-        label="Contact Date"
-        value={`${lead.contactDate || "Not Available"} ${
-          lead.time ? "• " + lead.time : ""
-        }`}
-      />
-      <InfoRow icon={<Globe />} label="Country" value={lead.country} />
+    <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-5">
+      {/* Email Information */}
+      <div className="space-y-4">
+        <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
+          <div className="flex items-center gap-2 mb-2">
+            <Mail className="w-5 h-5 text-blue-500" />
+            <h5 className="font-semibold text-blue-800">Email Information</h5>
+          </div>
+
+          <div className="space-y-3">
+            <InfoBox
+              label="Lead Email"
+              value={lead.leadEmail}
+              icon={<Mail className="w-4 h-4 text-blue-500" />}
+              type="email"
+            />
+
+            <InfoBox
+              label="Client Email"
+              value={lead.clientEmail}
+              icon={<Mail className="w-4 h-4 text-blue-500" />}
+              type="email"
+            />
+
+            {/* CC Emails - Display as tags */}
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <Mail className="w-4 h-4 text-blue-500" />
+                <span className="text-sm font-medium text-blue-700">CC Emails:</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {Array.isArray(lead.ccEmail) && lead.ccEmail.length > 0 ? (
+                  lead.ccEmail.map((email, index) => (
+                    <span key={index} className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                      {email}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-sm text-gray-500 italic">No CC emails</span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Contact Information */}
+      <div className="space-y-4">
+        <div className="bg-indigo-50 rounded-lg p-4 border border-indigo-100">
+          <div className="flex items-center gap-2 mb-2">
+            <Phone className="w-5 h-5 text-indigo-500" />
+            <h5 className="font-semibold text-indigo-800">Contact Information</h5>
+          </div>
+
+          <div className="space-y-3">
+            {/* Phone Numbers - Display as tags */}
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <Phone className="w-4 h-4 text-indigo-500" />
+                <span className="text-sm font-medium text-indigo-700">Phone Numbers:</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {Array.isArray(lead.phone) && lead.phone.length > 0 ? (
+                  lead.phone.map((phone, index) => (
+                    <span key={index} className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 border border-indigo-200">
+                      {phone}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-sm text-gray-500 italic">No phone numbers</span>
+                )}
+              </div>
+            </div>
+
+            <InfoBox
+              label="Country"
+              value={lead.country}
+              icon={<Globe className="w-4 h-4 text-indigo-500" />}
+            />
+
+            <InfoBox
+              label="Website"
+              value={lead.website}
+              icon={<Globe className="w-4 h-4 text-indigo-500" />}
+              type="link"
+            />
+
+            <InfoBox
+              label="Lead Link"
+              value={lead.link}
+              icon={<Globe className="w-4 h-4 text-indigo-500" />}
+              type="link"
+            />
+          </div>
+        </div>
+      </div>
     </div>
 
-    {/* Response & Pitch */}
-    <div className="flex flex-col gap-4 mb-4">
-      <TextBlock icon={<FileText />} label="Response" value={lead.emailResponce} />
+    {/* Attendees Count - Only show for Attendees Lead */}
+    {lead.leadType === "Attendees Lead" && lead.attendeesCount && (
+      <div className="px-5 pb-3">
+        <div className="bg-amber-50 rounded-lg p-4 border border-amber-100">
+          <div className="flex items-center gap-2 mb-2">
+            <Users className="w-5 h-5 text-amber-500" />
+            <h5 className="font-semibold text-amber-800">Event Information</h5>
+          </div>
+
+          <div className="flex items-center justify-center py-2">
+            <div className="text-center">
+              <div className="text-3xl font-bold text-amber-600">{lead.attendeesCount}</div>
+              <div className="text-sm font-medium text-amber-700">Attendees</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Email Content */}
+    <div className="px-5 pb-5 space-y-4">
+      {lead.emailResponce?.trim() && (
+        <TextBlock
+          icon={<FileText />}
+          label="Response"
+          value={lead.emailResponce}
+          bgColor="bg-gray-50"
+          borderColor="border-gray-200"
+          textColor="text-gray-800"
+        />
+      )}
+
+
       <TextBlock
         icon={<FileText />}
         label="Email Pitch"
         value={lead.emailPitch}
+        bgColor="bg-gray-50"
+        borderColor="border-gray-200"
+        textColor="text-gray-800"
       />
     </div>
 
     {/* Action Buttons */}
-    <div className="border-t border-gray-200 pt-4 flex flex-wrap gap-3">
+    <div className="px-5 py-4 bg-gray-50 border-t border-gray-200 flex flex-wrap gap-3">
       {/* Qualified Button */}
       <button
         onClick={() => markQualified(lead.id, empId, true, isOldLead)}
         disabled={
           lead.qualified === true || actionLoading[lead.id] === "qualifying"
         }
-        className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-all ${
-          lead.qualified === true || actionLoading[lead.id] === "qualifying"
-            ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-            : "bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 shadow-md hover:shadow-lg"
-        }`}
+        className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-all ${lead.qualified === true || actionLoading[lead.id] === "qualifying"
+          ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+          : "bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 shadow-md hover:shadow-lg"
+          }`}
       >
         {actionLoading[lead.id] === "qualifying" ? (
           <>Processing...</>
@@ -1173,11 +1217,10 @@ const LeadCard = ({
         disabled={
           lead.qualified === false || actionLoading[lead.id] === "qualifying"
         }
-        className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-all ${
-          lead.qualified === false || actionLoading[lead.id] === "qualifying"
-            ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-            : "bg-gradient-to-r from-red-500 to-rose-500 text-white hover:from-red-600 hover:to-rose-600 shadow-md hover:shadow-lg"
-        }`}
+        className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-all ${lead.qualified === false || actionLoading[lead.id] === "qualifying"
+          ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+          : "bg-gradient-to-r from-red-500 to-rose-500 text-white hover:from-red-600 hover:to-rose-600 shadow-md hover:shadow-lg"
+          }`}
       >
         {actionLoading[lead.id] === "qualifying" ? (
           <>Processing...</>
@@ -1197,13 +1240,12 @@ const LeadCard = ({
           actionLoading[lead.id] === "forwarding" ||
           lead.qualified === false // Disable if lead is disqualified
         }
-        className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-all ${
-          lead.forwarded ||
+        className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-all ${lead.forwarded ||
           actionLoading[lead.id] === "forwarding" ||
           lead.qualified === false
-            ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-            : "bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:from-blue-600 hover:to-indigo-600 shadow-md hover:shadow-lg"
-        }`}
+          ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+          : "bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:from-blue-600 hover:to-indigo-600 shadow-md hover:shadow-lg"
+          }`}
         title={
           lead.qualified === false ? "Cannot forward disqualified leads" : ""
         }
@@ -1228,37 +1270,39 @@ const LeadCard = ({
   </div>
 );
 
-// Reusable info row for compact fields
-const InfoRow = ({ icon, label, value, link }) => (
-  <div className="flex items-center gap-2 text-sm">
-    {React.cloneElement(icon, { className: "w-4 h-4 text-gray-400" })}
-    <span className="text-gray-600">{label}:</span>
-    {link ? (
-      <a
-        href={link}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="font-medium text-blue-600 hover:underline truncate"
-      >
-        {link}
-      </a>
-    ) : (
-      <span className="font-medium text-gray-900 truncate">
-        {value || "Not Available"}
-      </span>
-    )}
+// Info Box Component - For displaying individual info items
+const InfoBox = ({ icon, label, value, type = "text" }) => (
+  <div className="flex items-start gap-2">
+    {React.cloneElement(icon, { className: "w-4 h-4" })}
+    <div className="flex-1 min-w-0">
+      <div className="text-xs font-medium text-gray-500 mb-1">{label}:</div>
+      {type === "link" && value ? (
+        <a
+          href={value}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline truncate block"
+        >
+          {value}
+        </a>
+      ) : (
+        <div className="text-sm font-medium text-gray-900 truncate">
+          {value || "Not Available"}
+        </div>
+      )}
+    </div>
   </div>
 );
 
-// Reusable text block for longer fields
-const TextBlock = ({ icon, label, value }) => (
-  <div className="flex items-start gap-2 text-sm">
-    {React.cloneElement(icon, { className: "w-4 h-4 text-gray-400 mt-1" })}
-    <div className="flex-1">
-      <span className="text-gray-600 block mb-1">{label}:</span>
-      <p className="text-gray-900 font-medium whitespace-pre-wrap">
-        {value || "Not Available"}
-      </p>
+// Text Block Component - For longer text content
+const TextBlock = ({ icon, label, value, bgColor = "bg-gray-50", borderColor = "border-gray-200", textColor = "text-gray-800" }) => (
+  <div className={`${bgColor} rounded-lg p-4 border ${borderColor}`}>
+    <div className="flex items-start gap-2 mb-2">
+      {React.cloneElement(icon, { className: `w-4 h-4 ${textColor.replace('text-', 'text-')}` })}
+      <div className={`text-sm font-medium ${textColor.replace('text-', 'text-')}`}>{label}:</div>
+    </div>
+    <div className={`text-sm ${textColor} whitespace-pre-wrap pl-6`}>
+      {value || "Not Available"}
     </div>
   </div>
 );
