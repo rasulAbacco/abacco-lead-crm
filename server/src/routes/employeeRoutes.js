@@ -218,6 +218,7 @@ router.get("/with-leads", async (req, res) => {
             qualified: true,
             createdAt: true,
             isEdited: true,
+            attendeesCount: true,
           },
           orderBy: {
             date: "desc",

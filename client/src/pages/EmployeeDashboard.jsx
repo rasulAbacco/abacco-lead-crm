@@ -19,6 +19,8 @@ const EmployeeDashboard = () => {
   const [performanceData, setPerformanceData] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [employeeTarget, setEmployeeTarget] = useState(0);
+  const [incentive, setIncentive] = useState(0);
+  const [incentiveBreakdown, setIncentiveBreakdown] = useState({});
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
   const USA_TZ = "America/Chicago"; // ✅ Central USA timezone
@@ -38,6 +40,93 @@ const EmployeeDashboard = () => {
     }, 60000); // update every minute
     return () => clearInterval(interval);
   }, []);
+
+  const normalizeCountry = (country = "") => {
+    const c = country.trim().toLowerCase();
+
+    if (
+      c.includes("usa") ||
+      c === "us" ||
+      c.includes("u.s") ||
+      c.includes("united state") ||
+      c.includes("america")
+    ) {
+      return "USA";
+    }
+
+    return "OTHER";
+  };
+
+
+  const calculateIncentive = (leads, employeeTarget) => {
+    if (!leads || leads.length === 0) return { incentive: 0, breakdown: {} };
+
+    const todayStr = format(toZonedTime(new Date(), USA_TZ), "yyyy-MM-dd");
+
+    const todayLeads = leads.filter((lead) => {
+      const dateStr = format(
+        toZonedTime(new Date(lead.date), USA_TZ),
+        "yyyy-MM-dd"
+      );
+      return dateStr === todayStr;
+    });
+
+    const totalToday = todayLeads.length;
+
+    const usAttendees = todayLeads.filter(
+      (l) =>
+        l.leadType === "Attendees Lead" &&
+        normalizeCountry(l.country) === "USA" &&
+        (l.attendeesCount || 0) >= 1500
+    ).length;
+
+    const mixedLeads = todayLeads.filter(
+      (l) =>
+        normalizeCountry(l.country) === "OTHER" ||
+        l.leadType === "Attendees Lead"
+    ).length;
+
+    const usAssociation = todayLeads.filter(
+      (l) =>
+        l.leadType === "Association Lead" &&
+        normalizeCountry(l.country) === "USA"
+    ).length;
+
+    let incentive = 0;
+
+    // 1️⃣ US Attendees Leads 1500+
+    if (usAttendees >= 15) incentive = 1500;
+    else if (usAttendees >= 10) incentive = 1000;
+    else if (usAttendees >= 7) incentive = 500;
+
+    // 2️⃣ Mixed Leads
+    if (mixedLeads >= 15) incentive = Math.max(incentive, 1000);
+    else if (mixedLeads >= 10) incentive = Math.max(incentive, 500);
+
+    // 3️⃣ US Association Leads
+    if (usAssociation >= 18) incentive = Math.max(incentive, 1000);
+    else if (usAssociation >= 12) incentive = Math.max(incentive, 500);
+
+    // 4️⃣ Double Target (daily target = monthlyTarget / 30)
+    const dailyTarget = Math.ceil(employeeTarget / 30);
+    const doubleTargetAchieved = totalToday >= dailyTarget * 2;
+
+    if (doubleTargetAchieved) {
+      incentive = Math.max(incentive, 5000);
+    }
+
+
+    return {
+      incentive,
+      breakdown: {
+        totalToday,
+        usAttendees,
+        mixedLeads,
+        usAssociation,
+        doubleTargetAchieved,
+      },
+    };
+  };
 
   // ✅ Fetch employees and their performance
   useEffect(() => {
@@ -99,6 +188,8 @@ const EmployeeDashboard = () => {
         const res = await axios.get(
           `${API_BASE_URL}/api/employees/${employeeId}/leads`
         );
+
+        
         setLeads(res.data.leads || []);
       } catch (err) {
         console.error("Error fetching leads:", err);
@@ -108,6 +199,15 @@ const EmployeeDashboard = () => {
     }
     fetchLeads();
   }, []);
+
+  useEffect(() => {
+    if (leads.length > 0 && employeeTarget > 0) {
+      const result = calculateIncentive(leads, employeeTarget);
+      setIncentive(result.incentive);
+      setIncentiveBreakdown(result.breakdown);
+    }
+  }, [employeeTarget, leads]);
+
 
   if (loading) return (<Loader />);
 
@@ -162,6 +262,64 @@ const EmployeeDashboard = () => {
 
         {/* ========================= STATS SECTION ========================= */}
         <DashboardStats leads={leads} />
+
+        {/* ========================= DAILY INCENTIVE KPI ========================= */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mt-6">
+
+          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+            <p className="text-gray-500 text-sm font-medium mb-1">Today's Incentive</p>
+            <h3 className="text-4xl font-extrabold bg-gradient-to-r from-green-500 to-emerald-600 bg-clip-text text-transparent">
+              ₹{incentive}
+            </h3>
+            <p className="text-xs text-gray-400 mt-2">Based on daily performance</p>
+          </div>
+
+          {/* US Attendees KPI */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+            <p className="text-gray-500 text-sm font-medium mb-1">US Attendees (1500+)</p>
+            <h3 className="text-3xl font-bold text-blue-600">
+              {incentiveBreakdown.usAttendees || 0}
+            </h3>
+            <p className="text-xs text-gray-400 mt-2">
+              Attendees Leads (≥1500 attendees)
+            </p>
+          </div>
+
+          {/* Mixed Leads KPI */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+            <p className="text-gray-500 text-sm font-medium mb-1">Mixed Leads</p>
+            <h3 className="text-3xl font-bold text-indigo-600">
+              {incentiveBreakdown.mixedLeads || 0}
+            </h3>
+            <p className="text-xs text-gray-400 mt-2">
+              Other Country + US Attendees Leads
+            </p>
+          </div>
+
+          {/* US Association KPI */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+            <p className="text-gray-500 text-sm font-medium mb-1">US Association Leads</p>
+            <h3 className="text-3xl font-bold text-rose-600">
+              {incentiveBreakdown.usAssociation || 0}
+            </h3>
+            <p className="text-xs text-gray-400 mt-2">
+              Only USA Association Leads
+            </p>
+          </div>
+
+        </div>
+
+        {/* Double Target Banner */}
+        {incentiveBreakdown.doubleTargetAchieved && (
+          <div className="mt-6 bg-green-50 border-l-4 border-green-600 p-5 rounded-xl shadow-md">
+            <h3 className="text-lg font-semibold text-green-700">
+              🎉 Double Target Achieved!
+            </h3>
+            <p className="text-green-600 text-sm">
+              You achieved double of your daily target. You earned a bonus of ₹5000!
+            </p>
+          </div>
+        )}
 
         {/* ========================= CHARTS SECTION ========================= */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

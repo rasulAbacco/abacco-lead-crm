@@ -8,6 +8,8 @@ import {
   FileText,
   CheckCircle,
   Send as SendIcon,
+  Plus,
+  X,
 } from "lucide-react";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -19,16 +21,17 @@ const LeadForm = () => {
     agentName: "",
     clientEmail: "",
     leadEmail: "",
-    ccEmail: "",
+    ccEmails: [""], // Changed to array for multiple emails
     subjectLine: "",
     emailPitch: "",
     emailResponce: "",
     website: "",
-    phone: "",
+    phones: [""], // Changed to array for multiple phones
     country: "",
     leadType: "Association Lead",
     date: "",
     link: "",
+    attendeesCount: "", // Now optional
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -69,7 +72,19 @@ const LeadForm = () => {
     if (!formData.link.trim())
       newErrors.link = "Association/Expo link is required";
 
-    if (!formData.phone.trim()) newErrors.phone = "Phone number is required";
+    // Validate at least one phone number
+    if (!formData.phones.some(phone => phone.trim())) {
+      newErrors.phones = "At least one phone number is required";
+    }
+
+    // Validate CC emails if provided
+    const ccEmails = formData.ccEmails.filter(email => email.trim());
+    for (const email of ccEmails) {
+      if (!validateEmail(email)) {
+        newErrors.ccEmails = `Invalid CC email: ${email}`;
+        break;
+      }
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -81,21 +96,60 @@ const LeadForm = () => {
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: null }));
   };
 
+  const handlePhoneChange = (index, value) => {
+    const newPhones = [...formData.phones];
+    newPhones[index] = value;
+    setFormData(prev => ({ ...prev, phones: newPhones }));
+    if (errors.phones) setErrors(prev => ({ ...prev, phones: null }));
+  };
+
+  const handleCcEmailChange = (index, value) => {
+    const newCcEmails = [...formData.ccEmails];
+    newCcEmails[index] = value;
+    setFormData(prev => ({ ...prev, ccEmails: newCcEmails }));
+    if (errors.ccEmails) setErrors(prev => ({ ...prev, ccEmails: null }));
+  };
+
+  const addPhoneField = () => {
+    setFormData(prev => ({ ...prev, phones: [...prev.phones, ""] }));
+  };
+
+  const removePhoneField = (index) => {
+    if (formData.phones.length > 1) {
+      const newPhones = [...formData.phones];
+      newPhones.splice(index, 1);
+      setFormData(prev => ({ ...prev, phones: newPhones }));
+    }
+  };
+
+  const addCcEmailField = () => {
+    setFormData(prev => ({ ...prev, ccEmails: [...prev.ccEmails, ""] }));
+  };
+
+  const removeCcEmailField = (index) => {
+    if (formData.ccEmails.length > 1) {
+      const newCcEmails = [...formData.ccEmails];
+      newCcEmails.splice(index, 1);
+      setFormData(prev => ({ ...prev, ccEmails: newCcEmails }));
+    }
+  };
+
   const handleClear = () => {
     setFormData({
       agentName: "",
       clientEmail: "",
       leadEmail: "",
-      ccEmail: "",
+      ccEmails: [""], // Reset to one empty field
       subjectLine: "",
       emailPitch: "",
       emailResponce: "",
       website: "",
-      phone: "",
+      phones: [""], // Reset to one empty field
       country: "",
       leadType: "Association Lead",
       date: "",
       link: "",
+      attendeesCount: "",
     });
     setErrors({});
   };
@@ -110,11 +164,18 @@ const LeadForm = () => {
 
     setIsSubmitting(true);
 
+    // Prepare data for submission - filter out empty phones and CC emails
+    const submissionData = {
+      ...formData,
+      phones: formData.phones.filter(phone => phone.trim()),
+      ccEmails: formData.ccEmails.filter(email => email.trim()),
+    };
+
     try {
       const res = await fetch(`${API_BASE_URL}/api/leads`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ leads: [{ ...formData, employeeId }] }),
+        body: JSON.stringify({ leads: [{ ...submissionData, employeeId }] }),
       });
 
       const data = await res.json();
@@ -151,11 +212,10 @@ const LeadForm = () => {
       {/* Toast Notification */}
       {toast.message && (
         <div
-          className={`fixed top-6 right-6 z-50 px-6 py-4 rounded-xl shadow-lg text-white font-medium transform transition-all duration-300 ${
-            toast.type === "error" 
-              ? "bg-red-500 animate-pulse" 
-              : "bg-green-500"
-          }`}
+          className={`fixed top-6 right-6 z-50 px-6 py-4 rounded-xl shadow-lg text-white font-medium transform transition-all duration-300 ${toast.type === "error"
+            ? "bg-red-500 animate-pulse"
+            : "bg-green-500"
+            }`}
         >
           {toast.message}
         </div>
@@ -233,9 +293,8 @@ const LeadForm = () => {
                   name="agentName"
                   value={formData.agentName}
                   onChange={handleChange}
-                  className={`w-full pl-12 pr-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${
-                    errors.agentName ? "border-red-500 bg-red-50" : "border-gray-300"
-                  }`}
+                  className={`w-full pl-12 pr-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.agentName ? "border-red-500 bg-red-50" : "border-gray-300"
+                    }`}
                   placeholder="Enter agent full name"
                 />
               </div>
@@ -279,9 +338,8 @@ const LeadForm = () => {
                 name="clientEmail"
                 value={formData.clientEmail}
                 onChange={handleChange}
-                className={`w-full px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${
-                  errors.clientEmail ? "border-red-500 bg-red-50" : "border-gray-300"
-                }`}
+                className={`w-full px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.clientEmail ? "border-red-500 bg-red-50" : "border-gray-300"
+                  }`}
                 placeholder="client@company.com"
               />
               {errors.clientEmail && (
@@ -299,9 +357,8 @@ const LeadForm = () => {
                 name="leadEmail"
                 value={formData.leadEmail}
                 onChange={handleChange}
-                className={`w-full px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${
-                  errors.leadEmail ? "border-red-500 bg-red-50" : "border-gray-300"
-                }`}
+                className={`w-full px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.leadEmail ? "border-red-500 bg-red-50" : "border-gray-300"
+                  }`}
                 placeholder="lead@company.com"
               />
               {errors.leadEmail && (
@@ -309,23 +366,43 @@ const LeadForm = () => {
               )}
             </div>
 
-            {/* CC Email */}
-            <div className="space-y-2">
+            {/* CC Emails - Multiple */}
+            <div className="space-y-2 md:col-span-2">
               <label className="block text-sm font-semibold text-gray-700">
-                CC Email
+                CC Emails
               </label>
-              <input
-                type="text"
-                name="ccEmail"
-                value={formData.ccEmail}
-                onChange={handleChange}
-                className={`w-full px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${
-                  errors.ccEmail ? "border-red-500 bg-red-50" : "border-gray-300"
-                }`}
-                placeholder="manager@company.com"
-              />
-              {errors.ccEmail && (
-                <p className="text-red-500 text-sm font-medium mt-1">{errors.ccEmail}</p>
+              {formData.ccEmails.map((email, index) => (
+                <div key={index} className="flex gap-2">
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => handleCcEmailChange(index, e.target.value)}
+                    className={`flex-1 px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.ccEmails ? "border-red-500 bg-red-50" : "border-gray-300"
+                      }`}
+                    placeholder="cc@example.com"
+                  />
+                  {formData.ccEmails.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeCcEmailField(index)}
+                      className="p-3.5 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  )}
+                  {index === formData.ccEmails.length - 1 && (
+                    <button
+                      type="button"
+                      onClick={addCcEmailField}
+                      className="p-3.5 bg-blue-50 text-blue-500 rounded-xl hover:bg-blue-100 transition-colors"
+                    >
+                      <Plus className="w-5 h-5" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              {errors.ccEmails && (
+                <p className="text-red-500 text-sm font-medium mt-1">{errors.ccEmails}</p>
               )}
             </div>
 
@@ -339,9 +416,8 @@ const LeadForm = () => {
                 name="website"
                 value={formData.website}
                 onChange={handleChange}
-                className={`w-full px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${
-                  errors.website ? "border-red-500 bg-red-50" : "border-gray-300"
-                }`}
+                className={`w-full px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.website ? "border-red-500 bg-red-50" : "border-gray-300"
+                  }`}
                 placeholder="https://website.com"
               />
               {errors.website && (
@@ -359,9 +435,8 @@ const LeadForm = () => {
                 name="link"
                 value={formData.link}
                 onChange={handleChange}
-                className={`w-full px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${
-                  errors.link ? "border-red-500 bg-red-50" : "border-gray-300"
-                }`}
+                className={`w-full px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.link ? "border-red-500 bg-red-50" : "border-gray-300"
+                  }`}
                 placeholder="https://link.com"
               />
               {errors.link && (
@@ -369,23 +444,43 @@ const LeadForm = () => {
               )}
             </div>
 
-            {/* Phone - required */}
-            <div className="space-y-2">
+            {/* Phone Numbers - Multiple */}
+            <div className="space-y-2 md:col-span-2">
               <label className="block text-sm font-semibold text-gray-700">
-                Phone <span className="text-red-500">*</span>
+                Phone Numbers <span className="text-red-500">*</span>
               </label>
-              <input
-                type="text"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                className={`w-full px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${
-                  errors.phone ? "border-red-500 bg-red-50" : "border-gray-300"
-                }`}
-                placeholder="+1 (555) 123-4567"
-              />
-              {errors.phone && (
-                <p className="text-red-500 text-sm font-medium mt-1">{errors.phone}</p>
+              {formData.phones.map((phone, index) => (
+                <div key={index} className="flex gap-2">
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => handlePhoneChange(index, e.target.value)}
+                    className={`flex-1 px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.phones ? "border-red-500 bg-red-50" : "border-gray-300"
+                      }`}
+                    placeholder="+1 (555) 123-4567"
+                  />
+                  {formData.phones.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removePhoneField(index)}
+                      className="p-3.5 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  )}
+                  {index === formData.phones.length - 1 && (
+                    <button
+                      type="button"
+                      onClick={addPhoneField}
+                      className="p-3.5 bg-blue-50 text-blue-500 rounded-xl hover:bg-blue-100 transition-colors"
+                    >
+                      <Plus className="w-5 h-5" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              {errors.phones && (
+                <p className="text-red-500 text-sm font-medium mt-1">{errors.phones}</p>
               )}
             </div>
 
@@ -419,6 +514,24 @@ const LeadForm = () => {
               />
             </div>
 
+            {/* Attendees Count - only visible when leadType is "Attendees Lead" and now optional */}
+            {formData.leadType === "Attendees Lead" && (
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-gray-700">
+                  Attendees Count
+                </label>
+                <input
+                  type="number"
+                  name="attendeesCount"
+                  value={formData.attendeesCount}
+                  onChange={handleChange}
+                  min="1"
+                  className="w-full px-4 py-3.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                  placeholder="Number of attendees (optional)"
+                />
+              </div>
+            )}
+
             {/* Subject */}
             <div className="space-y-2 md:col-span-2">
               <label className="block text-sm font-semibold text-gray-700">
@@ -429,9 +542,8 @@ const LeadForm = () => {
                 name="subjectLine"
                 value={formData.subjectLine}
                 onChange={handleChange}
-                className={`w-full px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${
-                  errors.subjectLine ? "border-red-500 bg-red-50" : "border-gray-300"
-                }`}
+                className={`w-full px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.subjectLine ? "border-red-500 bg-red-50" : "border-gray-300"
+                  }`}
                 placeholder="Partnership Opportunity"
               />
               {errors.subjectLine && (
@@ -448,9 +560,8 @@ const LeadForm = () => {
                 name="emailPitch"
                 value={formData.emailPitch}
                 onChange={handleChange}
-                className={`w-full px-4 py-3.5 border rounded-xl resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${
-                  errors.emailPitch ? "border-red-500 bg-red-50" : "border-gray-300"
-                }`}
+                className={`w-full px-4 py-3.5 border rounded-xl resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.emailPitch ? "border-red-500 bg-red-50" : "border-gray-300"
+                  }`}
                 rows="5"
                 placeholder="Enter your professional email pitch here..."
               />
@@ -464,11 +575,10 @@ const LeadForm = () => {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className={`flex-1 flex items-center justify-center gap-3 px-6 py-4 font-semibold rounded-xl transition-all ${
-                  isSubmitting
-                    ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white opacity-80 cursor-not-allowed"
-                    : "bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                }`}
+                className={`flex-1 flex items-center justify-center gap-3 px-6 py-4 font-semibold rounded-xl transition-all ${isSubmitting
+                  ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white opacity-80 cursor-not-allowed"
+                  : "bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                  }`}
               >
                 {isSubmitting ? (
                   <>
