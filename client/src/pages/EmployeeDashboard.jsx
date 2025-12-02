@@ -251,15 +251,35 @@ const EmployeeDashboard = () => {
             </div>
 
             {/* TIME BOX */}
+            {/* TIME BOX - MINIMALIST STYLE */}
             <div className="text-right">
-              <div className="relative inline-flex flex-col items-end px-6 py-4 rounded-2xl backdrop-blur-xl bg-white/20 border">
-                <span className="text-[12px] uppercase tracking-wider font-semibold">
-                  Central USA (CST/CDT)
-                </span>
-                <span className="text-[18px] font-bold">{usaTime}</span>
-                <span className="text-[14px]">{usaDate}</span>
+              <div className="relative inline-flex flex-col items-end px-7 py-5 rounded-2xl bg-white/90 backdrop-blur-md border border-gray-100 shadow-lg overflow-hidden group hover:shadow-xl transition-all duration-300">
+                {/* Timezone indicator */}
+                <div className="flex items-center mb-1 z-10">
+                  <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full mr-2"></div>
+                  <span className="text-[10px] uppercase tracking-wider font-medium text-gray-500">
+                    Central USA
+                  </span>
+                </div>
+
+                {/* Time display */}
+                <div className="flex items-baseline z-10">
+                  <span className="text-[26px] font-light text-gray-800 tabular-nums">{usaTime}</span>
+                </div>
+
+                {/* Date with subtle styling */}
+                <div className="mt-1 z-10">
+                  <span className="text-[14px] text-gray-600">
+                    {new Date().toLocaleDateString('en-US', { timeZone: 'America/Chicago', weekday: 'short', month: 'short', day: 'numeric' })}
+                  </span>
+                </div>
+
+                {/* Accent line */}
+                <div className="absolute bottom-0 left-0 h-0.5 w-full bg-gradient-to-r from-transparent via-indigo-500 to-transparent transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
               </div>
             </div>
+
+            
           </div>
         </div>
 

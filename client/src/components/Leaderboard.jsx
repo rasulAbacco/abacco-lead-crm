@@ -69,41 +69,50 @@ const RankRow = ({ rank, employee, isCompact = false }) => {
                 <div className="text-xs text-gray-500 font-medium">ID: {employee.employeeId.trim()}</div>
             </div>
 
-            {/* Column 3-5: Incentive Counts */}
+            {/* Column 3-6: Incentive Counts */}
             {!isCompact && (
                 <>
-                    <div className="w-20 text-center">
+                    <div className="w-20 text-center mx-3">
                         <div className="bg-blue-50 text-blue-700 rounded-lg py-2 px-1 font-bold text-sm">
                             {employee.c500}
                         </div>
                         <div className="text-xs text-gray-400 font-medium mt-1">₹500</div>
                     </div>
 
-                    <div className="w-20 text-center">
+                    <div className="w-20 text-center mx-3">
                         <div className="bg-purple-50 text-purple-700 rounded-lg py-2 px-1 font-bold text-sm">
                             {employee.c1000}
                         </div>
                         <div className="text-xs text-gray-400 font-medium mt-1">₹1000</div>
                     </div>
 
-                    <div className="w-20 text-center">
+                    <div className="w-20 text-center mx-3">
                         <div className="bg-green-50 text-green-700 rounded-lg py-2 px-1 font-bold text-sm">
                             {employee.c1500}
                         </div>
                         <div className="text-xs text-gray-400 font-medium mt-1">₹1500</div>
                     </div>
+
+                    {/* NEW COLUMN: ₹5000 Double Target */}
+                    <div className="w-20 text-center mx-3">
+                        <div className="bg-gradient-to-r from-yellow-100 to-amber-100 text-amber-800 rounded-lg py-2 px-1 font-bold text-sm border border-amber-300 shadow-sm">
+                            {employee.c5000}
+                        </div>
+                        <div className="text-xs text-gray-400 font-medium mt-1">₹5000</div>
+                    </div>
                 </>
             )}
 
-            {/* Column 6: Total Amount */}
-            <div className={`${isCompact ? 'w-28' : 'w-32'} text-center`}>
+            {/* Column 7: Total Amount */}
+            {/* CHANGE: Added ml-6 for more gap in compact view */}
+            <div className={`${isCompact ? 'w-28 ml-6' : 'w-32'} text-center`}>
                 <div className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg py-2 px-2 font-bold text-base shadow-sm">
                     ₹{employee.totalAmount.toLocaleString()}
                 </div>
                 <div className="text-xs text-gray-400 font-medium mt-1">Total</div>
             </div>
 
-            {/* Column 7: Total Leads */}
+            {/* Column 8: Total Leads */}
             <div className={`${isCompact ? 'w-20' : 'w-24'} text-center`}>
                 <div className="bg-gray-100 text-gray-700 rounded-lg py-2 px-2 font-bold text-sm flex items-center justify-center">
                     <Target className="w-4 h-4 mr-1" />
@@ -164,9 +173,9 @@ const SummaryPanel = ({
                     {Object.entries(data).map(([tierKey, tierAchievers]) => {
                         const labelMap = {
                             L7: "7 Leads (₹500)",
-                            L10: "10 Leads (₹1000 / ₹500)",
+                            L10: "10 Leads (₹1000)",
                             L12: "12 Leads (₹500)",
-                            L15: "15 Leads (₹1500 / ₹1000)",
+                            L15: "15 Leads (₹1500)",
                             L18: "18 Leads (₹1000)",
                         };
 
@@ -340,12 +349,14 @@ export default function Leaderboard({ apiBase }) {
                         <div className="flex-1 min-w-[150px]">Employee</div>
                         {!isCompact && (
                             <>
-                                <div className="w-20 text-center">₹500</div>
-                                <div className="w-20 text-center">₹1000</div>
-                                <div className="w-20 text-center">₹1500</div>
+                                <div className="w-20 text-center mx-3">₹500</div>
+                                <div className="w-20 text-center mx-3">₹1000</div>
+                                <div className="w-20 text-center mx-3">₹1500</div>
+                                {/* NEW HEADER: ₹5000 Double Target */}
+                                <div className="w-20 text-center mx-3">₹5000</div>
                             </>
                         )}
-                        <div className={`${isCompact ? 'w-28' : 'w-32'} text-center`}>Total</div>
+                        <div className={`${isCompact ? 'w-28' : 'w-32'} text-center`}>Total Amount</div>
                         <div className={`${isCompact ? 'w-20' : 'w-24'} text-center`}>Leads</div>
                     </div>
 
@@ -530,8 +541,8 @@ export default function Leaderboard({ apiBase }) {
                                     <button
                                         onClick={() => setIsCompact(!isCompact)}
                                         className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${isCompact
-                                                ? "bg-indigo-100 text-indigo-700"
-                                                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                                            ? "bg-indigo-100 text-indigo-700"
+                                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                                             }`}
                                     >
                                         {isCompact ? "Expanded" : "Compact"}
