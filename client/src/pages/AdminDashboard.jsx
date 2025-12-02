@@ -4,6 +4,8 @@ import StatsGrid from "../components/StatsGrid";
 import ChartsSection from "../components/ChartsSection";
 import EmployeeSection from "../components/EmployeeSection";
 import Loader from "../components/Loader";
+import Leaderboard from "../components/Leaderboard";
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export default function AdminDashboard() {
@@ -98,6 +100,10 @@ export default function AdminDashboard() {
           filter={filter}
           setFilter={setFilter}
         />
+        <div className="h-full bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
+          <Leaderboard apiBase={API_BASE_URL} />
+        </div>
+
       </div>
     </div>
   );
