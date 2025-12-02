@@ -979,10 +979,12 @@ router.get("/leaderboard", async (req, res) => {
       });
 
       // Incentive counters
-      let c500 = 0, c1000 = 0, c1500 = 0;
+      let c500 = 0, c1000 = 0, c1500 = 0, c5000 = 0;
+
+      // Track daily performance for double target calculation
+      let qualifiedDays = 0;
 
       Object.values(byDate).forEach((dayLeads) => {
-
         // Daily counts
         const dailyUS = dayLeads.filter(
           (l) => isAttendee(l) && isUSA(l) && (l.attendeesCount || 0) >= 1500
@@ -1008,6 +1010,11 @@ router.get("/leaderboard", async (req, res) => {
             isUSA(l)
         ).length;
 
+        // Check if employee qualified for any incentive tier on this day
+        if (dailyUS >= 7 || dailyMixed >= 10 || dailyAssoc >= 12) {
+          qualifiedDays++;
+        }
+
         // Apply slabs
         // US Attendees
         if (dailyUS >= 15) c1500++;
@@ -1023,11 +1030,17 @@ router.get("/leaderboard", async (req, res) => {
         else if (dailyAssoc >= 12) c500++;
       });
 
+      // Check for double target (qualified for at least 15 days in a month)
+      if (period === "month" && qualifiedDays >= 15) {
+        c5000 = 1;
+      }
+
       // Total incentive amount
       const totalAmount =
         c500 * 500 +
         c1000 * 1000 +
-        c1500 * 1500;
+        c1500 * 1500 +
+        c5000 * 5000;
 
       leaderboard.push({
         employeeId: emp.employeeId,
@@ -1035,6 +1048,7 @@ router.get("/leaderboard", async (req, res) => {
         c500,
         c1000,
         c1500,
+        c5000,
         totalAmount,
         totalLeads: eLeads.length,
       });
