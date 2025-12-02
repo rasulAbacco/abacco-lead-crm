@@ -932,58 +932,132 @@ router.put("/leads/:id", async (req, res) => {
 router.get("/leaderboard", async (req, res) => {
   try {
     const { period = "today" } = req.query;
-    const nowUSA = getUSADateTime();
 
     let start, end;
     if (period === "month") {
-      const { start: s, end: e } = getUSAMonthRange();
-      start = s; end = e;
+      const m = getUSAMonthRange();
+      start = m.start; end = m.end;
     } else if (period === "today") {
-      const { start: s, end: e } = getUSATodayRange();
-      start = s; end = e;
+      const t = getUSATodayRange();
+      start = t.start; end = t.end;
     } else {
-      return res.status(400).json({ error: "Invalid period. Use 'today' or 'month'." });
+      return res.status(400).json({ error: "Invalid period" });
     }
 
-    // Get employees
+    // Fetch employees
     const employees = await prisma.employee.findMany({
       where: { role: "EMPLOYEE", isActive: true },
       select: { employeeId: true, fullName: true }
     });
 
-    // For each employee get qualified lead count in period
-    const ranks = await Promise.all(
-      employees.map(async (emp) => {
-        const qualifiedCount = await prisma.lead.count({
-          where: {
-            employeeId: emp.employeeId,
-            qualified: true,
-            date: { gte: start, lte: end },
-          },
-        });
+    // Fetch qualified leads for selected range
+    const leads = await prisma.lead.findMany({
+      where: { qualified: true, date: { gte: start, lte: end } }
+    });
 
-        return {
-          employeeId: emp.employeeId,
-          fullName: emp.fullName,
-          qualifiedCount,
-        };
-      })
-    );
+    // Group by employee
+    const byEmp = {};
+    leads.forEach((l) => {
+      if (!byEmp[l.employeeId]) byEmp[l.employeeId] = [];
+      byEmp[l.employeeId].push(l);
+    });
 
-    // sort desc by qualifiedCount
-    ranks.sort((a, b) => b.qualifiedCount - a.qualifiedCount);
+    const isAttendee = (l) => l?.leadType?.toLowerCase().includes("attend");
+    const isUSA = (l) => l?.country?.toLowerCase().includes("us");
 
-    res.json({ period, results: ranks });
+    const leaderboard = [];
+
+    for (const emp of employees) {
+      const eLeads = byEmp[emp.employeeId] || [];
+
+      // Group employee leads by date
+      const byDate = {};
+      eLeads.forEach((l) => {
+        const key = new Date(l.date).toISOString().slice(0, 10);
+        if (!byDate[key]) byDate[key] = [];
+        byDate[key].push(l);
+      });
+
+      // Incentive counters
+      let c500 = 0, c1000 = 0, c1500 = 0;
+
+      Object.values(byDate).forEach((dayLeads) => {
+
+        // Daily counts
+        const dailyUS = dayLeads.filter(
+          (l) => isAttendee(l) && isUSA(l) && (l.attendeesCount || 0) >= 1500
+        ).length;
+
+        let dailyMixed = 0;
+        if (dailyUS < 7) {
+          dailyMixed = dayLeads.filter(
+            (l) => isAttendee(l) && (l.attendeesCount || 0) >= 1500
+          ).length;
+        } else {
+          dailyMixed = dayLeads.filter(
+            (l) =>
+              isAttendee(l) &&
+              !isUSA(l) &&
+              (l.attendeesCount || 0) >= 1500
+          ).length;
+        }
+
+        const dailyAssoc = dayLeads.filter(
+          (l) =>
+            l.leadType?.toLowerCase().includes("association") &&
+            isUSA(l)
+        ).length;
+
+        // Apply slabs
+        // US Attendees
+        if (dailyUS >= 15) c1500++;
+        else if (dailyUS >= 10) c1000++;
+        else if (dailyUS >= 7) c500++;
+
+        // Mixed
+        if (dailyMixed >= 15) c1000++;
+        else if (dailyMixed >= 10) c500++;
+
+        // Association
+        if (dailyAssoc >= 18) c1000++;
+        else if (dailyAssoc >= 12) c500++;
+      });
+
+      // Total incentive amount
+      const totalAmount =
+        c500 * 500 +
+        c1000 * 1000 +
+        c1500 * 1500;
+
+      leaderboard.push({
+        employeeId: emp.employeeId,
+        name: emp.fullName,
+        c500,
+        c1000,
+        c1500,
+        totalAmount,
+        totalLeads: eLeads.length,
+      });
+    }
+
+    // Sorting logic
+    leaderboard.sort((a, b) => {
+      if (b.totalAmount !== a.totalAmount)
+        return b.totalAmount - a.totalAmount;
+      return b.totalLeads - a.totalLeads;
+    });
+
+    res.json({ period, results: leaderboard });
+
   } catch (err) {
-    console.error("❌ Error fetching leaderboard:", err);
-    res.status(500).json({ error: "Failed to fetch leaderboard" });
+    console.error("❌ Leaderboard Error:", err);
+    res.status(500).json({ error: "Failed to generate leaderboard" });
   }
 });
 
-/* ===========================================================
-   GET /api/employees/incentive-summary
-   Returns detailed incentive breakdown per employee
-   =========================================================== */
+
+
+
 /* ===========================================================
    GET /api/employees/incentive-summary
    Returns detailed incentive breakdown per employee
