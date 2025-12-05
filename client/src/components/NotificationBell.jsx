@@ -1,6 +1,15 @@
 import { useEffect, useState, useRef } from "react";
 import axios from "axios";
-import { Bell, ExternalLink, CheckCircle, Trash2, BellRing, Sparkles } from "lucide-react";
+import {
+    Bell,
+    ExternalLink,
+    Trash2,
+    BellRing,
+    Sparkles,
+    Check,
+    Clock,
+    CheckCircle
+} from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -40,8 +49,8 @@ const NotificationBell = () => {
             const data = Array.isArray(res.data) ? res.data : [];
             const sorted = data.sort((a, b) => new Date(b.receivedDate) - new Date(a.receivedDate));
             const unseen = data.filter((n) => !n.isSeen).length;
-            console.log("Fetched notifications:", data);
 
+            // Filter to show only unread/unseen items based on your logic
             setNotifications(sorted.filter((n) => !n.isRead).slice(0, 8));
             setUnseenCount(unseen);
         } catch (err) {
@@ -49,6 +58,7 @@ const NotificationBell = () => {
         }
     };
 
+    // ✅ FUNCTION: Mark all as read (Hits API + Clears list)
     const markAllAsRead = async () => {
         try {
             const token = localStorage.getItem("token");
@@ -82,6 +92,7 @@ const NotificationBell = () => {
         setUnseenCount((prev) => Math.max(prev - 1, 0));
     };
 
+    // ✅ FUNCTION: Clear all (Local clear)
     const clearAllNotifications = () => {
         setNotifications([]);
         setUnseenCount(0);
@@ -89,14 +100,17 @@ const NotificationBell = () => {
 
     return (
         <div className="relative mr-7" ref={dropdownRef}>
-            {/* 🔔 Modern Bell Button with Wave Animation */}
+
+            {/* ==================================================================================
+                👇 SECTION 1: YOUR ORIGINAL BUTTON (UNCHANGED) 
+               ================================================================================== */}
             <motion.button
                 onClick={() => setShowNotifications((prev) => !prev)}
                 className="relative p-4 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-full shadow-lg hover:shadow-2xl transition-all duration-300 group overflow-visible"
                 whileHover={{ scale: 1.05, rotate: [0, -10, 10, -10, 0] }}
                 whileTap={{ scale: 0.95 }}
             >
-                {/* Wave style animations - multiple layers */}
+                {/* Wave style animations */}
                 {unseenCount > 0 && (
                     <>
                         <motion.div
@@ -178,196 +192,154 @@ const NotificationBell = () => {
                 </motion.div>
             </motion.button>
 
-            {/* 🪄 Modern Dropdown Panel */}
+            {/* ==================================================================================
+                👇 SECTION 2: THE REDESIGNED PANEL (WHITE BG + WORKING ACTIONS)
+               ================================================================================== */}
             <AnimatePresence>
                 {showNotifications && (
                     <motion.div
-                        initial={{ opacity: 0, y: -20, scale: 0.9 }}
+                        initial={{ opacity: 0, y: 15, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                        transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                        className="absolute right-0 top-16 w-[420px] bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 z-50 overflow-hidden"
+                        exit={{ opacity: 0, y: 15, scale: 0.95 }}
+                        transition={{ type: "spring", stiffness: 350, damping: 25 }}
+                        className="absolute right-0 top-20 w-[420px] bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden origin-top-right ring-1 ring-black/5"
                     >
-                        {/* Gradient header with glassmorphism */}
-                        <div className="relative overflow-hidden">
-                            <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-90" />
-                            <motion.div
-                                className="absolute inset-0 bg-gradient-to-r from-cyan-400 to-blue-500 opacity-0"
-                                animate={{ opacity: [0, 0.3, 0] }}
-                                transition={{ duration: 3, repeat: Infinity }}
-                            />
-
-                            <div className="relative flex justify-between items-center p-5">
-                                <div className="flex items-center gap-3">
-                                    <motion.div
-                                        animate={{ rotate: [0, 10, -10, 0] }}
-                                        transition={{ duration: 2, repeat: Infinity }}
-                                    >
-                                        <BellRing className="w-6 h-6 text-white" />
-                                    </motion.div>
-                                    <div>
-                                        <h3 className="font-bold text-white text-xl">Notifications</h3>
-                                        <p className="text-xs text-white/80">{unseenCount} unread</p>
-                                    </div>
-                                </div>
-                                <motion.button
-                                    whileHover={{ scale: 1.1, rotate: 90 }}
-                                    whileTap={{ scale: 0.9 }}
-                                    onClick={() => setShowNotifications(false)}
-                                    className="text-white/80 hover:text-white bg-white/10 backdrop-blur-sm rounded-xl p-2 transition-colors"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                                    </svg>
-                                </motion.button>
+                        {/* --- Header --- */}
+                        <div className="flex items-center justify-between p-5 border-b border-gray-100 bg-white sticky top-0 z-10">
+                            <div className="flex items-center gap-2.5">
+                                <h3 className="font-bold text-gray-800 text-lg">Inbox</h3>
+                                {unseenCount > 0 && (
+                                    <span className="bg-indigo-50 text-indigo-600 text-xs px-2.5 py-0.5 rounded-full font-bold">
+                                        {unseenCount}
+                                    </span>
+                                )}
                             </div>
+
+                            {/* Short Clear All (Optional, can rely on footer) */}
+                            {notifications.length > 0 && (
+                                <button
+                                    onClick={markAllAsRead}
+                                    className="text-xs font-medium text-indigo-500 hover:text-indigo-600 transition-colors flex items-center gap-1"
+                                >
+                                    <CheckCircle className="w-3.5 h-3.5" /> Mark all read
+                                </button>
+                            )}
                         </div>
 
-                        {/* Scrollable notifications with custom scrollbar */}
-                        <div className="max-h-[300px] overflow-y-auto custom-scrollbar">
+                        {/* --- Notification List --- */}
+                        <div className="max-h-[380px] overflow-y-auto custom-scrollbar bg-white">
                             <style>{`
-                                .custom-scrollbar::-webkit-scrollbar {
-                                    width: 6px;
-                                }
-                                .custom-scrollbar::-webkit-scrollbar-track {
-                                    background: transparent;
-                                }
-                                .custom-scrollbar::-webkit-scrollbar-thumb {
-                                    background: linear-gradient(to bottom, #8b5cf6, #ec4899);
-                                    border-radius: 10px;
-                                }
+                                .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+                                .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+                                .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+                                .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
                             `}</style>
 
                             {notifications.length > 0 ? (
-                                <div className="p-3 space-y-2">
+                                <div className="divide-y divide-gray-50">
                                     {notifications.map((note, index) => (
                                         <motion.div
                                             key={note.id}
                                             initial={{ opacity: 0, x: -20 }}
                                             animate={{ opacity: 1, x: 0 }}
-                                            exit={{ opacity: 0, x: 20 }}
                                             transition={{ delay: index * 0.05 }}
-                                            className="group relative"
+                                            className={`group relative p-4 flex gap-4 transition-all duration-200 hover:bg-gray-50 bg-white`}
                                         >
-                                            {/* Card with gradient border */}
-                                            <div className={`relative rounded-2xl overflow-hidden transition-all duration-300 ${!note.isSeen
-                                                    ? "bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20"
-                                                    : "bg-white dark:bg-slate-800/50"
-                                                } hover:shadow-lg`}>
-                                                {/* Gradient border effect */}
-                                                {!note.isSeen && (
-                                                    <div className="absolute inset-0 bg-gradient-to-r opacity-20 rounded-2xl" />
-                                                )}
+                                            {/* Unread Indicator Bar */}
+                                            {!note.isSeen && (
+                                                <div className="absolute left-0 top-4 bottom-4 w-1 bg-indigo-500 rounded-r-full" />
+                                            )}
 
-                                                <div className="relative p-2 flex items-start gap-3">
-                                                    {/* Icon with animated gradient - ROUND */}
-                                                    <motion.div
-                                                        className="relative shrink-0"
-                                                        whileHover={{ scale: 1.1, rotate: 360 }}
-                                                        transition={{ duration: 0.5 }}
-                                                    >
-                                                        <div className="absolute inset-0 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-full blur-sm opacity-50" />
-                                                        <div className="relative p-2.5 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-full shadow-lg">
-                                                            <ExternalLink className="w-5 h-5 text-white" />
-                                                        </div>
-                                                    </motion.div>
-
-                                                    {/* Content */}
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="text-sm text-slate-700 dark:text-slate-200 font-medium mb-1">
-                                                            New Link Shared
-                                                        </p>
-                                                        <a
-                                                            href={note.sharedLink.link}
-                                                            target="_blank"
-                                                            rel="noreferrer"
-                                                            className="text-sm text-transparent bg-clip-text bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 font-medium transition-all block truncate"
-                                                        >
-                                                            {note.sharedLink.link.slice(0, 45)}...
-                                                        </a>
-                                                        <div className="flex items-center gap-2 mt-2">
-                                                            <span className="text-xs text-slate-500 dark:text-slate-400">
-                                                                {formatDistanceToNow(new Date(note.receivedDate), {
-                                                                    addSuffix: true,
-                                                                })}
-                                                            </span>
-                                                            {!note.isSeen && (
-                                                                <span className="inline-flex items-center gap-1 text-xs font-medium text-purple-600 dark:text-purple-400">
-                                                                    <span className="w-2 h-2 bg-purple-500 rounded-full animate-pulse" />
-                                                                    New
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Action buttons - ROUND */}
-                                                    <div className="flex flex-col gap-1.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        {!note.isSeen && (
-                                                            <motion.button
-                                                                whileHover={{ scale: 1.1 }}
-                                                                whileTap={{ scale: 0.9 }}
-                                                                onClick={() => markSingleAsRead(note.id)}
-                                                                className="p-2 bg-gradient-to-r from-green-400 to-emerald-500 text-white rounded-full hover:shadow-lg transition-all"
-                                                                title="Mark as read"
-                                                            >
-                                                                <CheckCircle className="w-4 h-4" />
-                                                            </motion.button>
-                                                        )}
-                                                        <motion.button
-                                                            whileHover={{ scale: 1.1 }}
-                                                            whileTap={{ scale: 0.9 }}
-                                                            onClick={() => clearSingleNotification(note.id)}
-                                                            className="p-2 bg-gradient-to-r from-red-400 to-red-500 text-white rounded-full hover:shadow-lg transition-all"
-                                                            title="Clear"
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </motion.button>
-                                                    </div>
+                                            {/* Icon Container */}
+                                            <div className="shrink-0 pt-1">
+                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center border shadow-sm transition-colors ${!note.isSeen
+                                                        ? "bg-indigo-50 border-indigo-100 text-indigo-600"
+                                                        : "bg-gray-50 border-gray-100 text-gray-400"
+                                                    }`}>
+                                                    <ExternalLink className="w-5 h-5" />
                                                 </div>
+                                            </div>
+
+                                            {/* Content */}
+                                            <div className="flex-1 min-w-0 pr-8">
+                                                <div className="flex justify-between items-baseline mb-0.5">
+                                                    <p className={`text-sm ${!note.isSeen ? "font-bold text-gray-900" : "font-medium text-gray-600"}`}>
+                                                        New Link Shared
+                                                    </p>
+                                                    <span className="text-[10px] text-gray-400 whitespace-nowrap ml-2 flex items-center gap-1">
+                                                        <Clock className="w-3 h-3" />
+                                                        {formatDistanceToNow(new Date(note.receivedDate), { addSuffix: false })} ago
+                                                    </span>
+                                                </div>
+
+                                                <a
+                                                    href={note.sharedLink.link}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="text-sm text-indigo-600 hover:text-indigo-700 hover:underline block truncate"
+                                                >
+                                                    {note.sharedLink.link}
+                                                </a>
+                                            </div>
+
+                                            {/* Floating Actions (Visible on Hover) */}
+                                            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all bg-white p-1 rounded-lg shadow-sm border border-gray-100">
+                                                {!note.isSeen && (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); markSingleAsRead(note.id); }}
+                                                        className="p-1.5 hover:bg-emerald-50 text-emerald-500 rounded-md transition-colors"
+                                                        title="Mark as read"
+                                                    >
+                                                        <Check className="w-4 h-4" />
+                                                    </button>
+                                                )}
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); clearSingleNotification(note.id); }}
+                                                    className="p-1.5 hover:bg-red-50 text-red-500 rounded-md transition-colors"
+                                                    title="Remove"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
                                             </div>
                                         </motion.div>
                                     ))}
                                 </div>
                             ) : (
-                                <motion.div
-                                    initial={{ opacity: 0, scale: 0.9 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    className="p-12 text-center"
-                                >
-                                    <motion.div
-                                        animate={{ y: [0, -10, 0] }}
-                                        transition={{ duration: 2, repeat: Infinity }}
-                                        className="mx-auto w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-3xl flex items-center justify-center mb-4 shadow-lg"
-                                    >
-                                        <Bell className="w-10 h-10 text-indigo-400" />
-                                    </motion.div>
-                                    <p className="text-slate-600 dark:text-slate-400 font-medium">All caught up!</p>
-                                    <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">No new notifications</p>
-                                </motion.div>
+                                <div className="flex flex-col items-center justify-center py-16 px-4 text-center bg-white">
+                                    <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+                                        <BellRing className="w-8 h-8 text-gray-300" />
+                                    </div>
+                                    <h4 className="text-gray-900 font-medium">No notifications</h4>
+                                    <p className="text-sm text-gray-400 mt-1">
+                                        We'll let you know when something arrives.
+                                    </p>
+                                </div>
                             )}
                         </div>
 
-                        {/* Modern Footer */}
+                        {/* --- Footer with WORKING Actions --- */}
                         {notifications.length > 0 && (
-                            <div className="border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 backdrop-blur-sm p-3 flex gap-2">
-                                {/* <motion.button
+                            <div className="p-3 bg-white border-t border-gray-100 grid grid-cols-2 gap-3">
+                                <motion.button
                                     whileHover={{ scale: 1.02 }}
                                     whileTap={{ scale: 0.98 }}
                                     onClick={markAllAsRead}
-                                    className="flex-1 flex items-center justify-center gap-2 text-sm font-semibold bg-gradient-to-r from-green-400 to-emerald-500 hover:from-green-500 hover:to-emerald-600 text-white px-4 py-2.5 rounded-xl shadow-md hover:shadow-lg transition-all"
+                                    className="flex items-center justify-center gap-2 text-xs font-semibold bg-gray-50 hover:bg-indigo-50 text-gray-700 hover:text-indigo-600 py-2.5 rounded-xl transition-colors border border-gray-100"
                                 >
-                                    <CheckCircle className="w-4 h-4" />
+                                    <CheckCircle className="w-3.5 h-3.5" />
                                     Mark all read
-                                </motion.button> */}
+                                </motion.button>
+
                                 <motion.button
                                     whileHover={{ scale: 1.02 }}
                                     whileTap={{ scale: 0.98 }}
                                     onClick={clearAllNotifications}
-                                    className="flex-1 flex items-center justify-center gap-2 text-sm font-semibold bg-gradient-to-r from-red-400 to-pink-500 hover:from-red-500 hover:to-pink-600 text-white px-4 py-2.5 rounded-xl shadow-md hover:shadow-lg transition-all"
+                                    className="flex items-center justify-center gap-2 text-xs font-semibold bg-gray-50 hover:bg-red-50 text-gray-700 hover:text-red-600 py-2.5 rounded-xl transition-colors border border-gray-100"
                                 >
-                                    <Trash2 className="w-4 h-4" />
+                                    <Trash2 className="w-3.5 h-3.5" />
                                     Clear all
                                 </motion.button>
+                                
                             </div>
                         )}
                     </motion.div>

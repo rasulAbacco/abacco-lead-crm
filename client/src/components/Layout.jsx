@@ -58,9 +58,23 @@ function Layout({ children }) {
             } h-screen bg-white flex flex-col shadow-xl fixed left-0 top-0 transition-all duration-300 ease-in-out overflow-hidden z-50 border-r border-gray-200`}
         >
           {/* Header */}
-          <div className="p-5 border-b border-gray-100 flex items-center justify-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-              <Sparkles className="w-6 h-6 text-white" />
+          <div className="p-2 py-3 border-b border-gray-100 flex items-center justify-center gap-3">
+            {/* Change bg-indigo-100 and border-indigo-200 to match your brand theme */}
+            <div className="relative w-14 h-14 flex items-center justify-center">
+              {/* Background Glow */}
+              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-green-400 to-orange-500 blur-md opacity-40"></div>
+
+              {/* The Ring Container */}
+              {/* p-[3px] determines the thickness of the green/orange border */}
+              <div className="relative w-full h-full rounded-full p-[3px] bg-gradient-to-br from-green-400 via-yellow-400 to-orange-500 shadow-lg shadow-orange-500/20">
+                <div className="w-full h-full bg-white rounded-full flex items-center justify-center">
+                  <img
+                    src="/image.svg"
+                    alt="Company Logo"
+                    className="w-10 h-10 object-contain"
+                  />
+                </div>
+              </div>
             </div>
             {isExpanded && (
               <div>
@@ -90,7 +104,7 @@ function Layout({ children }) {
                     : `Welcome ${localStorage.getItem("fullName") || "Employee"}`}
                 </p>
                 <p className="text-xs text-gray-600">
-                  {role === "admin" ? "Administrator" : "Abacco Technolog"}
+                  {role === "admin" ? "Administrator" : "Abacco Technology"}
                 </p>
               </div>
             )}

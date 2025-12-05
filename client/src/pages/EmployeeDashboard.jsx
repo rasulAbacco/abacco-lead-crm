@@ -2,6 +2,8 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { toZonedTime, format } from "date-fns-tz";
+import { getDaysInMonth } from "date-fns";
+
 
 import DashboardStats from "./DashboardStats";
 import DashboardDailyChart from "./DashboardDailyChart";
@@ -10,6 +12,7 @@ import DashboardMonthlyChart from "./DashboardMonthlyChart";
 import PerformanceChart from "../components/PerformanceChart";
 import Loader from "../components/Loader";
 import NotificationBell from "../components/NotificationBell";
+import MotivationBanner from "../components/MotivationBanner";
 
 // NEW COMPONENTS
 import IncentivePlan from "../components/IncentivePlan";
@@ -232,6 +235,7 @@ const EmployeeDashboard = () => {
     (e) => String(e.employeeId) === String(loggedInId)
   );
 
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-purple-50 to-pink-50 p-8">
       <div className="max-w-7xl mx-auto space-y-8">
@@ -279,9 +283,21 @@ const EmployeeDashboard = () => {
               </div>
             </div>
 
-            
+
           </div>
         </div>
+
+        {/* MOTIVATION BANNER */}
+        <MotivationBanner
+          target={employeeTarget}
+          qualifiedMonthly={loggedPerf?.qualifiedLeads || 0}
+          doubleTarget={loggedEmp?.doubleTargetAchieved || false}
+          incentiveBreakdown={incentiveBreakdown}
+          incentive={incentive}
+          employeeName={loggedEmp?.fullName}
+        />
+
+
 
         {/* BASIC STATS */}
         <DashboardStats leads={leads} />
