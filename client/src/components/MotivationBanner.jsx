@@ -1,5 +1,5 @@
 import React from "react";
-import { toZonedTime, format } from "date-fns-tz";
+import { toZonedTime } from "date-fns-tz";
 import { getDaysInMonth } from "date-fns";
 import { FiZap, FiTrendingUp, FiTarget, FiAward } from "react-icons/fi";
 
@@ -60,7 +60,6 @@ const isObservedFixedHoliday = (date, month, day) => {
 };
 
 const isUSHoliday = (date) => {
-    const year = date.getFullYear();
     const month = date.getMonth(); // 0-based
 
     // Fixed/observed holidays
@@ -69,6 +68,8 @@ const isUSHoliday = (date) => {
     if (isObservedFixedHoliday(date, 6, 4)) return true; // Independence Day (Jul 4)
     if (isObservedFixedHoliday(date, 10, 11)) return true; // Veterans Day (Nov 11)
     if (isObservedFixedHoliday(date, 11, 25)) return true; // Christmas (Dec 25)
+
+    const year = date.getFullYear();
 
     // MLK Day (3rd Monday in Jan)
     if (month === 0) {
@@ -426,14 +427,25 @@ const getIncentiveTierLabel = (incentive) => {
     return null;
 };
 
-const getIncentiveMotivation = (breakdown = {}, incentive = 0, firstName) => {
+const getIncentiveMotivation = (
+    breakdown = {},
+    incentive = 0,
+    firstName,
+    todayLeads = 0
+) => {
     const { usAttendees = 0, mixedLeads = 0, usAssociation = 0 } =
         breakdown || {};
     const totalIncentiveLeads = usAttendees + mixedLeads + usAssociation;
     const name = firstName || "bro";
 
+    // 0 leads, 0 incentive
+    if (todayLeads === 0 && totalIncentiveLeads === 0) {
+        return `${name}, no leads, no incentive. Laptop on, but work off mode. Start with at least 1 lead.`;
+    }
+
+    // Some leads today, but no incentive-qualified ones
     if (totalIncentiveLeads === 0) {
-        return `${name}, you are doing calls but none of them paying you incentive yet. Qualify something and make the money worth your voice.`;
+        return `${name}, you already dropped ${todayLeads} lead(s) today but none are incentive grade yet. Tighten the quality and make at least a few count for money.`;
     }
 
     const leadsAwayUS = usAttendees >= 7 ? 0 : 7 - usAttendees;
@@ -445,20 +457,33 @@ const getIncentiveMotivation = (breakdown = {}, incentive = 0, firstName) => {
     );
     const closest = distances.length ? Math.min(...distances) : 0;
 
+    // Incentive not yet hit but some incentive-style leads present
     if (!incentive || incentive <= 0) {
         if (closest > 0) {
-            return `${name}, you are literally ${closest} lead${closest === 1 ? "" : "s"
-                } away from your first incentive. Do not sleep on free money.`;
+            return `${name}, you already have ${totalIncentiveLeads} serious lead(s) today. Just ${closest} more solid ones and step 1 incentive will unlock. Do not leave that money on the table.`;
         }
-        return `Leads are coming but incentive is not showing yet, ${name}. Something is off in your quality. Fix it.`;
+        return `Leads are coming, ${name}, but incentive is still shy. Clean up your pitch and convert these into proper paid numbers.`;
     }
 
+    // Incentive achieved -> 3 step messaging, use todayLeads in joke
     const tier = getIncentiveTierLabel(incentive);
-    if (tier) {
-        return `${name}, you have locked ${tier} level incentive with ₹${incentive.toLocaleString()} today. Now be greedy and climb one more tier.`;
+    const leadsText =
+        todayLeads > 0 ? `${todayLeads} lead(s)` : "all the leads you touched";
+
+    if (tier === "Bronze") {
+        return `Hahaha ${name}, step 1 incentive unlocked today with ₹${incentive.toLocaleString()}. Now just pray that ${leadsText} stay qualified and then push for Silver step.`;
     }
 
-    return `${name}, ₹${incentive.toLocaleString()} in incentive today. Do not act satisfied - there is more on the table.`;
+    if (tier === "Silver") {
+        return `Nice one ${name}, you are on step 2 incentive (Silver) with ₹${incentive.toLocaleString()} today. Pray today's ${leadsText} do not get rejected and then hunt for that Gold step.`;
+    }
+
+    if (tier === "Gold") {
+        return `Full send, ${name}! You maxed out step 3 incentive (Gold) with ₹${incentive.toLocaleString()} today. Now just pray QA does not break your heart on these ${leadsText}.`;
+    }
+
+    // Fallback if some weird custom amount
+    return `${name}, ₹${incentive.toLocaleString()} in incentive today. You have already made the day profitable - now overkill it.`;
 };
 
 // ---------- DAILY PROGRESS (4-HOURLY) ----------
@@ -512,7 +537,60 @@ const getDailyProgressMessage = (
     return `${label}: ${totalToday} lead(s) today. You are bullying the daily target, ${name}. Keep that same energy tomorrow. ${mood}`;
 };
 
-// ---------- COMPONENT ----------
+// ---------- NEW COMPONENT: CIRCULAR PROGRESS ----------
+const CircularProgress = ({ percent }) => {
+    const size = 95;
+    const strokeWidth = 8;
+    const center = size / 2;
+    const radius = (size - strokeWidth) / 2;
+    const circumference = 2 * Math.PI * radius;
+
+    // Cap visual fill at 100% so it doesn't look broken, but text shows real %
+    const visualPercent = Math.min(percent, 100);
+    const strokeDashoffset = circumference - (visualPercent / 100) * circumference;
+
+    return (
+        <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
+            <svg width={size} height={size} className="rotate-[-90deg]">
+                <defs>
+                    <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor="#6366f1" /> {/* Indigo-500 */}
+                        <stop offset="100%" stopColor="#ec4899" /> {/* Pink-500 */}
+                    </linearGradient>
+                </defs>
+                {/* Track */}
+                <circle
+                    cx={center}
+                    cy={center}
+                    r={radius}
+                    fill="transparent"
+                    stroke="#e5e7eb"
+                    strokeWidth={strokeWidth}
+                />
+                {/* Indicator */}
+                <circle
+                    cx={center}
+                    cy={center}
+                    r={radius}
+                    fill="transparent"
+                    stroke="url(#progressGradient)"
+                    strokeWidth={strokeWidth}
+                    strokeLinecap="round"
+                    strokeDasharray={circumference}
+                    strokeDashoffset={strokeDashoffset}
+                    className="transition-all duration-1000 ease-out"
+                />
+            </svg>
+            <div className="absolute flex flex-col items-center justify-center">
+                <span className="text-xl font-extrabold text-gray-800">
+                    {Math.round(percent)}%
+                </span>
+            </div>
+        </div>
+    );
+};
+
+// ---------- MAIN COMPONENT ----------
 const MotivationBanner = ({
     target,
     qualifiedMonthly = 0,
@@ -520,6 +598,7 @@ const MotivationBanner = ({
     incentiveBreakdown = {},
     incentive = 0,
     employeeName, // full name from Employee table
+    todayLeads = 0, // total leads today (qualified + not qualified)
 }) => {
     if (!target || target <= 0) return null;
 
@@ -530,15 +609,25 @@ const MotivationBanner = ({
     const totalWorkingDaysThisMonth = countWorkingDaysInMonth(nowInUSA);
     const workingDaysLeft = countRemainingWorkingDays(nowInUSA);
 
-    // Monthly %
+    // Today leads (all)
+    const totalToday = todayLeads;
+
+    // Daily target based on working days
+    const dailyTarget =
+        totalWorkingDaysThisMonth > 0
+            ? Math.max(1, Math.round(target / totalWorkingDaysThisMonth))
+            : 0;
+
+    // Monthly % (main driver for motivation line)
     const monthlyPercent =
         target > 0 ? Math.min((qualifiedMonthly / target) * 100, 250) : 0;
 
-    // deterministic seed for variant picking
+    // seed for text variation (changes hourly)
     const day = nowInUSA.getDate();
     const hour = nowInUSA.getHours();
     const seed = day * 10 + hour;
 
+    // MAIN MOTIVATION: MONTHLY-BASED
     const mainMotivation = getMainMotivationMessage({
         percent: monthlyPercent,
         workingDaysLeft,
@@ -547,21 +636,16 @@ const MotivationBanner = ({
         seed,
     });
 
+    // INCENTIVE: TODAY-BASED
     const incentiveLine = getIncentiveMotivation(
         incentiveBreakdown,
         incentive,
-        firstName
+        firstName,
+        totalToday
     );
 
-    // Daily leads
-    const totalToday = incentiveBreakdown?.totalToday || 0;
-    const dailyTarget =
-        totalWorkingDaysThisMonth > 0
-            ? Math.max(1, Math.round(target / totalWorkingDaysThisMonth))
-            : 0;
-
-    const hourUSA = hour;
-    const slotIndex = Math.floor(hourUSA / 4); // 0–5
+    // DAILY LINE: TODAY-BASED
+    const slotIndex = Math.floor(hour / 4); // 0–5
     const dailyProgressLine = getDailyProgressMessage(
         totalToday,
         dailyTarget,
@@ -569,85 +653,87 @@ const MotivationBanner = ({
         firstName
     );
 
+    // STATUS + BAR: MONTHLY-BASED
     const statusLabel = getStatusLabel(monthlyPercent);
 
     return (
         <div className="w-full">
             <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 p-[1px] shadow-md mb-3">
-                <div className="flex flex-col gap-1.5 rounded-2xl bg-white/95 px-4 py-3">
-                    {/* HEADER ROW */}
-                    <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-50">
-                            <FiZap className="w-5 h-5 text-indigo-600" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-0.5">
-                                <p className="text-[14px] font-bold uppercase tracking-wide text-indigo-500">
-                                    Today&apos;s Motivation
-                                </p>
-                                <span className="inline-flex items-center rounded-full border border-indigo-100 bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-600">
-                                    <FiTrendingUp className="w-3 h-3 mr-1" />
-                                    {statusLabel}
-                                </span>
+                {/* Changed flex-col to flex-row to put Circle on right */}
+                <div className="flex flex-row items-center justify-between rounded-2xl bg-white/95 px-4 py-3">
+
+                    {/* LEFT SIDE: Text Content */}
+                    <div className="flex flex-col gap-1.5 flex-1 min-w-0 pr-4">
+                        {/* HEADER ROW */}
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-50">
+                                <FiZap className="w-5 h-5 text-indigo-600" />
                             </div>
-                            <p className="text-sm sm:text-[15px] font-semibold text-gray-900 leading-snug">
-                                {mainMotivation}
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* STATS CHIPS */}
-                    <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-gray-600">
-                        <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 font-bold">
-                            <FiTarget className="w-3 h-3 text-indigo-500" />
-                            <span>Monthly:</span>
-                            <span className=" text-indigo-700">
-                                {Math.round(monthlyPercent)}%
-                            </span>
-                        </span>
-                        <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 font-bold">
-                            <span>Leads:</span>
-                            <span className="text-gray-800">
-                                {qualifiedMonthly}/{target}
-                            </span>
-                        </span>
-                        <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 font-bold">
-                            <span>Working days left:</span>
-                            <span className="text-gray-800">
-                                {workingDaysLeft}
-                            </span>
-                        </span>
-                    </div>
-
-                    {/* PROGRESS + INCENTIVE CHIPS */}
-                    {(dailyProgressLine || incentiveLine) && (
-                        <div className="mt-1.5 flex flex-wrap gap-2 text-[11px]">
-                            {dailyProgressLine && (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-indigo-800 text-[14px]">
-                                    <FiTrendingUp className="w-3 h-3" />
-                                    <span className="font-medium">
-                                        {dailyProgressLine}
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-0.5">
+                                    <p className="text-[14px] font-bold uppercase tracking-wide text-indigo-500">
+                                        Today&apos;s Motivation
+                                    </p>
+                                    <span className="inline-flex items-center rounded-full border border-indigo-100 bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-600">
+                                        <FiTrendingUp className="w-3 h-3 mr-1" />
+                                        {statusLabel}
                                     </span>
-                                </span>
-                            )}
-                            {incentiveLine && (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-yellow-50 px-2 py-0.5 text-yellow-900 text-[14px]">
-                                    <FiAward className="w-3 h-3" />
-                                    <span className="font-medium">
-                                        {incentiveLine}
-                                    </span>
-                                </span>
-                            )}
+                                </div>
+                                <p className="text-sm sm:text-[15px] font-semibold text-gray-900 leading-snug">
+                                    {mainMotivation}
+                                </p>
+                            </div>
                         </div>
-                    )}
 
-                    {/* SLIM PROGRESS BAR */}
-                    <div className="mt-2 h-1 w-full rounded-full bg-gray-200 overflow-hidden">
-                        <div
-                            className="h-full bg-gradient-to-r from-indigo-500 to-pink-500 transition-all duration-500"
-                            style={{ width: `${Math.min(monthlyPercent, 120)}%` }}
-                        />
+                        {/* STATS CHIPS */}
+                        <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-gray-600">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 font-bold">
+                                <FiTarget className="w-3 h-3 text-indigo-500" />
+                                <span>Monthly:</span>
+                                <span className="text-indigo-700">
+                                    {Math.round(monthlyPercent)}%
+                                </span>
+                            </span>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 font-bold">
+                                <span>Leads:</span>
+                                <span className="text-gray-800">
+                                    {qualifiedMonthly}/{target}
+                                </span>
+                            </span>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 font-bold">
+                                <span>Working days left:</span>
+                                <span className="text-gray-800">{workingDaysLeft}</span>
+                            </span>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 font-bold">
+                                <span>Today&apos;s leads:</span>
+                                <span className="text-gray-800">{todayLeads}</span>
+                            </span>
+                        </div>
+
+                        {/* PROGRESS + INCENTIVE CHIPS */}
+                        {(dailyProgressLine || incentiveLine) && (
+                            <div className="mt-1.5 flex flex-wrap gap-2 text-[11px]">
+                                {dailyProgressLine && (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-indigo-800 text-[13px]">
+                                        <FiTrendingUp className="w-3 h-3" />
+                                        <span className="font-medium">{dailyProgressLine}</span>
+                                    </span>
+                                )}
+                                {incentiveLine && (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-yellow-50 px-2 py-0.5 text-yellow-900 text-[13px]">
+                                        <FiAward className="w-3 h-3" />
+                                        <span className="font-medium">{incentiveLine}</span>
+                                    </span>
+                                )}
+                            </div>
+                        )}
                     </div>
+
+                    {/* RIGHT SIDE: Circular Progress */}
+                    <div className="shrink-0 border-l border-gray-100 pl-3 ml-2">
+                        <CircularProgress percent={monthlyPercent} />
+                    </div>
+
                 </div>
             </div>
         </div>

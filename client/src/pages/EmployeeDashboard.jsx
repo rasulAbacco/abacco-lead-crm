@@ -235,6 +235,18 @@ const EmployeeDashboard = () => {
     (e) => String(e.employeeId) === String(loggedInId)
   );
 
+  const todayStr = format(toZonedTime(new Date(), USA_TZ), "yyyy-MM-dd");
+
+  const todayLeadsCount = leads.filter((lead) => {
+    if (!lead || !lead.date) return false;
+    const leadDateStr = format(
+      toZonedTime(new Date(lead.date), USA_TZ),
+      "yyyy-MM-dd"
+    );
+    return leadDateStr === todayStr;
+  }).length;
+
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-purple-50 to-pink-50 p-8">
@@ -290,12 +302,15 @@ const EmployeeDashboard = () => {
         {/* MOTIVATION BANNER */}
         <MotivationBanner
           target={employeeTarget}
-          qualifiedMonthly={loggedPerf?.qualifiedLeads || 0}
+          qualifiedMonthly={loggedPerf?.leads || 0}
           doubleTarget={loggedEmp?.doubleTargetAchieved || false}
           incentiveBreakdown={incentiveBreakdown}
           incentive={incentive}
           employeeName={loggedEmp?.fullName}
+          todayLeads={todayLeadsCount}
         />
+
+
 
 
 
