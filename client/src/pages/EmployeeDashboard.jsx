@@ -299,7 +299,7 @@ const EmployeeDashboard = () => {
           </div>
         </div>
 
-        {/* MOTIVATION BANNER */}
+        {/* MOTIVATION BANNER IN DASHBOARD*/}
         <MotivationBanner
           target={employeeTarget}
           qualifiedMonthly={loggedPerf?.leads || 0}
@@ -336,7 +336,7 @@ const EmployeeDashboard = () => {
 
 
         {/* INCENTIVE PLAN */}
-        
+
         <section>
           <IncentivePlan />
         </section>
