@@ -336,6 +336,7 @@ const EmployeeDashboard = () => {
 
 
         {/* INCENTIVE PLAN */}
+        
         <section>
           <IncentivePlan />
         </section>
