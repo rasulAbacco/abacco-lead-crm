@@ -13,8 +13,6 @@ const prisma = new PrismaClient();
 // ==========================================================
 // ✅ Create Lead (Central USA Time)
 // ==========================================================
-
-
 router.post("/", async (req, res) => {
   try {
     const { leads } = req.body;
@@ -24,7 +22,7 @@ router.post("/", async (req, res) => {
     }
 
     const lead = leads[0];
-    const { id, clientEmail, link, subjectLine, date } = lead;
+    const { id, clientEmail, link, subjectLine, date, phones, ccEmails, attendeesCount, ...rest } = lead;
 
     if (!clientEmail || !link || !subjectLine) {
       return res.status(400).json({
@@ -65,13 +63,11 @@ router.post("/", async (req, res) => {
 
     // Prevent duplicates (within last 3 months)
     const threeMonthsAgo = new Date();
-    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 2);
 
     const existingLead = await prisma.lead.findFirst({
       where: {
         clientEmail: normalizedClientEmail,
-        link: normalizedLink,
-        subjectLine: normalizedSubjectLine, // Added subjectLine to duplicate check
         createdAt: { gte: threeMonthsAgo },
       },
     });
@@ -96,19 +92,32 @@ router.post("/", async (req, res) => {
     const usaDate = getUSADateTime();
     const utcDate = fromZonedTime(usaDate, "America/Chicago");
 
-    const { id: _, ...leadData } = lead;
+    // Process phone numbers and CC emails
+    const processedPhones = phones && phones.length > 0
+      ? phones.filter(p => p.trim()).join(',')
+      : '';
+
+    const processedCcEmails = ccEmails && ccEmails.length > 0
+      ? ccEmails.filter(e => e.trim()).join(',')
+      : '';
+
+    // Create the data object without the array fields
+    const dataToSave = {
+      ...rest,
+      clientEmail: normalizedClientEmail,
+      link: normalizedLink,
+      subjectLine: normalizedSubjectLine,
+      phone: processedPhones, // Use existing field name
+      ccEmail: processedCcEmails, // Use existing field name
+      attendeesCount: attendeesCount ? parseInt(attendeesCount) : null,
+      // ✅ FIXED: ensure selected date falls in US day (noon CST)
+      date: date
+        ? fromZonedTime(`${date}T12:00:00`, "America/Chicago")
+        : utcDate,
+    };
 
     const newLead = await prisma.lead.create({
-      data: {
-        ...leadData,
-        clientEmail: normalizedClientEmail,
-        link: normalizedLink,
-        subjectLine: normalizedSubjectLine, // Store normalized subject line
-        // ✅ FIXED: ensure selected date falls in US day (noon CST)
-        date: date
-          ? fromZonedTime(`${date}T12:00:00`, "America/Chicago")
-          : utcDate,
-      },
+      data: dataToSave,
     });
 
     return res.status(201).json({ success: true, lead: newLead });
@@ -124,7 +133,6 @@ router.post("/", async (req, res) => {
     return res.status(500).json({ success: false, message: "Server error" });
   }
 });
-
 // ==========================================================
 // ✅ Get all leads by employee ID
 // ==========================================================
@@ -141,7 +149,14 @@ router.get("/", async (req, res) => {
       orderBy: { id: "desc" },
     });
 
-    res.json({ success: true, leads });
+    // Process phone numbers and CC emails for frontend
+    const processedLeads = leads.map(lead => ({
+      ...lead,
+      phones: lead.phone ? lead.phone.split(',') : [], // Use existing field name
+      ccEmails: lead.ccEmail ? lead.ccEmail.split(',') : [] // Use existing field name
+    }));
+
+    res.json({ success: true, leads: processedLeads });
   } catch (err) {
     console.error("Error fetching leads:", err);
     res.status(500).json({ success: false, message: err.message });
@@ -156,28 +171,20 @@ router.get("/:id", async (req, res) => {
     const lead = await prisma.lead.findUnique({
       where: { id: Number(req.params.id) },
     });
+
     if (!lead) {
       return res.status(404).json({ success: false, message: "Lead not found" });
     }
-    res.json({ success: true, lead });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
 
-// ==========================================================
-// ✅ Get count of leads by email
-// ==========================================================
-router.get("/count/:email", async (req, res) => {
-  try {
-    const { email } = req.params;
-    const count = await prisma.lead.count({
-      where: { leadEmail: email },
-    });
+    // Process phone numbers and CC emails for frontend
+    const processedLead = {
+      ...lead,
+      phones: lead.phone ? lead.phone.split(',') : [], // Use existing field name
+      ccEmails: lead.ccEmail ? lead.ccEmail.split(',') : [] // Use existing field name
+    };
 
-    res.json({ success: true, email, count });
+    res.json({ success: true, lead: processedLead });
   } catch (err) {
-    console.error(err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -188,7 +195,7 @@ router.get("/count/:email", async (req, res) => {
 router.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    let { date, ...data } = req.body;
+    let { date, phones, ccEmails, attendeesCount, ...data } = req.body;
 
     if (date) {
       const parsed = new Date(date);
@@ -199,29 +206,38 @@ router.put("/:id", async (req, res) => {
       data.date = fromZonedTime(getUSADateTime(), "America/Chicago");
     }
 
+    // Process phone numbers and CC emails
+    if (phones) {
+      data.phone = Array.isArray(phones) && phones.length > 0
+        ? phones.filter(p => p.trim()).join(',')
+        : '';
+    }
+
+    if (ccEmails) {
+      data.ccEmail = Array.isArray(ccEmails) && ccEmails.length > 0
+        ? ccEmails.filter(e => e.trim()).join(',')
+        : '';
+    }
+
+    if (attendeesCount !== undefined) {
+      data.attendeesCount = attendeesCount ? parseInt(attendeesCount) : null;
+    }
+
     const updatedLead = await prisma.lead.update({
       where: { id: Number(id) },
       data,
     });
 
-    res.json({ success: true, lead: updatedLead });
+    // Process phone numbers and CC emails for response
+    const processedLead = {
+      ...updatedLead,
+      phones: updatedLead.phone ? updatedLead.phone.split(',') : [], // Use existing field name
+      ccEmails: updatedLead.ccEmail ? updatedLead.ccEmail.split(',') : [] // Use existing field name
+    };
+
+    res.json({ success: true, lead: processedLead });
   } catch (err) {
     console.error("Error updating lead:", err);
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-// ==========================================================
-// ✅ Delete lead
-// ==========================================================
-router.delete("/:id", async (req, res) => {
-  try {
-    await prisma.lead.delete({
-      where: { id: Number(req.params.id) },
-    });
-    res.json({ success: true, message: "Lead deleted" });
-  } catch (err) {
-    console.error("Error deleting lead:", err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -254,6 +270,9 @@ router.get("/all", async (req, res) => {
       leadType: lead.leadType,
       date: toUSAZone(lead.date),
       link: lead.link,
+      phones: lead.phone ? lead.phone.split(',') : [], // Use existing field name
+      ccEmails: lead.ccEmail ? lead.ccEmail.split(',') : [], // Use existing field name
+      attendeesCount: lead.attendeesCount,
       employee: lead.employee,
     }));
 
@@ -284,6 +303,9 @@ router.get("/today", async (req, res) => {
     const formatted = leads.map((lead) => ({
       ...lead,
       createdAt: toUSAZone(lead.createdAt),
+      phones: lead.phone ? lead.phone.split(',') : [], // Use existing field name
+      ccEmails: lead.ccEmail ? lead.ccEmail.split(',') : [], // Use existing field name
+      attendeesCount: lead.attendeesCount,
     }));
 
     res.json({ success: true, leads: formatted });
@@ -292,5 +314,4 @@ router.get("/today", async (req, res) => {
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
-
 export default router;

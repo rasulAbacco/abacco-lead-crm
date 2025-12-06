@@ -13,26 +13,27 @@ enum Role {
 }
 
 model Lead {
-  id            Int      @id @default(autoincrement())
-  employeeId    String
-  agentName     String?
-  clientEmail   String
-  leadEmail     String
-  ccEmail       String?
-  subjectLine   String
-  emailPitch    String
-  emailResponce String?
-  website       String?
-  phone         String?
-  country       String?
-  leadType      String
-  date          DateTime
-  createdAt     DateTime @default(now())
-  employee      Employee @relation(fields: [employeeId], references: [employeeId])
-  link          String
-  isEdited      Boolean? @default(false)
-  forwarded     Boolean  @default(false)
-  qualified     Boolean?
+  id             Int      @id @default(autoincrement())
+  employeeId     String
+  agentName      String?
+  clientEmail    String
+  leadEmail      String
+  ccEmail        String? // Keep original name
+  subjectLine    String
+  emailPitch     String
+  emailResponce  String?
+  website        String?
+  phone          String? // Keep original name
+  country        String?
+  leadType       String
+  date           DateTime
+  createdAt      DateTime @default(now())
+  employee       Employee @relation(fields: [employeeId], references: [employeeId])
+  link           String
+  isEdited       Boolean? @default(false)
+  forwarded      Boolean  @default(false)
+  qualified      Boolean?
+  attendeesCount Int? // New field
 }
 
 model Employee {
@@ -58,15 +59,26 @@ model Employee {
 }
 
 model SharedLink {
-  id          Int            @id @default(autoincrement())
-  link        String         @db.Text // Use Text for longer URLs
-  linkType    String // Association Type, Industry Type, Attendees Type, World Wide
-  country     String
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime?      @updatedAt
+  id Int @id @default(autoincrement())
+
+  /// OLD FIELD (kept to avoid data loss)
+  /// ✨ You will remove this *after* migrating old data safely.
+  link String? @db.Text
+
+  linkType String
+  country  String
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime? @updatedAt
+
   createdById Int
-  createdBy   Employee       @relation("CreatedLinks", fields: [createdById], references: [id], onDelete: Cascade)
-  recipients  ReceivedLink[] @relation("LinkRecipients")
+  createdBy   Employee @relation("CreatedLinks", fields: [createdById], references: [id], onDelete: Cascade)
+
+  // NEW MULTI-URL RELATION
+  urls SharedLinkUrl[] @relation("SharedLink_Urls")
+
+  // Existing recipients
+  recipients ReceivedLink[] @relation("LinkRecipients")
 
   @@index([createdById])
   @@index([linkType])
@@ -74,20 +86,35 @@ model SharedLink {
   @@index([createdAt])
 }
 
+model SharedLinkUrl {
+  id           Int    @id @default(autoincrement())
+  url          String @db.Text
+  sharedLinkId Int
+
+  sharedLink SharedLink @relation("SharedLink_Urls", fields: [sharedLinkId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
 model ReceivedLink {
-  id           Int        @id @default(autoincrement())
+  id Int @id @default(autoincrement())
+
   sharedLinkId Int
   sharedLink   SharedLink @relation("LinkRecipients", fields: [sharedLinkId], references: [id], onDelete: Cascade)
-  recipientId  Int
-  recipient    Employee   @relation("ReceivedByEmployee", fields: [recipientId], references: [id], onDelete: Cascade)
-  receivedDate DateTime   @default(now())
 
-  // ✅ Add these here:
+  recipientId Int
+  recipient   Employee @relation("ReceivedByEmployee", fields: [recipientId], references: [id], onDelete: Cascade)
+
+  receivedDate DateTime @default(now())
+
   isSeen Boolean   @default(false)
   isRead Boolean   @default(false)
   seenAt DateTime?
 
-  @@unique([sharedLinkId, recipientId]) // Prevent duplicate assignments
+  isOpen   Boolean   @default(false)
+  openedAt DateTime?
+
+  @@unique([sharedLinkId, recipientId])
   @@index([recipientId])
   @@index([sharedLinkId])
   @@index([receivedDate])

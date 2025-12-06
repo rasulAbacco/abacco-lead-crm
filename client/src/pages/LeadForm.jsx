@@ -8,6 +8,8 @@ import {
   FileText,
   CheckCircle,
   Send as SendIcon,
+  Plus,
+  X,
 } from "lucide-react";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -19,16 +21,17 @@ const LeadForm = () => {
     agentName: "",
     clientEmail: "",
     leadEmail: "",
-    ccEmail: "",
+    ccEmails: [""], // Changed to array for multiple emails
     subjectLine: "",
     emailPitch: "",
     emailResponce: "",
     website: "",
-    phone: "",
+    phones: [""], // Changed to array for multiple phones
     country: "",
     leadType: "Association Lead",
     date: "",
     link: "",
+    attendeesCount: "", // Now optional
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -63,16 +66,25 @@ const LeadForm = () => {
     if (!formData.emailPitch.trim())
       newErrors.emailPitch = "Email pitch is required";
 
-    // if (!formData.emailResponce.trim())
-    //   newErrors.emailResponce = "Email Response is required";
-
     // ✅ NEW required fields
     if (!formData.website.trim()) newErrors.website = "Website is required";
 
     if (!formData.link.trim())
       newErrors.link = "Association/Expo link is required";
 
-    if (!formData.phone.trim()) newErrors.phone = "Phone number is required";
+    // Validate at least one phone number
+    if (!formData.phones.some(phone => phone.trim())) {
+      newErrors.phones = "At least one phone number is required";
+    }
+
+    // Validate CC emails if provided
+    const ccEmails = formData.ccEmails.filter(email => email.trim());
+    for (const email of ccEmails) {
+      if (!validateEmail(email)) {
+        newErrors.ccEmails = `Invalid CC email: ${email}`;
+        break;
+      }
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -84,21 +96,60 @@ const LeadForm = () => {
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: null }));
   };
 
+  const handlePhoneChange = (index, value) => {
+    const newPhones = [...formData.phones];
+    newPhones[index] = value;
+    setFormData(prev => ({ ...prev, phones: newPhones }));
+    if (errors.phones) setErrors(prev => ({ ...prev, phones: null }));
+  };
+
+  const handleCcEmailChange = (index, value) => {
+    const newCcEmails = [...formData.ccEmails];
+    newCcEmails[index] = value;
+    setFormData(prev => ({ ...prev, ccEmails: newCcEmails }));
+    if (errors.ccEmails) setErrors(prev => ({ ...prev, ccEmails: null }));
+  };
+
+  const addPhoneField = () => {
+    setFormData(prev => ({ ...prev, phones: [...prev.phones, ""] }));
+  };
+
+  const removePhoneField = (index) => {
+    if (formData.phones.length > 1) {
+      const newPhones = [...formData.phones];
+      newPhones.splice(index, 1);
+      setFormData(prev => ({ ...prev, phones: newPhones }));
+    }
+  };
+
+  const addCcEmailField = () => {
+    setFormData(prev => ({ ...prev, ccEmails: [...prev.ccEmails, ""] }));
+  };
+
+  const removeCcEmailField = (index) => {
+    if (formData.ccEmails.length > 1) {
+      const newCcEmails = [...formData.ccEmails];
+      newCcEmails.splice(index, 1);
+      setFormData(prev => ({ ...prev, ccEmails: newCcEmails }));
+    }
+  };
+
   const handleClear = () => {
     setFormData({
       agentName: "",
       clientEmail: "",
       leadEmail: "",
-      ccEmail: "",
+      ccEmails: [""], // Reset to one empty field
       subjectLine: "",
       emailPitch: "",
       emailResponce: "",
       website: "",
-      phone: "",
+      phones: [""], // Reset to one empty field
       country: "",
       leadType: "Association Lead",
       date: "",
       link: "",
+      attendeesCount: "",
     });
     setErrors({});
   };
@@ -113,11 +164,18 @@ const LeadForm = () => {
 
     setIsSubmitting(true);
 
+    // Prepare data for submission - filter out empty phones and CC emails
+    const submissionData = {
+      ...formData,
+      phones: formData.phones.filter(phone => phone.trim()),
+      ccEmails: formData.ccEmails.filter(email => email.trim()),
+    };
+
     try {
       const res = await fetch(`${API_BASE_URL}/api/leads`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ leads: [{ ...formData, employeeId }] }),
+        body: JSON.stringify({ leads: [{ ...submissionData, employeeId }] }),
       });
 
       const data = await res.json();
@@ -150,54 +208,58 @@ const LeadForm = () => {
   const today = new Date().toISOString().split("T")[0];
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-12 px-4 sm:px-6">
+      {/* Toast Notification */}
       {toast.message && (
         <div
-          className={`fixed top-4 right-4 z-50 px-4 py-2 rounded shadow-md text-white
-      ${toast.type === "error" ? "bg-red-600" : "bg-green-600"}`}
+          className={`fixed top-6 right-6 z-50 px-6 py-4 rounded-xl shadow-lg text-white font-medium transform transition-all duration-300 ${toast.type === "error"
+            ? "bg-red-500 animate-pulse"
+            : "bg-green-500"
+            }`}
         >
           {toast.message}
         </div>
       )}
 
+      {/* Success Notification */}
       {showSuccess && (
-        <div className="fixed top-4 right-4 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg z-50 flex items-center gap-2">
-          <CheckCircle className="w-5 h-5" />
-          <span>Lead submitted successfully!</span>
+        <div className="fixed top-6 right-6 bg-green-500 text-white px-6 py-4 rounded-xl shadow-lg z-50 flex items-center gap-3 animate-fade-in">
+          <CheckCircle className="w-6 h-6" />
+          <span className="font-medium">Lead submitted successfully!</span>
         </div>
       )}
 
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-blue-600 rounded-lg">
-                <Building className="w-6 h-6 text-white" />
+        <div className="bg-white rounded-2xl shadow-xl p-8 mb-10 border border-gray-100">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+            <div className="flex items-center gap-5">
+              <div className="p-4 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl shadow-lg">
+                <Building className="w-8 h-8 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">
-                  Lead Management System
+                <h1 className="text-3xl font-bold text-gray-900">
+                  Drop Your Lead Here
                 </h1>
-                <p className="text-gray-600">Employee Lead Submission Portal</p>
+                <p className="text-gray-600 mt-1">Employee Lead Submission Portal</p>
               </div>
             </div>
-            <div className="text-right">
-              <div className="text-sm text-gray-500">Employee ID</div>
-              <div className="font-mono text-sm bg-gray-100 px-3 py-1 rounded">
+            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+              <div className="text-sm text-gray-500 font-medium">Employee ID</div>
+              <div className="font-mono text-lg font-semibold bg-white px-4 py-2 rounded-lg mt-1 shadow-sm">
                 {employeeId}
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-8 text-sm text-gray-600">
-            <div className="flex items-center gap-2">
-              <Users className="w-4 h-4" />
-              <span>New Lead Submission</span>
+          <div className="flex flex-wrap gap-6 text-sm text-gray-600">
+            <div className="flex items-center gap-2 bg-blue-50 px-4 py-2 rounded-lg">
+              <Users className="w-5 h-5 text-blue-500" />
+              <span className="font-medium">New Lead Submission</span>
             </div>
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4" />
-              <span>
+            <div className="flex items-center gap-2 bg-indigo-50 px-4 py-2 rounded-lg">
+              <Calendar className="w-5 h-5 text-indigo-500" />
+              <span className="font-medium">
                 Date:{" "}
                 {new Date().toLocaleDateString("en-IN", {
                   day: "2-digit",
@@ -206,66 +268,69 @@ const LeadForm = () => {
                 })}
               </span>
             </div>
-
-            <div className="flex items-center gap-2">
-              <FileText className="w-4 h-4" />
-              <span>Form ID: LF-{Date.now().toString().slice(-6)}</span>
+            <div className="flex items-center gap-2 bg-purple-50 px-4 py-2 rounded-lg">
+              <FileText className="w-5 h-5 text-purple-500" />
+              <span className="font-medium">Form ID: LF-{Date.now().toString().slice(-6)}</span>
             </div>
           </div>
         </div>
 
         {/* Main Form */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+        <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
           <form
             onSubmit={handleSubmit}
-            className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+            className="grid grid-cols-1 md:grid-cols-2 gap-6"
           >
             {/* Client Name */}
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700">
                 Client Name
               </label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <User className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
                   type="text"
                   name="agentName"
                   value={formData.agentName}
                   onChange={handleChange}
-                  className={`w-full pl-10 pr-4 py-3 border rounded-lg ${
-                    errors.agentName ? "border-red-500" : "border-gray-300"
-                  }`}
+                  className={`w-full pl-12 pr-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.agentName ? "border-red-500 bg-red-50" : "border-gray-300"
+                    }`}
                   placeholder="Enter agent full name"
                 />
               </div>
               {errors.agentName && (
-                <p className="text-red-500 text-sm">{errors.agentName}</p>
+                <p className="text-red-500 text-sm font-medium mt-1">{errors.agentName}</p>
               )}
             </div>
 
             {/* Lead Type */}
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700">
                 Lead Type
               </label>
               <div className="relative">
-                <Tag className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Tag className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <select
                   name="leadType"
                   value={formData.leadType}
                   onChange={handleChange}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg"
+                  className="w-full pl-12 pr-4 py-3.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none bg-white"
                 >
                   <option value="Association Lead">Association Lead</option>
                   <option value="Attendees Lead">Attendees Lead</option>
                   <option value="Industry Lead">Industry Lead</option>
                 </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                  </svg>
+                </div>
               </div>
             </div>
 
             {/* Client Email */}
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700">
                 Client Email <span className="text-red-500">*</span>
               </label>
               <input
@@ -273,19 +338,18 @@ const LeadForm = () => {
                 name="clientEmail"
                 value={formData.clientEmail}
                 onChange={handleChange}
-                className={`w-full px-4 py-3 border rounded-lg ${
-                  errors.clientEmail ? "border-red-500" : "border-gray-300"
-                }`}
+                className={`w-full px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.clientEmail ? "border-red-500 bg-red-50" : "border-gray-300"
+                  }`}
                 placeholder="client@company.com"
               />
               {errors.clientEmail && (
-                <p className="text-red-500 text-sm">{errors.clientEmail}</p>
+                <p className="text-red-500 text-sm font-medium mt-1">{errors.clientEmail}</p>
               )}
             </div>
 
             {/* Lead Email */}
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700">
                 Lead Email <span className="text-red-500">*</span>
               </label>
               <input
@@ -293,39 +357,58 @@ const LeadForm = () => {
                 name="leadEmail"
                 value={formData.leadEmail}
                 onChange={handleChange}
-                className={`w-full px-4 py-3 border rounded-lg ${
-                  errors.leadEmail ? "border-red-500" : "border-gray-300"
-                }`}
+                className={`w-full px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.leadEmail ? "border-red-500 bg-red-50" : "border-gray-300"
+                  }`}
                 placeholder="lead@company.com"
               />
               {errors.leadEmail && (
-                <p className="text-red-500 text-sm">{errors.leadEmail}</p>
+                <p className="text-red-500 text-sm font-medium mt-1">{errors.leadEmail}</p>
               )}
             </div>
 
-            {/* CC Email */}
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
-                CC Email
+            {/* CC Emails - Multiple */}
+            <div className="space-y-2 md:col-span-2">
+              <label className="block text-sm font-semibold text-gray-700">
+                CC Emails
               </label>
-              <input
-                type="text"
-                name="ccEmail"
-                value={formData.ccEmail}
-                onChange={handleChange}
-                className={`w-full px-4 py-3 border rounded-lg ${
-                  errors.ccEmail ? "border-red-500" : "border-gray-300"
-                }`}
-                placeholder="manager@company.com"
-              />
-              {errors.ccEmail && (
-                <p className="text-red-500 text-sm">{errors.ccEmail}</p>
+              {formData.ccEmails.map((email, index) => (
+                <div key={index} className="flex gap-2">
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => handleCcEmailChange(index, e.target.value)}
+                    className={`flex-1 px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.ccEmails ? "border-red-500 bg-red-50" : "border-gray-300"
+                      }`}
+                    placeholder="cc@example.com"
+                  />
+                  {formData.ccEmails.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeCcEmailField(index)}
+                      className="p-3.5 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  )}
+                  {index === formData.ccEmails.length - 1 && (
+                    <button
+                      type="button"
+                      onClick={addCcEmailField}
+                      className="p-3.5 bg-blue-50 text-blue-500 rounded-xl hover:bg-blue-100 transition-colors"
+                    >
+                      <Plus className="w-5 h-5" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              {errors.ccEmails && (
+                <p className="text-red-500 text-sm font-medium mt-1">{errors.ccEmails}</p>
               )}
             </div>
 
             {/* Website - required */}
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700">
                 Client Website <span className="text-red-500">*</span>
               </label>
               <input
@@ -333,19 +416,18 @@ const LeadForm = () => {
                 name="website"
                 value={formData.website}
                 onChange={handleChange}
-                className={`w-full px-4 py-3 border rounded-lg ${
-                  errors.website ? "border-red-500" : "border-gray-300"
-                }`}
+                className={`w-full px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.website ? "border-red-500 bg-red-50" : "border-gray-300"
+                  }`}
                 placeholder="https://website.com"
               />
               {errors.website && (
-                <p className="text-red-500 text-sm">{errors.website}</p>
+                <p className="text-red-500 text-sm font-medium mt-1">{errors.website}</p>
               )}
             </div>
 
             {/* Association / Expo Link - required */}
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700">
                 {getWebsiteLabel()} <span className="text-red-500">*</span>
               </label>
               <input
@@ -353,39 +435,58 @@ const LeadForm = () => {
                 name="link"
                 value={formData.link}
                 onChange={handleChange}
-                className={`w-full px-4 py-3 border rounded-lg ${
-                  errors.link ? "border-red-500" : "border-gray-300"
-                }`}
+                className={`w-full px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.link ? "border-red-500 bg-red-50" : "border-gray-300"
+                  }`}
                 placeholder="https://link.com"
               />
               {errors.link && (
-                <p className="text-red-500 text-sm">{errors.link}</p>
+                <p className="text-red-500 text-sm font-medium mt-1">{errors.link}</p>
               )}
             </div>
 
-            {/* Phone - required */}
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Phone <span className="text-red-500">*</span>
+            {/* Phone Numbers - Multiple */}
+            <div className="space-y-2 md:col-span-2">
+              <label className="block text-sm font-semibold text-gray-700">
+                Phone Numbers <span className="text-red-500">*</span>
               </label>
-              <input
-                type="text"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                className={`w-full px-4 py-3 border rounded-lg ${
-                  errors.phone ? "border-red-500" : "border-gray-300"
-                }`}
-                placeholder="+1 (555) 123-4567"
-              />
-              {errors.phone && (
-                <p className="text-red-500 text-sm">{errors.phone}</p>
+              {formData.phones.map((phone, index) => (
+                <div key={index} className="flex gap-2">
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => handlePhoneChange(index, e.target.value)}
+                    className={`flex-1 px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.phones ? "border-red-500 bg-red-50" : "border-gray-300"
+                      }`}
+                    placeholder="+1 (555) 123-4567"
+                  />
+                  {formData.phones.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removePhoneField(index)}
+                      className="p-3.5 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  )}
+                  {index === formData.phones.length - 1 && (
+                    <button
+                      type="button"
+                      onClick={addPhoneField}
+                      className="p-3.5 bg-blue-50 text-blue-500 rounded-xl hover:bg-blue-100 transition-colors"
+                    >
+                      <Plus className="w-5 h-5" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              {errors.phones && (
+                <p className="text-red-500 text-sm font-medium mt-1">{errors.phones}</p>
               )}
             </div>
 
             {/* Country */}
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700">
                 Country
               </label>
               <input
@@ -393,14 +494,14 @@ const LeadForm = () => {
                 name="country"
                 value={formData.country}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg"
+                className="w-full px-4 py-3.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                 placeholder="United States"
               />
             </div>
 
             {/* Date (no future date) */}
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700">
                 Contact Date
               </label>
               <input
@@ -409,13 +510,31 @@ const LeadForm = () => {
                 value={formData.date}
                 onChange={handleChange}
                 max={today} // ✅ prevent future dates
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg"
+                className="w-full px-4 py-3.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
               />
             </div>
 
+            {/* Attendees Count - only visible when leadType is "Attendees Lead" and now optional */}
+            {formData.leadType === "Attendees Lead" && (
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-gray-700">
+                  Attendees Count
+                </label>
+                <input
+                  type="number"
+                  name="attendeesCount"
+                  value={formData.attendeesCount}
+                  onChange={handleChange}
+                  min="1"
+                  className="w-full px-4 py-3.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                  placeholder="Number of attendees (optional)"
+                />
+              </div>
+            )}
+
             {/* Subject */}
-            <div className="space-y-2 lg:col-span-2">
-              <label className="block text-sm font-medium text-gray-700">
+            <div className="space-y-2 md:col-span-2">
+              <label className="block text-sm font-semibold text-gray-700">
                 Subject Line <span className="text-red-500">*</span>
               </label>
               <input
@@ -423,67 +542,43 @@ const LeadForm = () => {
                 name="subjectLine"
                 value={formData.subjectLine}
                 onChange={handleChange}
-                className={`w-full px-4 py-3 border rounded-lg ${
-                  errors.subjectLine ? "border-red-500" : "border-gray-300"
-                }`}
+                className={`w-full px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.subjectLine ? "border-red-500 bg-red-50" : "border-gray-300"
+                  }`}
                 placeholder="Partnership Opportunity"
               />
               {errors.subjectLine && (
-                <p className="text-red-500 text-sm">{errors.subjectLine}</p>
+                <p className="text-red-500 text-sm font-medium mt-1">{errors.subjectLine}</p>
               )}
             </div>
 
             {/* Email Pitch */}
-            <div className="lg:col-span-2 space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
+            <div className="md:col-span-2 space-y-2">
+              <label className="block text-sm font-semibold text-gray-700">
                 Email Pitch <span className="text-red-500">*</span>
               </label>
               <textarea
                 name="emailPitch"
                 value={formData.emailPitch}
                 onChange={handleChange}
-                className={`w-full px-4 py-3 border rounded-lg resize-none ${
-                  errors.emailPitch ? "border-red-500" : "border-gray-300"
-                }`}
+                className={`w-full px-4 py-3.5 border rounded-xl resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.emailPitch ? "border-red-500 bg-red-50" : "border-gray-300"
+                  }`}
                 rows="5"
                 placeholder="Enter your professional email pitch here..."
               />
               {errors.emailPitch && (
-                <p className="text-red-500 text-sm">{errors.emailPitch}</p>
+                <p className="text-red-500 text-sm font-medium mt-1">{errors.emailPitch}</p>
               )}
             </div>
 
-            {/* Email Response */}
-            {/* <div className="lg:col-span-2 space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Response <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                name="emailResponce"
-                value={formData.emailResponce}
-                onChange={handleChange}
-                className={`w-full px-4 py-3 border rounded-lg resize-none ${
-                  errors.emailResponce ? "border-red-500" : "border-gray-300"
-                }`}
-                rows="5"
-                placeholder="Enter your professional email Response here..."
-              />
-              {errors.emailResponce && (
-                <p className="text-red-500 text-sm">{errors.emailResponce}</p>
-              )}
-            </div> */}
-
             {/* Buttons */}
-            <div className="lg:col-span-2 flex gap-4 pt-6 border-t border-gray-200">
+            <div className="md:col-span-2 flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-200">
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className={`flex-1 flex items-center justify-center gap-3 px-6 py-3 font-medium rounded-lg
-    ${
-      isSubmitting
-        ? "bg-blue-600 opacity-70 cursor-not-allowed"
-        : "bg-blue-600 hover:bg-blue-700 text-white"
-    }`}
+                className={`flex-1 flex items-center justify-center gap-3 px-6 py-4 font-semibold rounded-xl transition-all ${isSubmitting
+                  ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white opacity-80 cursor-not-allowed"
+                  : "bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                  }`}
               >
                 {isSubmitting ? (
                   <>
@@ -495,7 +590,7 @@ const LeadForm = () => {
                   </>
                 ) : (
                   <>
-                    <SendIcon className="w-5 h-5 text-white" />
+                    <SendIcon className="w-5 h-5" />
                     <span>Submit Lead</span>
                   </>
                 )}
@@ -504,7 +599,7 @@ const LeadForm = () => {
               <button
                 type="button"
                 onClick={handleClear}
-                className="px-6 py-3 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200"
+                className="px-6 py-4 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-all border border-gray-300 hover:border-gray-400"
               >
                 Clear Form
               </button>
