@@ -23,6 +23,7 @@ import Loader from "./Loader";
 const defaultFilters = {
   leadType: "all",
   employee: "all",
+  qualified: "all", // Add qualified filter
   fromDate: "",
   toDate: "",
   search: "",
@@ -94,77 +95,37 @@ export default function AllLeadsTable() {
     return Array.from(map.entries());
   }, [leads]);
 
+  // Function to get status badge based on qualified boolean
+  const getQualifiedBadge = (qualified) => {
+    if (qualified === true) {
+      return "bg-green-100 text-green-700 border-green-200";
+    } else if (qualified === false) {
+      return "bg-red-100 text-red-700 border-red-200";
+    } else {
+      return "bg-orange-100 text-orange-700 border-orange-200";
+    }
+  };
+
+  // Function to get status label based on qualified boolean
+  const getQualifiedLabel = (qualified) => {
+    if (qualified === true) {
+      return "Qualified";
+    } else if (qualified === false) {
+      return "Disqualified";
+    } else {
+      return "Pending";
+    }
+  };
+
+  // Function to get card border color based on qualified status
+  const getCardBorderColor = (qualified) => {
+    if (qualified === false) {
+      return "border-red-300";
+    }
+    return "border-slate-200"; // Default border color
+  };
+
   // Filtering logic
-  // const filteredLeads = useMemo(() => {
-  //   return leads
-  //     .filter((lead) => {
-  //       const leadTypeMatch =
-  //         filters.leadType === "all" ||
-  //         String(lead.leadType || "")
-  //           .trim()
-  //           .toLowerCase() === filters.leadType.toLowerCase();
-
-  //       const employeeMatch =
-  //         filters.employee === "all" ||
-  //         // String(lead.employeeId).trim() === filters.employee;
-  //         String(lead.employeeId) === String(filters.employee);
-
-
-  //       const fromDateMatch =
-  //         !filters.fromDate ||
-  //         new Date(lead.date) >= new Date(filters.fromDate);
-  //       const toDateMatch =
-  //         !filters.toDate || new Date(lead.date) <= new Date(filters.toDate);
-
-  //       const searchMatch =
-  //         filters.search === "" ||
-  //         [
-  //           lead.employeeId,
-  //           lead.employee?.fullName,
-  //           lead.agentName,
-  //           lead.clientEmail,
-  //           lead.leadEmail,
-  //           lead.ccEmail,
-  //           lead.leadType,
-  //           lead.subjectLine,
-  //           lead.country,
-  //           lead.phone, // ✅ Include phone number in search
-  //         ].some((field) =>
-  //           (field || "")
-  //             .toString()
-  //             .toLowerCase()
-  //             .includes(filters.search.toLowerCase())
-  //         );
-
-  //       const leadEmailMatch =
-  //         filters.leadEmail === "all" ||
-  //         (lead.leadEmail &&
-  //           lead.leadEmail.toLowerCase() === filters.leadEmail.toLowerCase());
-
-  //       return (
-  //         leadTypeMatch &&
-  //         employeeMatch &&
-  //         fromDateMatch &&
-  //         toDateMatch &&
-  //         searchMatch &&
-  //         leadEmailMatch
-  //       );
-  //     })
-  //     .sort((a, b) => {
-  //       switch (filters.sortBy) {
-  //         case "id-asc":
-  //           return a.id - b.id;
-  //         case "id-desc":
-  //           return b.id - a.id;
-  //         case "date-asc":
-  //           return new Date(a.date) - new Date(b.date);
-  //         case "date-desc":
-  //           return new Date(b.date) - new Date(a.date);
-  //         default:
-  //           return 0;
-  //       }
-  //     });
-  // }, [leads, filters]);
   const filteredLeads = useMemo(() => {
     return leads
       .filter((lead) => {
@@ -178,6 +139,13 @@ export default function AllLeadsTable() {
         const employeeMatch =
           filters.employee === "all" ||
           String(lead.employeeId) === String(filters.employee);
+
+        // ✅ Qualified filter
+        const qualifiedMatch =
+          filters.qualified === "all" ||
+          (filters.qualified === "true" && lead.qualified === true) ||
+          (filters.qualified === "false" && lead.qualified === false) ||
+          (filters.qualified === "null" && lead.qualified === null);
 
         // ✅ Date normalization (prevents timezone issues)
         const leadDate = lead.date
@@ -208,6 +176,7 @@ export default function AllLeadsTable() {
             lead.subjectLine,
             lead.country,
             lead.phone,
+            lead.qualified ? "qualified" : lead.qualified === false ? "disqualified" : "pending",
           ].some((field) =>
             (field || "")
               .toString()
@@ -224,6 +193,7 @@ export default function AllLeadsTable() {
         return (
           leadTypeMatch &&
           employeeMatch &&
+          qualifiedMatch && // Add qualified to filter
           fromDateMatch &&
           toDateMatch &&
           searchMatch &&
@@ -256,7 +226,6 @@ export default function AllLeadsTable() {
       });
   }, [leads, filters]);
 
-
   // CSV Export
   const downloadCSV = () => {
     if (!filteredLeads.length) return;
@@ -273,6 +242,7 @@ export default function AllLeadsTable() {
       "Country",
       "Subject",
       "Lead Type",
+      "Status", // Add status to CSV
       "Date (dd/mm/yy)",
       "Link",
       "Pitch",
@@ -292,6 +262,7 @@ export default function AllLeadsTable() {
       safe(lead.country),
       safe(lead.subjectLine),
       safe(lead.leadType),
+      getQualifiedLabel(lead.qualified), // Add status to CSV
       formatDate(lead.date),
       safe(lead.link),
       safe(lead.emailPitch),
@@ -360,7 +331,7 @@ export default function AllLeadsTable() {
               <Search className="w-5 h-5 absolute left-3 top-3 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search by name, email, country, phone, or subject..."
+                placeholder="Search by name, email, country, phone, subject, or status..."
                 className="w-full pl-11 pr-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-slate-700"
                 value={filters.search}
                 onChange={(e) =>
@@ -370,7 +341,7 @@ export default function AllLeadsTable() {
             </div>
 
             {/* Dropdown Filters */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
               <select
                 value={filters.leadType}
                 onChange={(e) =>
@@ -382,6 +353,20 @@ export default function AllLeadsTable() {
                 <option value="Association Lead">Association</option>
                 <option value="Industry Lead">Industry</option>
                 <option value="Attendees Lead">Attendees</option>
+              </select>
+
+              {/* Add qualified filter */}
+              <select
+                value={filters.qualified}
+                onChange={(e) =>
+                  setFilters({ ...filters, qualified: e.target.value })
+                }
+                className="px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-slate-700"
+              >
+                <option value="all">All Status</option>
+                <option value="true">Qualified</option>
+                <option value="false">Disqualified</option>
+                <option value="null">Pending</option>
               </select>
 
               <select
@@ -452,7 +437,7 @@ export default function AllLeadsTable() {
               return (
                 <div
                   key={lead.id}
-                  className="bg-white rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-all duration-200 overflow-hidden"
+                  className={`bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden ${getCardBorderColor(lead.qualified)}`}
                 >
                   {/* Header */}
                   <div className="p-4 sm:p-5 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
@@ -470,6 +455,14 @@ export default function AllLeadsTable() {
                           )}
                           <span className="inline-flex px-2.5 py-0.5 text-xs font-semibold rounded-full border">
                             {lead.leadType || "Lead"}
+                          </span>
+                          {/* Add qualified badge */}
+                          <span
+                            className={`inline-flex px-2.5 py-0.5 text-xs font-semibold rounded-full border ${getQualifiedBadge(
+                              lead.qualified
+                            )}`}
+                          >
+                            {getQualifiedLabel(lead.qualified)}
                           </span>
                         </div>
                         <h3 className="text-lg font-semibold text-slate-900 mb-1">
