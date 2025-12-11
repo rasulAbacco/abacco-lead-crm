@@ -23,6 +23,7 @@ import MyLink from "./pages/MyLink";
 import MyReport from "./pages/MyReport";
 import Reports from "./pages/Reports";
 import ShareLinkAccessWrapper from "./components/ShareLinkAccessWrapper";
+import IncentiveManagement from "./pages/IncentiveManagement";
 
 function App() {
   return (
@@ -116,6 +117,16 @@ function App() {
             <ShareLinkAccessWrapper>
               <ShareLink />
             </ShareLinkAccessWrapper>
+          </Layout>
+        }
+      />
+      <Route
+        path="/incentives"
+        element={
+          <Layout>
+            <ProtectedRoute role="admin">
+              <IncentiveManagement />
+            </ProtectedRoute>
           </Layout>
         }
       />

@@ -30,6 +30,8 @@ const EmployeeDashboard = () => {
   const [employeeTarget, setEmployeeTarget] = useState(0);
   const [incentive, setIncentive] = useState(0);
   const [incentiveBreakdown, setIncentiveBreakdown] = useState({});
+  const [achievedIncentive, setAchievedIncentive] = useState(null);
+
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
   const USA_TZ = "America/Chicago";
@@ -225,6 +227,22 @@ const EmployeeDashboard = () => {
     }
   }, [employeeTarget, leads]);
 
+  useEffect(() => {
+    const fetchIncentiveProgress = async () => {
+      try {
+        const employeeId = localStorage.getItem("employeeId");
+        const res = await axios.get(
+          `${API_BASE_URL}/api/incentives/progress/${employeeId}`
+        );
+        setAchievedIncentive(res.data.achieved || null);
+      } catch (err) {
+        console.error("Incentive progress error:", err);
+      }
+    };
+
+    fetchIncentiveProgress();
+  }, [leads]);
+
   if (loading) return <Loader />;
 
   const loggedInId = localStorage.getItem("employeeId");
@@ -308,11 +326,8 @@ const EmployeeDashboard = () => {
           incentive={incentive}
           employeeName={loggedEmp?.fullName}
           todayLeads={todayLeadsCount}
+          achievedIncentive={achievedIncentive}   // NEW
         />
-
-
-
-
 
         {/* BASIC STATS */}
         <DashboardStats leads={leads} />
