@@ -420,6 +420,7 @@ const getMainMotivationMessage = ({
 };
 
 // ---------- ONE-LINE INCENTIVE MOTIVATION ----------
+// we keep this helper – it maps amount to Bronze/Silver/Gold
 const getIncentiveTierLabel = (incentive) => {
     if (incentive >= 1500) return "Gold";
     if (incentive >= 1000) return "Silver";
@@ -427,63 +428,168 @@ const getIncentiveTierLabel = (incentive) => {
     return null;
 };
 
+// NEW: figure out which plan/tier was unlocked today
+// based on your breakdown + incentive amount.
+const getAchievedIncentiveInfo = (breakdown = {}, incentive = 0) => {
+    if (!incentive || incentive <= 0) return null;
+
+    const {
+        usAttendees = 0,
+        mixedLeads = 0,
+        usAssociation = 0,
+    } = breakdown || {};
+
+    // We mirror the same thresholds you use in calculateIncentive
+    // and attach them to human readable plan names.
+    // Make sure these titles match what you created in DB.
+    if (incentive >= 1500) {
+        if (usAttendees >= 15) {
+            return {
+                planTitle: "US Attendees (1500+)",
+                tierLabel: "15 qualified leads",
+                amount: 1500,
+            };
+        }
+        if (mixedLeads >= 15) {
+            return {
+                planTitle: "Mixed Leads",
+                tierLabel: "15 qualified mixed leads",
+                amount: 1500,
+            };
+        }
+        if (usAssociation >= 18) {
+            return {
+                planTitle: "US Association Leads",
+                tierLabel: "18 qualified association leads",
+                amount: 1500,
+            };
+        }
+    }
+
+    if (incentive >= 1000) {
+        if (usAttendees >= 10) {
+            return {
+                planTitle: "US Attendees (1500+)",
+                tierLabel: "10 qualified leads",
+                amount: 1000,
+            };
+        }
+        if (mixedLeads >= 15) {
+            return {
+                planTitle: "Mixed Leads",
+                tierLabel: "15 qualified mixed leads",
+                amount: 1000,
+            };
+        }
+        if (usAssociation >= 18) {
+            return {
+                planTitle: "US Association Leads",
+                tierLabel: "18 qualified association leads",
+                amount: 1000,
+            };
+        }
+    }
+
+    if (incentive >= 500) {
+        if (usAttendees >= 7) {
+            return {
+                planTitle: "US Attendees (1500+)",
+                tierLabel: "7 qualified leads",
+                amount: 500,
+            };
+        }
+        if (mixedLeads >= 10) {
+            return {
+                planTitle: "Mixed Leads",
+                tierLabel: "10 qualified mixed leads",
+                amount: 500,
+            };
+        }
+        if (usAssociation >= 12) {
+            return {
+                planTitle: "US Association Leads",
+                tierLabel: "12 qualified association leads",
+                amount: 500,
+            };
+        }
+    }
+
+    return null;
+};
+
+// MAIN incentive message – updated logic
 const getIncentiveMotivation = (
     breakdown = {},
     incentive = 0,
     firstName,
     todayLeads = 0
 ) => {
-    const { usAttendees = 0, mixedLeads = 0, usAssociation = 0 } =
-        breakdown || {};
+    const {
+        usAttendees = 0,
+        mixedLeads = 0,
+        usAssociation = 0,
+    } = breakdown || {};
     const totalIncentiveLeads = usAttendees + mixedLeads + usAssociation;
     const name = firstName || "bro";
 
-    // 0 leads, 0 incentive
-    if (todayLeads === 0 && totalIncentiveLeads === 0) {
-        return `${name}, no leads, no incentive. Laptop on, but work off mode. Start with at least 1 lead.`;
+    // 1) No leads at all today – pure wake-up mode
+    if (todayLeads === 0) {
+        return `${name}, dashboard is totally dry today. Laptop ON, effort OFF. Drop at least one lead and start today's incentive battle.`;
     }
 
-    // Some leads today, but no incentive-qualified ones
-    if (totalIncentiveLeads === 0) {
-        return `${name}, you already dropped ${todayLeads} lead(s) today but none are incentive grade yet. Tighten the quality and make at least a few count for money.`;
+    // 2) First lead of the day – they just woke up
+    if (todayLeads === 1 && totalIncentiveLeads <= 1 && incentive <= 0) {
+        return `Yesss finally ${name}! You woke up and dropped your first lead of the day. Welcome to today's incentive battle.`;
     }
 
-    const leadsAwayUS = usAttendees >= 7 ? 0 : 7 - usAttendees;
-    const leadsAwayMixed = mixedLeads >= 10 ? 0 : 10 - mixedLeads;
-    const leadsAwayAssoc = usAssociation >= 12 ? 0 : 12 - usAssociation;
+    // 3) Check if any tier is actually unlocked (₹500 / ₹1000 / ₹1500)
+    const achieved = getAchievedIncentiveInfo(breakdown, incentive);
+    if (achieved) {
+        const tierName = getIncentiveTierLabel(achieved.amount) || "Incentive";
+        return `Aye ${name}, you unlocked ${tierName} Tier (₹${achieved.amount.toLocaleString()}) of "${achieved.planTitle}" plan today. Now keep farming before QA comes and starts breaking hearts.`;
+    }
 
-    const distances = [leadsAwayUS, leadsAwayMixed, leadsAwayAssoc].filter(
-        (d) => d > 0
-    );
-    const closest = distances.length ? Math.min(...distances) : 0;
+    // 4) 2–4 leads today, and some of them are incentive style → push toward closest plan
+    if (todayLeads > 1 && todayLeads <= 4 && totalIncentiveLeads > 0) {
+        const categories = [
+            {
+                key: "usAttendees",
+                label: "US attendees",
+                count: usAttendees,
+                threshold: 7, // first step
+            },
+            {
+                key: "mixedLeads",
+                label: "Mixed leads",
+                count: mixedLeads,
+                threshold: 10,
+            },
+            {
+                key: "usAssociation",
+                label: "US association leads",
+                count: usAssociation,
+                threshold: 12,
+            },
+        ];
 
-    // Incentive not yet hit but some incentive-style leads present
-    if (!incentive || incentive <= 0) {
-        if (closest > 0) {
-            return `${name}, you already have ${totalIncentiveLeads} serious lead(s) today. Just ${closest} more solid ones and step 1 incentive will unlock. Do not leave that money on the table.`;
+        const active = categories.reduce(
+            (best, c) => (c.count > (best?.count || 0) ? c : best),
+            null
+        );
+
+        if (active && active.count > 0) {
+            const remaining = Math.max(active.threshold - active.count, 1);
+            return `Yep, finally you woke up ${name}. You already dropped ${active.count} ${active.label} today. Just ${remaining} more and you unlock your first incentive step. Time to show this is hard work, not luck.`;
         }
-        return `Leads are coming, ${name}, but incentive is still shy. Clean up your pitch and convert these into proper paid numbers.`;
     }
 
-    // Incentive achieved -> 3 step messaging, use todayLeads in joke
-    const tier = getIncentiveTierLabel(incentive);
-    const leadsText =
-        todayLeads > 0 ? `${todayLeads} lead(s)` : "all the leads you touched";
-
-    if (tier === "Bronze") {
-        return `Hahaha ${name}, step 1 incentive unlocked today with ₹${incentive.toLocaleString()}. Now just pray that ${leadsText} stay qualified and then push for Silver step.`;
+    // 5) They have incentive-style leads but haven't hit a tier yet
+    if (totalIncentiveLeads > 0 && incentive <= 0) {
+        return `${name}, you already dropped ${totalIncentiveLeads} serious incentive-type lead(s) today. Do not park in "almost" zone – push a little more and convert this into real money.`;
     }
 
-    if (tier === "Silver") {
-        return `Nice one ${name}, you are on step 2 incentive (Silver) with ₹${incentive.toLocaleString()} today. Pray today's ${leadsText} do not get rejected and then hunt for that Gold step.`;
-    }
-
-    if (tier === "Gold") {
-        return `Full send, ${name}! You maxed out step 3 incentive (Gold) with ₹${incentive.toLocaleString()} today. Now just pray QA does not break your heart on these ${leadsText}.`;
-    }
-
-    // Fallback if some weird custom amount
-    return `${name}, ₹${incentive.toLocaleString()} in incentive today. You have already made the day profitable - now overkill it.`;
+    // 6) Generic fallback – they are working, maybe not in incentive categories yet
+    return `${name}, ${todayLeads} lead(s) already on the board today. Keep stacking quality – incentives will follow automatically if you stop sending timepass leads.`;
 };
 
 // ---------- DAILY PROGRESS (4-HOURLY) ----------
@@ -659,7 +765,7 @@ const MotivationBanner = ({
     return (
         <div className="w-full">
             <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 p-[1px] shadow-md mb-3">
-                {/* Changed flex-col to flex-row to put Circle on right */}
+                {/* Same layout as before – only text logic changed */}
                 <div className="flex flex-row items-center justify-between rounded-2xl bg-white/95 px-4 py-3">
 
                     {/* LEFT SIDE: Text Content */}
