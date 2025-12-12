@@ -13,7 +13,8 @@ import {
   UserPlus,
   CloudUpload,
   CloudDownload,
-  ServerCrash
+  ServerCrash,
+  HandCoins
 } from "lucide-react";
 
 const getRole = () => localStorage.getItem("role")?.toLowerCase();
@@ -135,6 +136,7 @@ function Layout({ children }) {
                 <NavLink to="/set-targets" icon={Sparkles} label="Set Targets" />
                 <NavLink to="/share-links" icon={CloudUpload} label="Share Links" />
                 <NavLink to="/reports" icon={ServerCrash} label="Reports" />
+                <NavLink to="/incentives" icon={HandCoins} label="Incentives" />
                 <NavLink to="/employees" icon={Users} label="All Employees" />
                 <NavLink to="/industry-types" icon={Briefcase} label="Industry Types" />
               </>

@@ -2,8 +2,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { toZonedTime, format } from "date-fns-tz";
-import { getDaysInMonth } from "date-fns";
-
 
 import DashboardStats from "./DashboardStats";
 import DashboardDailyChart from "./DashboardDailyChart";
@@ -14,7 +12,6 @@ import Loader from "../components/Loader";
 import NotificationBell from "../components/NotificationBell";
 import MotivationBanner from "../components/MotivationBanner";
 
-// NEW COMPONENTS
 import IncentivePlan from "../components/IncentivePlan";
 import TodayProgress from "../components/TodayProgress";
 import MonthlyDoubleTarget from "../components/MonthlyDoubleTarget";
@@ -26,22 +23,23 @@ const EmployeeDashboard = () => {
 
   const [employees, setEmployees] = useState([]);
   const [performanceData, setPerformanceData] = useState([]);
-  const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [employeeTarget, setEmployeeTarget] = useState(0);
-  const [incentive, setIncentive] = useState(0);
+
   const [incentiveBreakdown, setIncentiveBreakdown] = useState({});
+  const [incentive, setIncentive] = useState(0);
+  const [achievedIncentive, setAchievedIncentive] = useState(null);
+  const [plans, setPlans] = useState([]);
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
   const USA_TZ = "America/Chicago";
 
-  // CLOCK — stays the same
+  /* ---------------------------
+     Clock — Always in USA time
+  ----------------------------- */
   const [usaTime, setUsaTime] = useState(() => {
     const now = toZonedTime(new Date(), USA_TZ);
     return format(now, "hh:mm a zzz");
   });
-
-  const nowUSA = toZonedTime(new Date(), USA_TZ);
-  const usaDate = format(nowUSA, "EEE, MMM dd, yyyy", { timeZone: USA_TZ });
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -51,117 +49,23 @@ const EmployeeDashboard = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const normalizeCountry = (country = "") => {
-    const c = country.trim().toLowerCase();
-    if (
-      c.includes("usa") ||
-      c === "us" ||
-      c.includes("u.s") ||
-      c.includes("united state") ||
-      c.includes("america")
-    ) {
-      return "USA";
-    }
-    return "OTHER";
+  /* ---------------------------
+     Convert Lead → USA Date
+  ----------------------------- */
+  const getUSADateKey = (dateInput) => {
+    if (!dateInput) return null;
+    const usaDate = toZonedTime(dateInput, USA_TZ);
+    return format(usaDate, "yyyy-MM-dd", { timeZone: USA_TZ });
   };
 
-  // NEW INCENTIVE LOGIC
-  const calculateIncentive = (leads = [], employeeTarget = 0) => {
-    if (!Array.isArray(leads) || leads.length === 0) {
-      return { incentive: 0, breakdown: {} };
-    }
-
-    const todayStr = format(toZonedTime(new Date(), USA_TZ), "yyyy-MM-dd");
-
-    const todayLeads = leads.filter((lead) => {
-      if (!lead || !lead.date) return false;
-      const dateStr = format(
-        toZonedTime(new Date(lead.date), USA_TZ),
-        "yyyy-MM-dd"
-      );
-      return dateStr === todayStr && lead.qualified === true;
-    });
-
-    const totalToday = todayLeads.length;
-
-    const isAttendeeLead = (l) =>
-      l?.leadType?.toLowerCase().includes("attend");
-
-    // US Attendees (USA, attendees >=1500)
-    const usAttendees = todayLeads.filter(
-      (l) =>
-        isAttendeeLead(l) &&
-        normalizeCountry(l.country) === "USA" &&
-        (l.attendeesCount || 0) >= 1500
-    ).length;
-
-    // --- MIXED LEADS FINAL RULE ---
-    let mixedLeads = 0;
-
-    if (usAttendees < 7) {
-      // Count ALL attendees >=1500 (USA + OTHER)
-      mixedLeads = todayLeads.filter(
-        (l) =>
-          isAttendeeLead(l) &&
-          (l.attendeesCount || 0) >= 1500
-      ).length;
-    } else {
-      // Count ONLY OTHER COUNTRY attendees >=1500
-      mixedLeads = todayLeads.filter(
-        (l) =>
-          isAttendeeLead(l) &&
-          normalizeCountry(l.country) === "OTHER" &&
-          (l.attendeesCount || 0) >= 1500
-      ).length;
-    }
-
-    // US Association
-    const usAssociation = todayLeads.filter(
-      (l) =>
-        l?.leadType?.toLowerCase().includes("association") &&
-        normalizeCountry(l.country) === "USA"
-    ).length;
-
-    // Incentive Calculation
-    let incentive = 0;
-
-    if (usAttendees >= 15) incentive = 1500;
-    else if (usAttendees >= 10) incentive = 1000;
-    else if (usAttendees >= 7) incentive = 500;
-
-    if (mixedLeads >= 15) incentive = Math.max(incentive, 1000);
-    else if (mixedLeads >= 10) incentive = Math.max(incentive, 500);
-
-    if (usAssociation >= 18) incentive = Math.max(incentive, 1000);
-    else if (usAssociation >= 12) incentive = Math.max(incentive, 500);
-
-    const dailyTarget = employeeTarget ? Math.ceil(employeeTarget / 30) : 0;
-    const doubleTargetAchievedToday =
-      dailyTarget > 0 && totalToday >= dailyTarget * 2;
-
-    return {
-      incentive,
-      breakdown: {
-        totalToday,
-        usAttendees,
-        mixedLeads,
-        usAssociation,
-        doubleTargetAchievedToday,
-      },
-    };
-  };
-
-
-
-
-  // FETCH EMPLOYEES
+  /* ---------------------------
+     Fetch employees
+  ----------------------------- */
   useEffect(() => {
     const fetchEmployeesAndPerformance = async () => {
       try {
         const res = await fetch(`${API_BASE_URL}/api/employees`);
-        if (!res.ok) throw new Error("Network response was not ok");
         const employeesData = await res.json();
-
         setEmployees(employeesData);
 
         const empId = localStorage.getItem("employeeId");
@@ -197,14 +101,14 @@ const EmployeeDashboard = () => {
     fetchEmployeesAndPerformance();
   }, []);
 
-  // FETCH LEADS
+  /* ---------------------------
+     Fetch Leads
+  ----------------------------- */
   useEffect(() => {
     const fetchLeads = async () => {
       try {
         const employeeId = localStorage.getItem("employeeId");
-        const res = await axios.get(
-          `${API_BASE_URL}/api/employees/${employeeId}/leads`
-        );
+        const res = await axios.get(`${API_BASE_URL}/api/employees/${employeeId}/leads`);
         setLeads(res.data.leads || []);
       } catch (err) {
         console.error("Error fetching leads:", err);
@@ -212,40 +116,141 @@ const EmployeeDashboard = () => {
         setLoading(false);
       }
     };
-
     fetchLeads();
   }, []);
 
-  // RUN DAILY INCENTIVE CALCULATION
+  /* ---------------------------
+     Fetch Active Incentive Plans
+  ----------------------------- */
   useEffect(() => {
-    if (employeeTarget > 0) {
-      const result = calculateIncentive(leads, employeeTarget);
-      setIncentive(result.incentive);
-      setIncentiveBreakdown(result.breakdown);
+    const fetchPlans = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await axios.get(`${API_BASE_URL}/api/incentives`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const activePlans = res.data.filter((p) => p.isActive);
+        setPlans(activePlans);
+      } catch (err) {
+        console.error("Error fetching incentive plans:", err);
+      }
+    };
+
+    fetchPlans();
+  }, []);
+
+  /* ---------------------------
+     Count Matches Per Rule
+  ----------------------------- */
+  const doesRuleMatchLead = (rule, lead) => {
+    const lt = (lead.leadType || "").toLowerCase();
+    const rt = (rule.leadType || "").toLowerCase();
+
+    if (!lt.includes(rt)) return false;
+
+    if (rule.country) {
+      const allowed = rule.country.split(",").map((c) => c.trim().toLowerCase());
+      const leadCountry = (lead.country || "").trim().toLowerCase();
+      if (!allowed.includes(leadCountry)) return false;
     }
-  }, [employeeTarget, leads]);
+
+    if (rule.attendeesMinCount) {
+      if ((lead.attendeesCount || 0) < rule.attendeesMinCount) return false;
+    }
+
+    if (rule.industryDomain) {
+      if ((lead.industryDomain || "").toLowerCase() !== rule.industryDomain.toLowerCase())
+        return false;
+    }
+
+    return true;
+  };
+
+  /* ---------------------------
+     Compute Counts Per Plan
+  ----------------------------- */
+  const computeDailyPlanCounts = (plans, leads) => {
+    const todayKey = getUSADateKey(new Date());
+    const todayLeads = leads.filter(
+      (l) => getUSADateKey(l.date) === todayKey && l.qualified
+    );
+
+    const output = {};
+
+    for (const plan of plans) {
+      let count = 0;
+
+      for (const lead of todayLeads) {
+        if (plan.rules.some((r) => r.isActive && doesRuleMatchLead(r, lead))) {
+          count++;
+        }
+      }
+
+      output[plan.id] = count;
+    }
+    return output;
+  };
+
+  /* ---------------------------
+     Compute Incentive Breakdown
+  ----------------------------- */
+  useEffect(() => {
+    if (plans.length === 0) return;
+
+    const dailyCounts = computeDailyPlanCounts(plans, leads);
+
+    const breakdown = {
+      totalToday: leads.filter(
+        (l) => getUSADateKey(l.date) === getUSADateKey(new Date()) && l.qualified
+      ).length,
+
+      plans: {},
+    };
+
+    for (const plan of plans) {
+      breakdown.plans[plan.id] = {
+        title: plan.title,
+        count: dailyCounts[plan.id] || 0,
+        tiers: plan.rules.map((r) => ({
+          leadsRequired: r.leadsRequired,
+          amount: r.amount,
+          isActive: r.isActive,
+        })),
+        target: Math.max(...plan.rules.map((r) => r.leadsRequired)),
+      };
+    }
+
+    setIncentiveBreakdown(breakdown);
+  }, [plans, leads]);
+
+  /* ---------------------------
+     Fetch Today's Achieved Incentive
+  ----------------------------- */
+  useEffect(() => {
+    const fetchIncentiveProgress = async () => {
+      try {
+        const employeeId = localStorage.getItem("employeeId");
+        const res = await axios.get(`${API_BASE_URL}/api/incentives/progress/${employeeId}`);
+        setAchievedIncentive(res.data.achieved || null);
+      } catch (err) {
+        console.error("Incentive progress error:", err);
+      }
+    };
+
+    fetchIncentiveProgress();
+  }, [leads]);
 
   if (loading) return <Loader />;
 
   const loggedInId = localStorage.getItem("employeeId");
-  const loggedPerf = performanceData.find(
-    (p) => String(p.employeeId) === String(loggedInId)
-  );
-  const loggedEmp = employees.find(
-    (e) => String(e.employeeId) === String(loggedInId)
-  );
+  const loggedPerf = performanceData.find((p) => String(p.employeeId) === String(loggedInId));
+  const loggedEmp = employees.find((e) => String(e.employeeId) === String(loggedInId));
 
-  const todayStr = format(toZonedTime(new Date(), USA_TZ), "yyyy-MM-dd");
-
-  const todayLeadsCount = leads.filter((lead) => {
-    if (!lead || !lead.date) return false;
-    const leadDateStr = format(
-      toZonedTime(new Date(lead.date), USA_TZ),
-      "yyyy-MM-dd"
-    );
-    return leadDateStr === todayStr;
-  }).length;
-
+  const todayKey = getUSADateKey(new Date());
+  const todayLeadsCount = leads.filter(
+    (l) => getUSADateKey(l.date) === todayKey
+  ).length;
 
 
   return (
@@ -253,72 +258,36 @@ const EmployeeDashboard = () => {
       <div className="max-w-7xl mx-auto space-y-8">
 
         {/* HEADER */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mb-1">
-              My Performance Dashboard
-            </h1>
-            <p className="text-gray-600">Track your daily & monthly progress</p>
-          </div>
+        <div className="flex items-center justify-between">
+          <h1 className="text-4xl font-bold text-transparent bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text">
+            My Performance Dashboard
+          </h1>
 
-          <div className="flex">
-            <div className="mr-5 mt-5">
-              <NotificationBell />
+          <div className="text-right">
+            <div className="p-4 bg-white rounded-xl shadow">
+              <div className="text-xs text-gray-500">Central USA</div>
+              <div className="text-lg font-semibold">{usaTime}</div>
             </div>
-
-            {/* TIME BOX */}
-            {/* TIME BOX - MINIMALIST STYLE */}
-            <div className="text-right">
-              <div className="relative inline-flex flex-col items-end px-7 py-5 rounded-2xl bg-white/90 backdrop-blur-md border border-gray-100 shadow-lg overflow-hidden group hover:shadow-xl transition-all duration-300">
-                {/* Timezone indicator */}
-                <div className="flex items-center mb-1 z-10">
-                  <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full mr-2"></div>
-                  <span className="text-[10px] uppercase tracking-wider font-medium text-gray-500">
-                    Central USA
-                  </span>
-                </div>
-
-                {/* Time display */}
-                <div className="flex items-baseline z-10">
-                  <span className="text-[26px] font-light text-gray-800 tabular-nums">{usaTime}</span>
-                </div>
-
-                {/* Date with subtle styling */}
-                <div className="mt-1 z-10">
-                  <span className="text-[14px] text-gray-600">
-                    {new Date().toLocaleDateString('en-US', { timeZone: 'America/Chicago', weekday: 'short', month: 'short', day: 'numeric' })}
-                  </span>
-                </div>
-
-                {/* Accent line */}
-                <div className="absolute bottom-0 left-0 h-0.5 w-full bg-gradient-to-r from-transparent via-indigo-500 to-transparent transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
-              </div>
-            </div>
-
-
           </div>
         </div>
 
-        {/* MOTIVATION BANNER IN DASHBOARD*/}
+        {/* MOTIVATION BANNER */}
         <MotivationBanner
           target={employeeTarget}
           qualifiedMonthly={loggedPerf?.leads || 0}
           doubleTarget={loggedEmp?.doubleTargetAchieved || false}
           incentiveBreakdown={incentiveBreakdown}
-          incentive={incentive}
+          incentive={incentive}                // NEW: required by new engine
           employeeName={loggedEmp?.fullName}
-          todayLeads={todayLeadsCount}
+          todayLeads={todayLeadsCount}         // NEW: required for daily motivation
+          streak={loggedPerf?.streak || 0}     // OPTIONAL: if you track streaks
         />
 
 
-
-
-
-        {/* BASIC STATS */}
         <DashboardStats leads={leads} />
 
-        {/* TODAYS PROGRESS + INCENTIVE */}
-        <TodayProgress breakdown={incentiveBreakdown} incentive={incentive} />
+        {/* TODAY PROGRESS (Dynamic Plans) */}
+        <TodayProgress breakdown={incentiveBreakdown} useDefaults={false} />
 
         {/* CHARTS */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -326,44 +295,21 @@ const EmployeeDashboard = () => {
           <DashboardWeeklyChart leads={leads} />
         </div>
 
-        <div className="p-1">
-          <PerformanceChart
-            employees={employees}
-            performanceData={performanceData}
-            setSelectedEmployee={setSelectedEmployee}
+        <PerformanceChart employees={employees} performanceData={performanceData} />
+
+        <IncentivePlan />
+
+        <section className="flex flex-col gap-6">
+          <MonthlyDoubleTarget
+            target={employeeTarget}
+            qualifiedMonthly={loggedPerf?.qualifiedLeads || 0}
+            doubleAchieved={loggedEmp?.doubleTargetAchieved || false}
           />
-        </div>
 
-
-        {/* INCENTIVE PLAN */}
-
-        <section>
-          <IncentivePlan />
-        </section>
-
-        {/* ... inside your main page component ... */}
-
-        {/* MONTHLY DOUBLE TARGET + LEADERBOARD SECTION */}
-        <section className="mt-2 p-2 flex flex-col gap-6">
-
-          {/* 1. Double Target Component (Span 2) */}
-          <div className="">
-            <MonthlyDoubleTarget
-              target={employeeTarget}
-              qualifiedMonthly={loggedPerf?.qualifiedLeads || 0}
-              doubleAchieved={loggedEmp?.doubleTargetAchieved || false}
-            />
-          </div>
-
-          {/* 2. Leaderboard Container (Span 1) */}
-
-          <div className="h-full bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
+          <div className="bg-white rounded-xl shadow">
             <Leaderboard apiBase={API_BASE_URL} />
           </div>
-
-
         </section>
-
 
         <DashboardMonthlyChart leads={leads} target={employeeTarget} />
       </div>
