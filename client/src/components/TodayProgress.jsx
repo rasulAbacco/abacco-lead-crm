@@ -1,134 +1,179 @@
 // src/components/TodayProgress.jsx
 import React from "react";
-import { DollarSign, Users, Layers, Briefcase, TrendingUp, CheckCircle } from "lucide-react";
+import * as Icons from "lucide-react";
 
-// Helper component for the progress bars
-const ProgressItemCard = ({ label, count, target, accentColor, icon: Icon, iconColor }) => {
-    // If target is 0, set it to 1 to avoid division by zero in pct calculation, but display 0
-    const calculatedTarget = target || 1;
-    const pct = calculatedTarget ? Math.min(100, Math.round((count / calculatedTarget) * 100)) : 0;
+/**
+ * Allocate incentives for tiers.
+ */
+function allocateTiersForCount(count = 0, tiers = []) {
+    const result = { total: 0, breakdown: {} };
+    if (!Array.isArray(tiers) || tiers.length === 0 || count <= 0) return result;
 
-    // Determine gradient based on accentColor prop
-    const gradientClass = `bg-gradient-to-r ${accentColor}`;
+    const active = tiers
+        .filter((t) => t && t.isActive !== false && t.leadsRequired > 0 && t.amount > 0)
+        .sort((a, b) => b.leadsRequired - a.leadsRequired || b.amount - a.amount);
 
-    // Calculate remaining leads for display
-    const remaining = Math.max(0, target - count);
+    let remaining = count;
+
+    for (const t of active) {
+        const times = Math.floor(remaining / t.leadsRequired);
+        if (times <= 0) continue;
+
+        result.total += times * t.amount;
+        result.breakdown[t.amount] = (result.breakdown[t.amount] || 0) + times;
+
+        remaining -= times * t.leadsRequired;
+        if (remaining <= 0) break;
+    }
+
+    return result;
+}
+
+/**
+ * TierList component
+ */
+function TierList({ tiers = [], count = 0 }) {
+    const active = tiers.filter((t) => t.isActive !== false);
+
+    if (active.length === 0) {
+        return <div className="mt-3 text-xs text-gray-400">No active plan</div>;
+    }
+
+    const asc = active.sort((a, b) => a.leadsRequired - b.leadsRequired);
+    const allocation = allocateTiersForCount(count, active);
+    const achievedAmounts = new Set(Object.keys(allocation.breakdown));
 
     return (
-        // Reduced vertical padding (p-4 instead of p-5)
-        <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-lg hover:shadow-xl transition-shadow duration-300">
+        <div className="mt-3 space-y-1">
+            {asc.map((t, idx) => {
+                const achieved = achievedAmounts.has(String(t.amount));
+                return (
+                    <div key={idx} className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2">
+                            <div
+                                className={`w-6 h-6 rounded-md flex items-center justify-center ${achieved ? "bg-green-50" : "bg-gray-100"
+                                    }`}
+                            >
+                                <span
+                                    className={`text-xs font-semibold ${achieved ? "text-green-700" : "text-gray-600"
+                                        }`}
+                                >
+                                    {t.leadsRequired}
+                                </span>
+                            </div>
+                            <div className="text-xs text-gray-600">{t.leadsRequired} qualified</div>
+                        </div>
 
-            {/* Header and Count */}
-            {/* Adjusted margin-bottom to mb-3 */}
+                        <div
+                            className={`text-xs font-semibold ${achieved ? "text-green-700" : "text-gray-700"
+                                }`}
+                        >
+                            ₹{t.amount}
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
+/**
+ * ProgressItemCard — dynamic based on DB values
+ */
+const ProgressItemCard = ({
+    title,
+    count = 0,
+    target = 0,
+    accentColor = "from-indigo-400 to-indigo-600",
+    iconName = null,
+    bgAccent = "bg-gray-100",
+    tiers = [],
+}) => {
+    const pct = target ? Math.min(100, Math.round((count / target) * 100)) : 0;
+    const gradientClass = `bg-gradient-to-r ${accentColor}`;
+    const remaining = Math.max(0, target - count);
+
+    const allocation = allocateTiersForCount(count, tiers);
+    const awardedTotal = allocation.total || 0;
+
+    const IconComponent = iconName && Icons[iconName] ? Icons[iconName] : Icons["Layers"];
+
+    return (
+        <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-lg hover:shadow-xl transition-shadow duration-300">
             <div className="flex items-center justify-between mb-3">
-                <div className={`p-1.5 rounded-full ${iconColor} bg-opacity-10`}>
-                    <Icon className="w-4 h-4" />
+                <div className={`p-2 rounded-xl ${bgAccent}`}>
+                    <IconComponent className="w-4 h-4 text-gray-700" />
                 </div>
+
                 <div className="text-right">
-                    {/* Reduced font size for count: text-xl -> text-lg */}
                     <div className="text-lg font-extrabold text-gray-900">{count}</div>
                     <div className="text-xs text-gray-500">/{target} Target</div>
                 </div>
             </div>
 
-            {/* Label */}
-            {/* Reduced font size for label: text-sm -> text-xs, using mt-0.5 for small top margin */}
-            <div className="text-xs font-semibold text-gray-700 leading-snug mt-0.5">{label}</div>
+            <div className="text-xs font-semibold text-gray-700">{title}</div>
 
-            {/* Progress Bar - mt-3 instead of mt-4 */}
-            <div className="h-2 bg-gray-100 rounded-full mt-3 overflow-hidden relative">
+            <div className="h-2 bg-gray-100 rounded-full mt-3 overflow-hidden">
                 <div
                     className={`h-full rounded-full transition-all duration-700 ease-out ${gradientClass}`}
                     style={{ width: `${pct}%` }}
                 />
             </div>
 
-            {/* Footer Metrics - mt-2 kept, adjusted text sizes */}
             <div className="flex justify-between items-center mt-2">
                 <div className="text-xs text-gray-500">
                     {pct >= 100 ? (
-                        <span className="text-green-600 font-medium flex items-center">
-                            <CheckCircle className="w-3 h-3 mr-1" /> Target Hit
-                        </span>
+                        <span className="text-green-600 font-medium">Target Hit</span>
                     ) : (
                         <span>{remaining} remaining</span>
                     )}
                 </div>
-                {/* Reduced font size for percentage: text-sm -> text-xs */}
-                <div className={`text-xs font-bold ${pct >= 100 ? 'text-green-600' : 'text-indigo-600'}`}>
-                    {pct}%
+
+                <div className={`text-xs font-bold ${pct >= 100 ? "text-green-600" : "text-indigo-600"}`}>
+                    {pct}% • <span className="text-sm">₹{awardedTotal}</span>
                 </div>
             </div>
+
+            <TierList tiers={tiers} count={count} />
         </div>
     );
 };
 
-export default function TodayProgress({ breakdown = {}, incentive = 0 }) {
-    const { totalToday = 0, usAttendees = 0, mixedLeads = 0, usAssociation = 0 } = breakdown;
+/**
+ * TodayProgress main component (Fully Dynamic)
+ */
+export default function TodayProgress({ breakdown = {}, useDefaults = false }) {
+    const { totalToday = 0, plans = {} } = breakdown;
 
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* 1. PRIMARY METRIC CARD: Today's Qualified Leads & Incentive */}
-            {/* Reduced vertical padding (p-5 instead of p-6) */}
-            <div className="lg:col-span-1 bg-white p-5 rounded-2xl shadow-lg border border-gray-100 overflow-hidden relative group">
-                {/* Background Accent */}
-                <div className="absolute top-0 right-0 w-24 h-24 bg-green-500/10 rounded-full blur-xl transition-all duration-500 group-hover:scale-110" />
-
-                {/* Adjusted spacing around icon and text */}
-                <div className="flex justify-between items-start mb-2 relative z-10">
-                    <div className="p-2 bg-green-100 rounded-xl text-green-700"> {/* Reduced p-3 -> p-2 */}
-                        <TrendingUp className="w-5 h-5" /> {/* Reduced w-6 h-6 -> w-5 h-5 */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Today's Summary Card */}
+            <div className="bg-white p-5 rounded-2xl shadow-lg border border-gray-100">
+                <div className="flex justify-between items-start mb-2">
+                    <div className="p-2 bg-green-100 rounded-xl text-green-700">
+                        <Icons.TrendingUp className="w-5 h-5" />
                     </div>
                 </div>
 
-                <div className="relative z-10">
-                    <div className="text-xs font-semibold text-gray-500">Today's Qualified Leads</div> {/* Reduced text-sm -> text-xs */}
-                    <div className="text-4xl font-extrabold text-gray-900 tracking-tight mt-0.5"> {/* Reduced text-5xl -> text-4xl, mt-1 -> mt-0.5 */}
-                        {totalToday}
-                    </div>
-                </div>
-
-                {/* Reduced padding in the border-t section (pt-2 instead of pt-3) */}
-                <div className="mt-3 pt-2 border-t border-gray-100 relative z-10">
-                    <div className="text-xs font-medium text-gray-600 flex items-center"> {/* Reduced text-sm -> text-xs */}
-                        <DollarSign className="w-3 h-3 mr-1 text-green-600" /> {/* Reduced w-4 h-4 -> w-3 h-3 */}
-                        Today's Incentive:
-                        <strong className="text-base text-green-600 ml-1"> {/* Reduced text-lg -> text-base */}
-                            ₹{incentive.toLocaleString()}
-                        </strong>
-                    </div>
+                <div>
+                    <div className="text-xs font-semibold text-gray-500">Today's Qualified Leads</div>
+                    <div className="text-4xl font-extrabold text-gray-900 mt-1">{totalToday}</div>
                 </div>
             </div>
 
-            {/* 2. PROGRESS CARD: US Attendees */}
-            <ProgressItemCard
-                label="US Attendees (≥1500)"
-                count={usAttendees}
-                target={15}
-                accentColor="from-blue-400 to-indigo-500"
-                icon={Users}
-                iconColor="text-blue-600"
-            />
-
-            {/* 3. PROGRESS CARD: Mixed Leads */}
-            <ProgressItemCard
-                label="Mixed Leads (Other / Small US)"
-                count={mixedLeads}
-                target={15}
-                accentColor="from-purple-400 to-pink-500"
-                icon={Layers}
-                iconColor="text-purple-600"
-            />
-
-            {/* 4. PROGRESS CARD: US Association */}
-            <ProgressItemCard
-                label="US Association"
-                count={usAssociation}
-                target={18}
-                accentColor="from-orange-400 to-red-500"
-                icon={Briefcase}
-                iconColor="text-orange-600"
-            />
+            {/* Dynamic cards for each DB plan */}
+            {Object.entries(plans).map(([id, p]) => (
+                <ProgressItemCard
+                    key={id}
+                    title={p.title}
+                    count={p.count}
+                    target={p.target}
+                    tiers={p.tiers}
+                    iconName={p.icon}
+                    accentColor={p.accentColor || "from-indigo-400 to-indigo-600"}
+                    bgAccent={p.bgAccent || "bg-gray-100"}
+                />
+            ))}
         </div>
     );
 }

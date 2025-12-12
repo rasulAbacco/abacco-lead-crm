@@ -25,18 +25,11 @@ const USA_TZ = "America/Chicago";
 
 /**
  * buildRangeFromQuery(q)
- * Accepts query object and returns { from: Date, to: Date }
- * Supports:
- *  - from & to (ISO YYYY-MM-DD)
- *  - period=today|month|year
- *  - month=YYYY-MM
- *  - year=YYYY
  */
 function buildRangeFromQuery(q = {}) {
     const nowZ = toZonedTime(new Date(), USA_TZ);
 
     if (q.from && q.to) {
-        // parse inclusive from & to (assumes 'YYYY-MM-DD' or ISO)
         const f = parseISO(q.from);
         const t = parseISO(q.to);
         return { from: startOfDay(f), to: endOfDay(t) };
@@ -50,7 +43,7 @@ function buildRangeFromQuery(q = {}) {
     }
 
     if (period === "month") {
-        const month = q.month || format(nowZ, "yyyy-MM", { timeZone: USA_TZ }); // "YYYY-MM"
+        const month = q.month || format(nowZ, "yyyy-MM", { timeZone: USA_TZ });
         const [y, m] = month.split("-");
         const from = new Date(Number(y), Number(m) - 1, 1);
         const to = endOfMonth(new Date(Number(y), Number(m) - 1, 1));
@@ -64,16 +57,10 @@ function buildRangeFromQuery(q = {}) {
         return { from: startOfDay(from), to: endOfDay(to) };
     }
 
-    // fallback: all time
     return { from: new Date(0), to: new Date() };
 }
 
-/* ============================
-   Helper: allocateTieredAwards
-   - buckets: { bucketKey: { rules: [rule,...], matchedCount } }
-   - returns { totalAmount, countsByAmount }
-   Behavior: greedy allocation by descending leadsRequired
-*/
+/* Helper: allocateTieredAwards (unchanged) */
 function allocateTieredAwards(buckets) {
     let totalAmount = 0;
     const countsByAmount = {};
@@ -84,9 +71,8 @@ function allocateTieredAwards(buckets) {
         let remaining = Number(matchedCount || 0);
         if (remaining <= 0) continue;
 
-        // Sort rules by leadsRequired descending (higher tiers first). If equal leadsRequired prefer higher amount.
         const sorted = rules.slice().sort((a, b) => {
-            if (b.leadsRequired !== a.leadsRequired) return b.leadsRequired - a.leadsRequired;
+            if ((b.leadsRequired || 0) !== (a.leadsRequired || 0)) return (b.leadsRequired || 0) - (a.leadsRequired || 0);
             return (b.amount || 0) - (a.amount || 0);
         });
 
@@ -101,7 +87,6 @@ function allocateTieredAwards(buckets) {
             totalAmount += times * amount;
             countsByAmount[String(amount)] = (countsByAmount[String(amount)] || 0) + times;
 
-            // consume used leads
             remaining -= times * required;
             if (remaining <= 0) break;
         }
@@ -113,18 +98,6 @@ function allocateTieredAwards(buckets) {
 /* ============================
    /api/employee/leaderboard
    ============================ */
-/**
- * Query params supported:
- *  - period (today|month|year) or from & to
- *  - month=YYYY-MM
- *  - year=YYYY
- *  - sort=amount_desc|amount_asc|leads_desc|name_asc
- *  - leadType=All|Attendees|Association|Industry (tolerant matching)
- *  - limit=N
- *
- * Response:
- *  { columns: [amounts..], results: [ { employeeId, name, totalLeads, monthlyLeads, totalAmount, countsByAmount } ] }
- */
 router.get("/leaderboard", async (req, res) => {
     try {
         const q = req.query || {};
@@ -140,13 +113,16 @@ router.get("/leaderboard", async (req, res) => {
             orderBy: { validFrom: "desc" }
         });
 
-        // fetch all active employees
+        // fetch all active non-admin employees
         const employees = await prisma.employee.findMany({
-            where: { isActive: true },
-            select: { employeeId: true, fullName: true, target: true }
+            where: {
+                isActive: true,
+                role: { not: "ADMIN" }
+            },
+            select: { employeeId: true, fullName: true, target: true, role: true }
         });
 
-        // fetch qualified leads in the requested range once (reduce DB calls)
+        // fetch qualified leads in the requested range once
         const allLeads = await prisma.lead.findMany({
             where: {
                 qualified: true,
@@ -155,7 +131,6 @@ router.get("/leaderboard", async (req, res) => {
             orderBy: { date: "asc" }
         });
 
-        // index leads by employeeId for quick lookup
         const leadsByEmployee = new Map();
         for (const ld of allLeads) {
             const emp = ld.employeeId;
@@ -165,21 +140,20 @@ router.get("/leaderboard", async (req, res) => {
 
         const results = [];
 
-        // Pre-build a rule map: ruleId -> { rule, planId, planTitle }
+        // Build ruleMap (not strictly required here but kept for compatibility)
         const ruleMap = new Map();
         for (const plan of plans) {
             for (const r of plan.rules || []) {
-                ruleMap.set(r.id, { rule: r, planId: plan.id, planTitle: plan.title });
+                ruleMap.set(r.id, { rule: r, planId: plan.id, planTitle: plan.title, planValidFrom: plan.validFrom });
             }
         }
 
-        // normalize requested leadType once
         const requestedLeadTypeNorm = leadTypeFilter !== "All" ? normalizeLeadTypeString(leadTypeFilter) : null;
 
         for (const emp of employees) {
             const empLeads = leadsByEmployee.get(emp.employeeId) || [];
 
-            // group by date key (yyyy-MM-dd in USA_TZ)
+            // group by day
             const byDay = {};
             for (const ld of empLeads) {
                 const ds = toDateKey(ld.date);
@@ -190,44 +164,33 @@ router.get("/leaderboard", async (req, res) => {
 
             let totalAmount = 0;
             let totalLeads = empLeads.length;
-            const countsByAmount = {}; // amount -> times awarded
+            const countsByAmount = {};
 
-            // process each day separately
             for (const [dayKey, dayLeads] of Object.entries(byDay)) {
-                // For each day we will build PLAN groups, and within each plan group build BUCKETS.
-                // Bucket identifies a set of rules that should be considered together (e.g. same leadType+country+industry).
-                const planGroups = new Map(); // planId -> { plan, leads: [] }
-                for (const ld of dayLeads) {
-                    const planList = findPlansForDate(plans, ld.date);
-                    if (!planList || planList.length === 0) {
-                        const key = "__NO_PLAN__";
-                        if (!planGroups.has(key)) planGroups.set(key, { plan: null, leads: [] });
-                        planGroups.get(key).leads.push(ld);
-                    } else {
-                        for (const p of planList) {
-                            const key = String(p.id);
-                            if (!planGroups.has(key)) planGroups.set(key, { plan: p, leads: [] });
-                            planGroups.get(key).leads.push(ld);
-                        }
-                    }
-                }
+                if (!dayLeads || dayLeads.length === 0) continue;
 
-                // For each plan group, build buckets and compute matched counts per-bucket
-                for (const { plan, leads: groupLeads } of planGroups.values()) {
-                    if (!plan || !Array.isArray(plan.rules) || plan.rules.length === 0) continue;
+                // get plans that apply to this day (based on lead date)
+                // use the first lead date as representative for the day
+                const dayDate = dayLeads[0].date;
+                const plansForDay = findPlansForDate(plans, dayDate);
 
-                    // Build buckets: key -> { rules: [rule,...], matchedCount }
-                    // bucket key uses normalized leadType + normalized country + industryDomain (lowercase)
-                    const buckets = {};
+                if (!plansForDay || plansForDay.length === 0) continue;
 
-                    // initialize buckets with rules that pass front-end filter and are active
-                    for (const rule of plan.rules) {
+                // Build combined buckets across all matching plans for the day.
+                // If multiple plans define the SAME bucket and SAME leadsRequired, we keep the rule
+                // from the plan with the latest validFrom (most recent) to avoid duplicate awards.
+                const combinedBuckets = {}; // bucketKey -> { rules: [rule], matchedCount: 0 }
+
+                for (const plan of plansForDay) {
+                    const planValidFrom = plan.validFrom ? new Date(plan.validFrom).getTime() : 0;
+
+                    for (const rule of plan.rules || []) {
                         if (!rule.isActive) continue;
 
-                        // apply front-end leadType filter (tolerant)
+                        // respect front-end leadType filter
                         if (requestedLeadTypeNorm) {
-                            const ruleTypeNorm = normalizeLeadTypeString(rule.leadType || "");
-                            if (ruleTypeNorm !== requestedLeadTypeNorm) continue;
+                            const rTypeNorm = normalizeLeadTypeString(rule.leadType || "");
+                            if (rTypeNorm !== requestedLeadTypeNorm) continue;
                         }
 
                         const ruleTypeNorm = normalizeLeadTypeString(rule.leadType || "");
@@ -235,51 +198,63 @@ router.get("/leaderboard", async (req, res) => {
                         const industryNorm = (rule.industryDomain || "").trim().toLowerCase();
                         const bucketKey = `${ruleTypeNorm}||${countryNorm}||${industryNorm}`;
 
-                        buckets[bucketKey] = buckets[bucketKey] || { rules: [], matchedCount: 0 };
-                        buckets[bucketKey].rules.push(rule);
-                    }
+                        combinedBuckets[bucketKey] = combinedBuckets[bucketKey] || { rulesByTier: {}, matchedCount: 0 };
 
-                    if (Object.keys(buckets).length === 0) continue;
+                        // use tierKey as the leadsRequired value to dedupe same-tier rules across plans
+                        const tierKey = String(Number(rule.leadsRequired || 0)) || "0";
 
-                    // Count matches per bucket by checking each lead against each rule in that bucket.
-                    // If a lead matches any rule in the bucket, it contributes to the bucket's matchedCount.
-                    // IMPORTANT: we count leads per bucket by testing doesRuleMatchLead(rule, lead) per-rule
-                    // and incrementing match counts for that rule's bucket. This provides the matchedCount used
-                    // for greedy allocation below.
-                    for (const ld of groupLeads) {
-                        for (const bucketKey of Object.keys(buckets)) {
-                            const bucket = buckets[bucketKey];
-                            // if any rule in this bucket matches the lead, increment matchedCount for bucket
-                            let matchedThisLead = false;
-                            for (const rule of bucket.rules) {
-                                // country/attendees/industry checks are in doesRuleMatchLead
-                                if (doesRuleMatchLead(rule, ld)) {
-                                    matchedThisLead = true;
-                                    break;
-                                }
-                            }
-                            if (matchedThisLead) {
-                                bucket.matchedCount = (bucket.matchedCount || 0) + 1;
+                        // If there's an existing rule in this bucket+tier, keep the one with later validFrom
+                        const existing = combinedBuckets[bucketKey].rulesByTier[tierKey];
+                        if (!existing) {
+                            // store rule plus planValidFrom so we can compare later
+                            combinedBuckets[bucketKey].rulesByTier[tierKey] = { rule, planValidFrom };
+                        } else {
+                            if (planValidFrom > (existing.planValidFrom || 0)) {
+                                combinedBuckets[bucketKey].rulesByTier[tierKey] = { rule, planValidFrom };
                             }
                         }
                     }
+                }
 
-                    // Now allocate awards per bucket using greedy tier allocation
-                    const { totalAmount: addAmt, countsByAmount: addCounts } = allocateTieredAwards(
-                        Object.fromEntries(Object.entries(buckets).map(([k, v]) => [k, { rules: v.rules, matchedCount: v.matchedCount }]))
-                    );
+                // Flatten rulesByTier into an array for each bucket
+                for (const [bk, data] of Object.entries(combinedBuckets)) {
+                    const rulesArr = Object.values(data.rulesByTier).map((x) => x.rule);
+                    combinedBuckets[bk].rules = rulesArr;
+                    combinedBuckets[bk].matchedCount = 0;
+                    delete combinedBuckets[bk].rulesByTier;
+                }
 
-                    totalAmount += addAmt;
-                    for (const [amt, cnt] of Object.entries(addCounts)) {
-                        countsByAmount[amt] = (countsByAmount[amt] || 0) + cnt;
+                // Count matches per combined bucket
+                for (const ld of dayLeads) {
+                    for (const bucketKey of Object.keys(combinedBuckets)) {
+                        const bucket = combinedBuckets[bucketKey];
+                        let matchedThisLead = false;
+                        for (const rule of bucket.rules) {
+                            if (doesRuleMatchLead(rule, ld)) {
+                                matchedThisLead = true;
+                                break;
+                            }
+                        }
+                        if (matchedThisLead) {
+                            bucket.matchedCount = (bucket.matchedCount || 0) + 1;
+                        }
                     }
+                }
+
+                // Allocate awards from the combined buckets
+                const { totalAmount: addAmt, countsByAmount: addCounts } = allocateTieredAwards(
+                    Object.fromEntries(Object.entries(combinedBuckets).map(([k, v]) => [k, { rules: v.rules, matchedCount: v.matchedCount }]))
+                );
+
+                totalAmount += addAmt;
+                for (const [amt, cnt] of Object.entries(addCounts)) {
+                    countsByAmount[amt] = (countsByAmount[amt] || 0) + cnt;
                 }
             }
 
-            // monthly double target: if range covers a month(s) check threshold using total leads in the range
+            // monthly double target
             const doubleTargetThreshold = (emp.target || 0) * 2;
             if (doubleTargetThreshold > 0 && totalLeads >= doubleTargetThreshold) {
-                // award single 5000 bonus (per your business rule)
                 totalAmount += 5000;
                 countsByAmount["5000"] = (countsByAmount["5000"] || 0) + 1;
             }
@@ -294,7 +269,7 @@ router.get("/leaderboard", async (req, res) => {
             });
         }
 
-        // Build columns from unique rule amounts present in plans + 5000 if any
+        // Build columns
         const amountSet = new Set();
         for (const plan of plans) {
             for (const r of plan.rules || []) {
@@ -302,12 +277,11 @@ router.get("/leaderboard", async (req, res) => {
                 if (a > 0) amountSet.add(a);
             }
         }
-        // include 5000 if any result has that
         if (results.some(r => r.countsByAmount && r.countsByAmount["5000"])) amountSet.add(5000);
 
         const columns = Array.from(amountSet).sort((a, b) => b - a);
 
-        // apply sorting
+        // sorting
         let sorted = results.slice();
         if (sort === "amount_desc") sorted.sort((a, b) => b.totalAmount - a.totalAmount);
         else if (sort === "amount_asc") sorted.sort((a, b) => a.totalAmount - b.totalAmount);
@@ -325,13 +299,7 @@ router.get("/leaderboard", async (req, res) => {
 
 /* ============================
    /api/employee/incentive-summary
-   grouped by rule
    ============================ */
-/**
- * Query: month=YYYY-MM  (optional)
- * Response:
- *  { rules: [ { ruleId, planId, planTitle, leadType, description, leadsRequired, amount, achievers: [ { employeeId, name, date, times, total, count } ] } ], monthlyDoubleTarget: [ { employeeId, name, total, monthlyLeads } ] }
- */
 router.get("/incentive-summary", async (req, res) => {
     try {
         const q = req.query || {};
@@ -344,7 +312,6 @@ router.get("/incentive-summary", async (req, res) => {
             from = startOfDay(f);
             to = endOfDay(new Date(next.getTime() - 1));
         } else {
-            // default: current month in USA_TZ
             const nowZ = toZonedTime(new Date(), USA_TZ);
             const ym = format(nowZ, "yyyy-MM", { timeZone: USA_TZ }).split("-");
             const f = new Date(Number(ym[0]), Number(ym[1]) - 1, 1);
@@ -353,20 +320,17 @@ router.get("/incentive-summary", async (req, res) => {
             to = endOfDay(new Date(next.getTime() - 1));
         }
 
-        // load plans + rules
         const plans = await prisma.incentivePlan.findMany({
             include: { rules: true },
             orderBy: { validFrom: "desc" }
         });
 
-        // fetch qualified leads in range
         const leads = await prisma.lead.findMany({
             where: { qualified: true, date: { gte: from, lte: to } },
             orderBy: { date: "asc" }
         });
 
-        // index leads per employee per day
-        const leadsByEmpDay = {}; // { employeeId: { 'yyyy-MM-dd': [lead, ...] } }
+        const leadsByEmpDay = {};
         for (const l of leads) {
             const emp = l.employeeId;
             const key = toDateKey(l.date);
@@ -376,7 +340,6 @@ router.get("/incentive-summary", async (req, res) => {
             leadsByEmpDay[emp][key].push(l);
         }
 
-        // build ruleIndex (ruleId -> meta)
         const ruleIndex = {};
         for (const plan of plans) {
             for (const r of plan.rules || []) {
@@ -393,102 +356,107 @@ router.get("/incentive-summary", async (req, res) => {
             }
         }
 
-        // Walk employees/days -> detect achievers per rule per day (but award using greedy tier allocation)
+        // Walk employees/days -> detect achievers per rule per day
         for (const [employeeId, days] of Object.entries(leadsByEmpDay)) {
             const user = await prisma.employee.findUnique({ where: { employeeId }, select: { fullName: true, target: true } });
 
             for (const [dateStr, dayLeads] of Object.entries(days)) {
-                // group day leads by all plans that apply to their date
-                const groupsByPlan = new Map();
-                for (const ld of dayLeads) {
-                    const planList = findPlansForDate(plans, ld.date);
-                    if (!planList || planList.length === 0) {
-                        const key = "__NO_PLAN__";
-                        if (!groupsByPlan.has(key)) groupsByPlan.set(key, { plan: null, leads: [] });
-                        groupsByPlan.get(key).leads.push(ld);
-                    } else {
-                        for (const p of planList) {
-                            const key = String(p.id);
-                            if (!groupsByPlan.has(key)) groupsByPlan.set(key, { plan: p, leads: [] });
-                            groupsByPlan.get(key).leads.push(ld);
-                        }
-                    }
-                }
+                if (!dayLeads || dayLeads.length === 0) continue;
 
-                // for each plan group process rules into buckets and allocate
-                for (const { plan, leads: grpLeads } of groupsByPlan.values()) {
-                    if (!plan || !(plan.rules || []).length) continue;
+                const dayDate = dayLeads[0].date;
+                const plansForDay = findPlansForDate(plans, dayDate);
+                if (!plansForDay || plansForDay.length === 0) continue;
 
-                    // Build buckets similar to leaderboard: rule-scope grouped by normalized leadType+country+industry
-                    const buckets = {};
-                    for (const rule of plan.rules) {
+                // combined buckets across plans (de-dupe same-tier rules by keeping most recent plan rule)
+                const combinedBuckets = {}; // bucketKey -> { rulesByTier: { tierKey: { rule, planValidFrom } }, matchedCount }
+
+                for (const plan of plansForDay) {
+                    const planValidFrom = plan.validFrom ? new Date(plan.validFrom).getTime() : 0;
+                    for (const rule of plan.rules || []) {
                         if (!rule.isActive) continue;
+
                         const ruleTypeNorm = normalizeLeadTypeString(rule.leadType || "");
                         const countryNorm = (rule.country || "").trim().toLowerCase();
                         const industryNorm = (rule.industryDomain || "").trim().toLowerCase();
                         const bucketKey = `${ruleTypeNorm}||${countryNorm}||${industryNorm}`;
-                        buckets[bucketKey] = buckets[bucketKey] || { rules: [], matchedCount: 0 };
-                        buckets[bucketKey].rules.push(rule);
-                    }
+                        const tierKey = String(Number(rule.leadsRequired || 0)) || "0";
 
-                    // count matches per bucket
-                    for (const ld of grpLeads) {
-                        for (const bucketKey of Object.keys(buckets)) {
-                            const bucket = buckets[bucketKey];
-                            let matchedThisLead = false;
-                            for (const rule of bucket.rules) {
-                                if (doesRuleMatchLead(rule, ld)) {
-                                    matchedThisLead = true;
-                                    break;
-                                }
+                        combinedBuckets[bucketKey] = combinedBuckets[bucketKey] || { rulesByTier: {}, matchedCount: 0 };
+
+                        const existing = combinedBuckets[bucketKey].rulesByTier[tierKey];
+                        if (!existing) {
+                            combinedBuckets[bucketKey].rulesByTier[tierKey] = { rule, planValidFrom };
+                        } else {
+                            if (planValidFrom > (existing.planValidFrom || 0)) {
+                                combinedBuckets[bucketKey].rulesByTier[tierKey] = { rule, planValidFrom };
                             }
-                            if (matchedThisLead) {
-                                bucket.matchedCount = (bucket.matchedCount || 0) + 1;
-                            }
-                        }
-                    }
-
-                    // allocate per bucket
-                    for (const [bucketKey, bucket] of Object.entries(buckets)) {
-                        const remaining = bucket.matchedCount || 0;
-                        if (remaining <= 0) continue;
-
-                        // Greedy allocation
-                        const sortedRules = bucket.rules.slice().sort((a, b) => {
-                            if (b.leadsRequired !== a.leadsRequired) return b.leadsRequired - a.leadsRequired;
-                            return (b.amount || 0) - (a.amount || 0);
-                        });
-
-                        let rem = remaining;
-                        for (const rule of sortedRules) {
-                            const req = Number(rule.leadsRequired || 0);
-                            const amt = Number(rule.amount || 0);
-                            if (req <= 0 || amt <= 0) continue;
-                            const times = Math.floor(rem / req);
-                            if (times <= 0) continue;
-
-                            const meta = ruleIndex[rule.id];
-                            if (!meta) continue;
-                            meta.achievers.push({
-                                employeeId,
-                                name: user?.fullName || employeeId,
-                                date: dateStr,
-                                times,
-                                total: times * amt,
-                                count: remaining
-                            });
-
-                            rem -= times * req;
-                            if (rem <= 0) break;
                         }
                     }
                 }
-            }
 
-            // monthly double-target detect later
+                // flatten
+                for (const [bk, data] of Object.entries(combinedBuckets)) {
+                    const rulesArr = Object.values(data.rulesByTier).map(x => x.rule);
+                    combinedBuckets[bk].rules = rulesArr;
+                    combinedBuckets[bk].matchedCount = 0;
+                    delete combinedBuckets[bk].rulesByTier;
+                }
+
+                // count matches per bucket
+                for (const ld of dayLeads) {
+                    for (const bucketKey of Object.keys(combinedBuckets)) {
+                        const bucket = combinedBuckets[bucketKey];
+                        let matchedThisLead = false;
+                        for (const rule of bucket.rules) {
+                            if (doesRuleMatchLead(rule, ld)) {
+                                matchedThisLead = true;
+                                break;
+                            }
+                        }
+                        if (matchedThisLead) {
+                            bucket.matchedCount = (bucket.matchedCount || 0) + 1;
+                        }
+                    }
+                }
+
+                // allocate per bucket and push achievers to ruleIndex
+                for (const [bucketKey, bucket] of Object.entries(combinedBuckets)) {
+                    const remaining = bucket.matchedCount || 0;
+                    if (remaining <= 0) continue;
+
+                    // sort tiers desc and allocate greedily
+                    const sortedRules = bucket.rules.slice().sort((a, b) => {
+                        if ((b.leadsRequired || 0) !== (a.leadsRequired || 0)) return (b.leadsRequired || 0) - (a.leadsRequired || 0);
+                        return (b.amount || 0) - (a.amount || 0);
+                    });
+
+                    let rem = remaining;
+                    for (const rule of sortedRules) {
+                        const req = Number(rule.leadsRequired || 0);
+                        const amt = Number(rule.amount || 0);
+                        if (req <= 0 || amt <= 0) continue;
+                        const times = Math.floor(rem / req);
+                        if (times <= 0) continue;
+
+                        const meta = ruleIndex[rule.id];
+                        if (!meta) continue;
+                        meta.achievers.push({
+                            employeeId,
+                            name: user?.fullName || employeeId,
+                            date: dateStr,
+                            times,
+                            total: times * amt,
+                            count: remaining
+                        });
+
+                        rem -= times * req;
+                        if (rem <= 0) break;
+                    }
+                }
+            }
         }
 
-        // Prepare ordered rules: newest plans first (we queried that way), and within plan: attendees, association, industry ordering
+        // ordered rules output
         const leadPriority = { attendees: 1, association: 2, industry: 3 };
         const orderedRules = [];
         for (const plan of plans) {
@@ -504,7 +472,7 @@ router.get("/incentive-summary", async (req, res) => {
             }
         }
 
-        // compute monthlyDoubleTarget list
+        // monthly double-target
         const leadsByEmp = {};
         for (const l of leads) {
             leadsByEmp[l.employeeId] = (leadsByEmp[l.employeeId] || 0) + 1;
