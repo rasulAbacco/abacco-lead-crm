@@ -100,6 +100,7 @@ function allocateTieredAwards(buckets) {
 /* ============================
    /api/employee/leaderboard
    ============================ */
+
 router.get("/leaderboard", async (req, res) => {
   try {
     const q = req.query || {};
@@ -109,54 +110,40 @@ router.get("/leaderboard", async (req, res) => {
 
     const range = buildRangeFromQuery(q);
 
-    // load all incentive plans (active + historical) and their rules
+    // load incentive plans
     const plans = await prisma.incentivePlan.findMany({
       include: { rules: true },
       orderBy: { validFrom: "desc" },
     });
 
-    // fetch all active non-admin employees
+    // employees
     const employees = await prisma.employee.findMany({
-      where: {
-        isActive: true,
-        role: { not: "ADMIN" },
-      },
-      select: { employeeId: true, fullName: true, target: true, role: true },
+      where: { isActive: true, role: { not: "ADMIN" } },
+      select: { employeeId: true, fullName: true, target: true },
     });
 
-    // fetch qualified leads in the requested range once
+    // qualified leads in range
     const allLeads = await prisma.lead.findMany({
-      where: {
-        qualified: true,
-        date: { gte: range.from, lte: range.to },
-      },
+      where: { qualified: true, date: { gte: range.from, lte: range.to } },
       orderBy: { date: "asc" },
     });
 
     const leadsByEmployee = new Map();
     for (const ld of allLeads) {
-      const emp = ld.employeeId;
-      if (!leadsByEmployee.has(emp)) leadsByEmployee.set(emp, []);
-      leadsByEmployee.get(emp).push(ld);
-    }
-
-    const results = [];
-
-    // Build ruleMap (not strictly required here but kept for compatibility)
-    const ruleMap = new Map();
-    for (const plan of plans) {
-      for (const r of plan.rules || []) {
-        ruleMap.set(r.id, {
-          rule: r,
-          planId: plan.id,
-          planTitle: plan.title,
-          planValidFrom: plan.validFrom,
-        });
+      if (!leadsByEmployee.has(ld.employeeId)) {
+        leadsByEmployee.set(ld.employeeId, []);
       }
+      leadsByEmployee.get(ld.employeeId).push(ld);
     }
 
     const requestedLeadTypeNorm =
       leadTypeFilter !== "All" ? normalizeLeadTypeString(leadTypeFilter) : null;
+
+    const results = [];
+
+    // 🔑 Detect true monthly mode
+    const isMonthly =
+      !q.from && !q.to && (q.period || "month").toLowerCase() === "month";
 
     for (const emp of employees) {
       const empLeads = leadsByEmployee.get(emp.employeeId) || [];
@@ -164,30 +151,22 @@ router.get("/leaderboard", async (req, res) => {
       // group by day
       const byDay = {};
       for (const ld of empLeads) {
-        const ds = toDateKey(ld.date);
-        if (!ds) continue;
-        if (!byDay[ds]) byDay[ds] = [];
-        byDay[ds].push(ld);
+        const d = toDateKey(ld.date);
+        if (!d) continue;
+        if (!byDay[d]) byDay[d] = [];
+        byDay[d].push(ld);
       }
 
       let totalAmount = 0;
       let totalLeads = empLeads.length;
       const countsByAmount = {};
 
-      for (const [dayKey, dayLeads] of Object.entries(byDay)) {
-        if (!dayLeads || dayLeads.length === 0) continue;
-
-        // get plans that apply to this day (based on lead date)
-        // use the first lead date as representative for the day
+      for (const dayLeads of Object.values(byDay)) {
         const dayDate = dayLeads[0].date;
         const plansForDay = findPlansForDate(plans, dayDate);
+        if (!plansForDay.length) continue;
 
-        if (!plansForDay || plansForDay.length === 0) continue;
-
-        // Build combined buckets across all matching plans for the day.
-        // If multiple plans define the SAME bucket and SAME leadsRequired, we keep the rule
-        // from the plan with the latest validFrom (most recent) to avoid duplicate awards.
-        const combinedBuckets = {}; // bucketKey -> { rules: [rule], matchedCount: 0 }
+        const combinedBuckets = {};
 
         for (const plan of plansForDay) {
           const planValidFrom = plan.validFrom
@@ -197,72 +176,39 @@ router.get("/leaderboard", async (req, res) => {
           for (const rule of plan.rules || []) {
             if (!rule.isActive) continue;
 
-            // respect front-end leadType filter
             if (requestedLeadTypeNorm) {
-              const rTypeNorm = normalizeLeadTypeString(rule.leadType || "");
-              if (rTypeNorm !== requestedLeadTypeNorm) continue;
+              const rt = normalizeLeadTypeString(rule.leadType || "");
+              if (rt !== requestedLeadTypeNorm) continue;
             }
 
-            const ruleTypeNorm = normalizeLeadTypeString(rule.leadType || "");
-            const countryNorm = (rule.country || "").trim().toLowerCase();
-            const industryNorm = (rule.industryDomain || "")
-              .trim()
-              .toLowerCase();
-            const bucketKey = `${ruleTypeNorm}||${countryNorm}||${industryNorm}`;
+            const key = `${normalizeLeadTypeString(rule.leadType || "")}||${(
+              rule.country || ""
+            ).toLowerCase()}||${(rule.industryDomain || "").toLowerCase()}`;
+            combinedBuckets[key] ||= { rulesByTier: {}, matchedCount: 0 };
 
-            combinedBuckets[bucketKey] = combinedBuckets[bucketKey] || {
-              rulesByTier: {},
-              matchedCount: 0,
-            };
+            const tier = String(rule.leadsRequired || 0);
+            const existing = combinedBuckets[key].rulesByTier[tier];
 
-            // use tierKey as the leadsRequired value to dedupe same-tier rules across plans
-            const tierKey = String(Number(rule.leadsRequired || 0)) || "0";
-
-            // If there's an existing rule in this bucket+tier, keep the one with later validFrom
-            const existing = combinedBuckets[bucketKey].rulesByTier[tierKey];
-            if (!existing) {
-              // store rule plus planValidFrom so we can compare later
-              combinedBuckets[bucketKey].rulesByTier[tierKey] = {
-                rule,
-                planValidFrom,
-              };
-            } else {
-              if (planValidFrom > (existing.planValidFrom || 0)) {
-                combinedBuckets[bucketKey].rulesByTier[tierKey] = {
-                  rule,
-                  planValidFrom,
-                };
-              }
+            if (!existing || planValidFrom > existing.planValidFrom) {
+              combinedBuckets[key].rulesByTier[tier] = { rule, planValidFrom };
             }
           }
         }
 
-        // Flatten rulesByTier into an array for each bucket
-        for (const [bk, data] of Object.entries(combinedBuckets)) {
-          const rulesArr = Object.values(data.rulesByTier).map((x) => x.rule);
-          combinedBuckets[bk].rules = rulesArr;
-          combinedBuckets[bk].matchedCount = 0;
-          delete combinedBuckets[bk].rulesByTier;
+        for (const bucket of Object.values(combinedBuckets)) {
+          bucket.rules = Object.values(bucket.rulesByTier).map((r) => r.rule);
+          bucket.matchedCount = 0;
+          delete bucket.rulesByTier;
         }
 
-        // Count matches per combined bucket
         for (const ld of dayLeads) {
-          for (const bucketKey of Object.keys(combinedBuckets)) {
-            const bucket = combinedBuckets[bucketKey];
-            let matchedThisLead = false;
-            for (const rule of bucket.rules) {
-              if (doesRuleMatchLead(rule, ld)) {
-                matchedThisLead = true;
-                break;
-              }
-            }
-            if (matchedThisLead) {
-              bucket.matchedCount = (bucket.matchedCount || 0) + 1;
+          for (const bucket of Object.values(combinedBuckets)) {
+            if (bucket.rules.some((r) => doesRuleMatchLead(r, ld))) {
+              bucket.matchedCount++;
             }
           }
         }
 
-        // Allocate awards from the combined buckets
         const { totalAmount: addAmt, countsByAmount: addCounts } =
           allocateTieredAwards(
             Object.fromEntries(
@@ -279,13 +225,10 @@ router.get("/leaderboard", async (req, res) => {
         }
       }
 
-      // monthly double target
-      const doubleTargetThreshold = (emp.target || 0) * 2;
-      // ✅ Apply double target ONLY for monthly leaderboard
-      if ((q.period || "month") === "month") {
-        const doubleTargetThreshold = (emp.target || 0) * 2;
-
-        if (doubleTargetThreshold > 0 && totalLeads >= doubleTargetThreshold) {
+      // ✅ DOUBLE TARGET — MONTH ONLY
+      if (isMonthly) {
+        const threshold = (emp.target || 0) * 2;
+        if (threshold > 0 && totalLeads >= threshold) {
           totalAmount += 5000;
           countsByAmount["5000"] = (countsByAmount["5000"] || 0) + 1;
         }
@@ -295,46 +238,272 @@ router.get("/leaderboard", async (req, res) => {
         employeeId: emp.employeeId,
         name: emp.fullName,
         totalLeads,
-        monthlyLeads: totalLeads,
         totalAmount,
         countsByAmount,
       });
     }
 
-    // Build columns
-    const amountSet = new Set();
+    // columns (₹5000 always visible)
+    const amountSet = new Set([5000]);
     for (const plan of plans) {
       for (const r of plan.rules || []) {
-        const a = Number(r.amount || 0);
-        if (a > 0) amountSet.add(a);
+        if (r.amount > 0) amountSet.add(Number(r.amount));
       }
     }
-    if (results.some((r) => r.countsByAmount && r.countsByAmount["5000"]))
-      amountSet.add(5000);
 
     const columns = Array.from(amountSet).sort((a, b) => b - a);
 
     // sorting
-    let sorted = results.slice();
-    if (sort === "amount_desc")
-      sorted.sort((a, b) => b.totalAmount - a.totalAmount);
-    else if (sort === "amount_asc")
-      sorted.sort((a, b) => a.totalAmount - b.totalAmount);
-    else if (sort === "leads_desc")
-      sorted.sort((a, b) => b.totalLeads - a.totalLeads);
-    else if (sort === "name_asc")
-      sorted.sort((a, b) =>
-        String(a.name || "").localeCompare(String(b.name || ""))
-      );
+    results.sort((a, b) => {
+      if (sort === "leads_desc") return b.totalLeads - a.totalLeads;
+      if (sort === "amount_asc") return a.totalAmount - b.totalAmount;
+      if (sort === "name_asc") return a.name.localeCompare(b.name);
+      return b.totalAmount - a.totalAmount;
+    });
 
-    const limited = sorted.slice(0, limit);
-
-    return res.json({ columns, results: limited });
+    return res.json({ columns, results: results.slice(0, limit) });
   } catch (err) {
     console.error("Leaderboard error:", err);
-    return res.status(500).json({ message: "Failed to build leaderboard" });
+    res.status(500).json({ message: "Failed to build leaderboard" });
   }
 });
+
+
+// router.get("/leaderboard", async (req, res) => {
+//   try {
+//     const q = req.query || {};
+//     const sort = q.sort || "amount_desc";
+//     const leadTypeFilter = q.leadType || "All";
+//     const limit = Number(q.limit) || 50;
+
+//     const range = buildRangeFromQuery(q);
+
+//     // load all incentive plans (active + historical) and their rules
+//     const plans = await prisma.incentivePlan.findMany({
+//       include: { rules: true },
+//       orderBy: { validFrom: "desc" },
+//     });
+
+//     // fetch all active non-admin employees
+//     const employees = await prisma.employee.findMany({
+//       where: {
+//         isActive: true,
+//         role: { not: "ADMIN" },
+//       },
+//       select: { employeeId: true, fullName: true, target: true, role: true },
+//     });
+
+//     // fetch qualified leads in the requested range once
+//     const allLeads = await prisma.lead.findMany({
+//       where: {
+//         qualified: true,
+//         date: { gte: range.from, lte: range.to },
+//       },
+//       orderBy: { date: "asc" },
+//     });
+
+//     const leadsByEmployee = new Map();
+//     for (const ld of allLeads) {
+//       const emp = ld.employeeId;
+//       if (!leadsByEmployee.has(emp)) leadsByEmployee.set(emp, []);
+//       leadsByEmployee.get(emp).push(ld);
+//     }
+
+//     const results = [];
+
+//     // Build ruleMap (not strictly required here but kept for compatibility)
+//     const ruleMap = new Map();
+//     for (const plan of plans) {
+//       for (const r of plan.rules || []) {
+//         ruleMap.set(r.id, {
+//           rule: r,
+//           planId: plan.id,
+//           planTitle: plan.title,
+//           planValidFrom: plan.validFrom,
+//         });
+//       }
+//     }
+
+//     const requestedLeadTypeNorm =
+//       leadTypeFilter !== "All" ? normalizeLeadTypeString(leadTypeFilter) : null;
+
+//     for (const emp of employees) {
+//       const empLeads = leadsByEmployee.get(emp.employeeId) || [];
+
+//       // group by day
+//       const byDay = {};
+//       for (const ld of empLeads) {
+//         const ds = toDateKey(ld.date);
+//         if (!ds) continue;
+//         if (!byDay[ds]) byDay[ds] = [];
+//         byDay[ds].push(ld);
+//       }
+
+//       let totalAmount = 0;
+//       let totalLeads = empLeads.length;
+//       const countsByAmount = {};
+
+//       for (const [dayKey, dayLeads] of Object.entries(byDay)) {
+//         if (!dayLeads || dayLeads.length === 0) continue;
+
+//         // get plans that apply to this day (based on lead date)
+//         // use the first lead date as representative for the day
+//         const dayDate = dayLeads[0].date;
+//         const plansForDay = findPlansForDate(plans, dayDate);
+
+//         if (!plansForDay || plansForDay.length === 0) continue;
+
+//         // Build combined buckets across all matching plans for the day.
+//         // If multiple plans define the SAME bucket and SAME leadsRequired, we keep the rule
+//         // from the plan with the latest validFrom (most recent) to avoid duplicate awards.
+//         const combinedBuckets = {}; // bucketKey -> { rules: [rule], matchedCount: 0 }
+
+//         for (const plan of plansForDay) {
+//           const planValidFrom = plan.validFrom
+//             ? new Date(plan.validFrom).getTime()
+//             : 0;
+
+//           for (const rule of plan.rules || []) {
+//             if (!rule.isActive) continue;
+
+//             // respect front-end leadType filter
+//             if (requestedLeadTypeNorm) {
+//               const rTypeNorm = normalizeLeadTypeString(rule.leadType || "");
+//               if (rTypeNorm !== requestedLeadTypeNorm) continue;
+//             }
+
+//             const ruleTypeNorm = normalizeLeadTypeString(rule.leadType || "");
+//             const countryNorm = (rule.country || "").trim().toLowerCase();
+//             const industryNorm = (rule.industryDomain || "")
+//               .trim()
+//               .toLowerCase();
+//             const bucketKey = `${ruleTypeNorm}||${countryNorm}||${industryNorm}`;
+
+//             combinedBuckets[bucketKey] = combinedBuckets[bucketKey] || {
+//               rulesByTier: {},
+//               matchedCount: 0,
+//             };
+
+//             // use tierKey as the leadsRequired value to dedupe same-tier rules across plans
+//             const tierKey = String(Number(rule.leadsRequired || 0)) || "0";
+
+//             // If there's an existing rule in this bucket+tier, keep the one with later validFrom
+//             const existing = combinedBuckets[bucketKey].rulesByTier[tierKey];
+//             if (!existing) {
+//               // store rule plus planValidFrom so we can compare later
+//               combinedBuckets[bucketKey].rulesByTier[tierKey] = {
+//                 rule,
+//                 planValidFrom,
+//               };
+//             } else {
+//               if (planValidFrom > (existing.planValidFrom || 0)) {
+//                 combinedBuckets[bucketKey].rulesByTier[tierKey] = {
+//                   rule,
+//                   planValidFrom,
+//                 };
+//               }
+//             }
+//           }
+//         }
+
+//         // Flatten rulesByTier into an array for each bucket
+//         for (const [bk, data] of Object.entries(combinedBuckets)) {
+//           const rulesArr = Object.values(data.rulesByTier).map((x) => x.rule);
+//           combinedBuckets[bk].rules = rulesArr;
+//           combinedBuckets[bk].matchedCount = 0;
+//           delete combinedBuckets[bk].rulesByTier;
+//         }
+
+//         // Count matches per combined bucket
+//         for (const ld of dayLeads) {
+//           for (const bucketKey of Object.keys(combinedBuckets)) {
+//             const bucket = combinedBuckets[bucketKey];
+//             let matchedThisLead = false;
+//             for (const rule of bucket.rules) {
+//               if (doesRuleMatchLead(rule, ld)) {
+//                 matchedThisLead = true;
+//                 break;
+//               }
+//             }
+//             if (matchedThisLead) {
+//               bucket.matchedCount = (bucket.matchedCount || 0) + 1;
+//             }
+//           }
+//         }
+
+//         // Allocate awards from the combined buckets
+//         const { totalAmount: addAmt, countsByAmount: addCounts } =
+//           allocateTieredAwards(
+//             Object.fromEntries(
+//               Object.entries(combinedBuckets).map(([k, v]) => [
+//                 k,
+//                 { rules: v.rules, matchedCount: v.matchedCount },
+//               ])
+//             )
+//           );
+
+//         totalAmount += addAmt;
+//         for (const [amt, cnt] of Object.entries(addCounts)) {
+//           countsByAmount[amt] = (countsByAmount[amt] || 0) + cnt;
+//         }
+//       }
+
+//       // monthly double target
+//       const doubleTargetThreshold = (emp.target || 0) * 2;
+//       // ✅ Apply double target ONLY for monthly leaderboard
+//       if ((q.period || "month") === "month") {
+//         const doubleTargetThreshold = (emp.target || 0) * 2;
+
+//         if (doubleTargetThreshold > 0 && totalLeads >= doubleTargetThreshold) {
+//           totalAmount += 5000;
+//           countsByAmount["5000"] = (countsByAmount["5000"] || 0) + 1;
+//         }
+//       }
+
+//       results.push({
+//         employeeId: emp.employeeId,
+//         name: emp.fullName,
+//         totalLeads,
+//         monthlyLeads: totalLeads,
+//         totalAmount,
+//         countsByAmount,
+//       });
+//     }
+
+//     // Build columns
+//     const amountSet = new Set();
+//     for (const plan of plans) {
+//       for (const r of plan.rules || []) {
+//         const a = Number(r.amount || 0);
+//         if (a > 0) amountSet.add(a);
+//       }
+//     }
+//     if (results.some((r) => r.countsByAmount && r.countsByAmount["5000"]))
+//       amountSet.add(5000);
+
+//     const columns = Array.from(amountSet).sort((a, b) => b - a);
+
+//     // sorting
+//     let sorted = results.slice();
+//     if (sort === "amount_desc")
+//       sorted.sort((a, b) => b.totalAmount - a.totalAmount);
+//     else if (sort === "amount_asc")
+//       sorted.sort((a, b) => a.totalAmount - b.totalAmount);
+//     else if (sort === "leads_desc")
+//       sorted.sort((a, b) => b.totalLeads - a.totalLeads);
+//     else if (sort === "name_asc")
+//       sorted.sort((a, b) =>
+//         String(a.name || "").localeCompare(String(b.name || ""))
+//       );
+
+//     const limited = sorted.slice(0, limit);
+
+//     return res.json({ columns, results: limited });
+//   } catch (err) {
+//     console.error("Leaderboard error:", err);
+//     return res.status(500).json({ message: "Failed to build leaderboard" });
+//   }
+// });
 
 /* ============================
    /api/employee/incentive-summary
