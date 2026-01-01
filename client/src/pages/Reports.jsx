@@ -641,17 +641,17 @@ const Reports = () => {
                       </td>
                       <td className="px-4 py-3 text-center align-middle text-gray-500">
                         {row.disqualified || (
-                          <span className="text-gray-200">-</span>
+                          <span className="text-gray-200">0</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-center align-middle text-gray-500 text-sm">
                         {row.noResponse || (
-                          <span className="text-gray-200">-</span>
+                          <span className="text-gray-200">0</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-center align-middle text-gray-400 text-sm">
                         {row.leaveOut || (
-                          <span className="text-gray-200">-</span>
+                          <span className="text-gray-200">0</span>
                         )}
                       </td>
 
@@ -661,7 +661,7 @@ const Reports = () => {
                             {row.invoicePending}
                           </span>
                         ) : (
-                          <span className="text-gray-200">-</span>
+                          <span className="text-gray-200">0</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-center align-middle text-sm">
@@ -670,12 +670,12 @@ const Reports = () => {
                             {row.invoiceCanceled}
                           </span>
                         ) : (
-                          <span className="text-gray-200">-</span>
+                          <span className="text-gray-200">0</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-center align-middle text-sm text-gray-600">
                         {row.attendees || (
-                          <span className="text-gray-200">-</span>
+                          <span className="text-gray-200">0</span>
                         )}
                       </td>
                     </tr>
