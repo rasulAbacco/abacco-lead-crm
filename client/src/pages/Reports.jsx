@@ -48,7 +48,6 @@ const Reports = () => {
   const fetchReportData = async () => {
     try {
       setLoading(true);
-      // Simulating API call for demo if URL is missing, replace with your actual fetch
       const res = await fetch(
         `${API_BASE_URL}/api/reports/admin/monthly?year=${selectedYear}`,
         {
@@ -99,6 +98,9 @@ const Reports = () => {
     const headers = [
       "Employee Name",
       "Email",
+      "Association Leads", // Added
+      "Industry Leads", // Added
+      "Target", // Added
       "Total Leads",
       "Qualified",
       "Disqualified",
@@ -108,9 +110,7 @@ const Reports = () => {
       "Invoice Pending",
       "Invoice Canceled",
       "Active",
-      "Association Type",
       "Attendees Type",
-      "Industry Type",
     ];
 
     const csvContent = [
@@ -119,6 +119,10 @@ const Reports = () => {
         [
           r.name,
           r.email,
+          r.associationLeads || 0, // Added
+          r.industryLeads || 0, // Added
+          r.attendeesLeads || 0, // Added
+          r.target || 0, // Added
           r.totalLeads,
           r.qualified,
           r.disqualified,
@@ -128,9 +132,7 @@ const Reports = () => {
           r.invoicePending,
           r.invoiceCanceled,
           r.active,
-          r.association,
           r.attendees,
-          r.industry,
         ].join(",")
       ),
     ].join("\n");
@@ -202,18 +204,22 @@ const Reports = () => {
 
   const filteredData = getFilteredAndSortedData();
 
-  // Component helper for table headers
-  const SortableHeader = ({ label, field, align = "left" }) => (
+  // Helper Component for Table Headers
+  const SortableHeader = ({ label, field, align = "left", onClick }) => (
     <th
-      className={`px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors text-${align}`}
-      onClick={() => handleSort(field)}
+      className={`px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors border-b border-gray-200`}
+      onClick={() => onClick(field)}
     >
       <div
-        className={`flex items-center gap-1 ${
-          align === "right" ? "justify-end" : "justify-start"
+        className={`flex items-center gap-2 ${
+          align === "center"
+            ? "justify-center"
+            : align === "right"
+            ? "justify-end"
+            : "justify-start"
         }`}
       >
-        {label}
+        <span>{label}</span>
         <div className="flex flex-col">
           {sortField === field && sortDirection === "asc" ? (
             <ChevronUp size={12} className="text-indigo-600" />
@@ -335,7 +341,7 @@ const Reports = () => {
                           {month}
                           {!hasData && (
                             <span className="text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-500">
-                              No Leads
+                              Empty
                             </span>
                           )}
                         </button>
@@ -432,58 +438,106 @@ const Reports = () => {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
+              <table className="w-full border-collapse">
+                <thead className="bg-gray-50 sticky top-0 z-10">
                   <tr>
-                    <SortableHeader label="Employee" field="name" />
-                    <SortableHeader label="Context" field="association" />
-                    {/* Metrics Group */}
+                    {/* Employee Name - Left Aligned */}
+                    <SortableHeader
+                      label="Employee"
+                      field="name"
+                      align="left"
+                      onClick={handleSort}
+                    />
+
+                    {/* --- NEW HEADERS START --- */}
+
+                    <SortableHeader
+                      label="Target"
+                      field="target"
+                      align="center"
+                      onClick={handleSort}
+                    />
+                    {/* --- NEW HEADERS END --- */}
+
+                    {/* Metrics - All Center Aligned for perfect stacking */}
                     <SortableHeader
                       label="Total Leads"
                       field="totalLeads"
-                      align="right"
+                      align="center"
+                      onClick={handleSort}
                     />
                     <SortableHeader
                       label="Qualified"
                       field="qualified"
-                      align="right"
+                      align="center"
+                      onClick={handleSort}
+                    />
+                    <SortableHeader
+                      label="Association Leads"
+                      field="associationLeads"
+                      align="center"
+                      onClick={handleSort}
+                    />
+
+                    <SortableHeader
+                      label="Industry Leads"
+                      field="industryLeads"
+                      align="center"
+                      onClick={handleSort}
+                    />
+                    <SortableHeader
+                      label="Attendees Leads"
+                      field="attendeesLeads"
+                      align="center"
+                      onClick={handleSort}
                     />
                     <SortableHeader
                       label="Active"
                       field="active"
-                      align="right"
+                      align="center"
+                      onClick={handleSort}
                     />
-                    <SortableHeader label="Deals" field="deal" align="right" />
+                    <SortableHeader
+                      label="Deals"
+                      field="deal"
+                      align="center"
+                      onClick={handleSort}
+                    />
                     <SortableHeader
                       label="Disqualified"
                       field="disqualified"
-                      align="right"
+                      align="center"
+                      onClick={handleSort}
                     />
                     <SortableHeader
                       label="No Resp"
                       field="noResponse"
-                      align="right"
+                      align="center"
+                      onClick={handleSort}
                     />
                     <SortableHeader
                       label="Leave"
                       field="leaveOut"
-                      align="right"
+                      align="center"
+                      onClick={handleSort}
                     />
-                    {/* Financials Group */}
                     <SortableHeader
                       label="Inv. Pending"
                       field="invoicePending"
-                      align="right"
+                      align="center"
+                      onClick={handleSort}
                     />
                     <SortableHeader
                       label="Inv. Cancel"
                       field="invoiceCanceled"
-                      align="right"
+                      align="center"
+                      onClick={handleSort}
                     />
                     <SortableHeader
                       label="Attendees"
                       field="attendees"
-                      align="right"
+                      align="center"
+                      onClick={handleSort}
                     />
                   </tr>
                 </thead>
@@ -493,14 +547,15 @@ const Reports = () => {
                       key={row.id}
                       className="hover:bg-indigo-50/30 transition-colors group"
                     >
-                      <td className="px-4 py-3 max-w-[250px]">
+                      {/* Name Column - Left Aligned */}
+                      <td className="px-4 py-3 max-w-[250px] text-left">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold border border-indigo-200">
+                          <div className="w-9 h-9 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-sm font-bold border border-indigo-200 shrink-0">
                             {row.name.charAt(0)}
                           </div>
                           <div className="truncate">
                             <div
-                              className="text-sm font-medium text-gray-900 truncate"
+                              className="text-sm font-semibold text-gray-900 truncate"
                               title={row.name}
                             >
                               {row.name}
@@ -514,46 +569,68 @@ const Reports = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-col gap-1 items-start">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
-                            {row.association}
+
+                      {/* --- NEW CELLS START --- */}
+
+                      {/* Association Leads */}
+
+                      {/* Target with Progress Calculation */}
+                      <td className="px-4 py-3 text-center align-middle">
+                        <div className="flex flex-col items-center">
+                          <span className="font-bold text-emerald-600">
+                            {row.totalLeads}/{row.target ?? "-"}
                           </span>
-                          <span className="text-xs text-gray-500 flex items-center gap-1">
-                            <Building size={10} /> {row.industry}
+                          <span className="text-[10px] text-gray-400">
+                            {row.target
+                              ? `${Math.round(
+                                  (row.totalLeads / row.target) * 100
+                                )}%`
+                              : "-"}
                           </span>
                         </div>
                       </td>
+                      {/* --- NEW CELLS END --- */}
 
-                      {/* Metrics with visual weighting */}
-                      <td className="px-4 py-3 text-right">
-                        <span className="font-semibold text-gray-800">
+                      {/* Metrics - Center Aligned */}
+                      <td className="px-4 py-3 text-center align-middle">
+                        <span className="font-bold text-gray-700">
                           {row.totalLeads}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-4 py-3 text-center align-middle">
                         <span
-                          className={`font-medium ${
+                          className={`font-semibold ${
                             row.qualified > 0
                               ? "text-emerald-600"
-                              : "text-gray-400"
+                              : "text-gray-300"
                           }`}
                         >
                           {row.qualified}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-4 py-3 text-center align-middle font-semibold text-blue-600">
+                        {row.associationLeads ?? 0}
+                      </td>
+
+                      {/* Industry Leads */}
+                      <td className="px-4 py-3 text-center align-middle font-semibold text-indigo-600">
+                        {row.industryLeads ?? 0}
+                      </td>
+                      <td className="px-4 py-3 text-center align-middle font-semibold text-indigo-600">
+                        {row.attendeeLeads ?? 0}
+                      </td>
+                      <td className="px-4 py-3 text-center align-middle">
                         <span
-                          className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
+                          className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
                             row.active > 0
                               ? "bg-amber-100 text-amber-800"
-                              : "bg-gray-100 text-gray-400"
+                              : "text-gray-300"
                           }`}
                         >
                           {row.active}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-4 py-3 text-center align-middle">
                         <span
                           className={`font-bold ${
                             row.deal > 0 ? "text-purple-600" : "text-gray-300"
@@ -562,36 +639,44 @@ const Reports = () => {
                           {row.deal}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right text-gray-600">
-                        {row.disqualified}
+                      <td className="px-4 py-3 text-center align-middle text-gray-500">
+                        {row.disqualified || (
+                          <span className="text-gray-200">-</span>
+                        )}
                       </td>
-                      <td className="px-4 py-3 text-right text-gray-500 text-sm">
-                        {row.noResponse}
+                      <td className="px-4 py-3 text-center align-middle text-gray-500 text-sm">
+                        {row.noResponse || (
+                          <span className="text-gray-200">-</span>
+                        )}
                       </td>
-                      <td className="px-4 py-3 text-right text-gray-400 text-sm">
-                        {row.leaveOut}
+                      <td className="px-4 py-3 text-center align-middle text-gray-400 text-sm">
+                        {row.leaveOut || (
+                          <span className="text-gray-200">-</span>
+                        )}
                       </td>
 
-                      <td className="px-4 py-3 text-right text-sm">
+                      <td className="px-4 py-3 text-center align-middle text-sm">
                         {row.invoicePending > 0 ? (
                           <span className="text-orange-600 font-medium">
                             {row.invoicePending}
                           </span>
                         ) : (
-                          <span className="text-gray-300">-</span>
+                          <span className="text-gray-200">-</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-right text-sm">
+                      <td className="px-4 py-3 text-center align-middle text-sm">
                         {row.invoiceCanceled > 0 ? (
-                          <span className="text-red-500">
+                          <span className="text-red-500 font-medium">
                             {row.invoiceCanceled}
                           </span>
                         ) : (
-                          <span className="text-gray-300">-</span>
+                          <span className="text-gray-200">-</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-right text-sm text-gray-600">
-                        {row.attendees}
+                      <td className="px-4 py-3 text-center align-middle text-sm text-gray-600">
+                        {row.attendees || (
+                          <span className="text-gray-200">-</span>
+                        )}
                       </td>
                     </tr>
                   ))}

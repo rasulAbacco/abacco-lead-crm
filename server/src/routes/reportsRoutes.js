@@ -39,9 +39,14 @@ const getAllMonthsInYear = (year) => {
 };
 
 // Get all months with leads data for admin dashboard
-router.get("/admin/monthly", authenticate, authorizeRole("ADMIN"),async (req, res) => {
+// Get all months with leads data for admin dashboard
+router.get(
+  "/admin/monthly",
+  authenticate,
+  authorizeRole("ADMIN"),
+  async (req, res) => {
     try {
-      // ✅ 1. Read query params
+      // 1️⃣ Read query params
       const year = parseInt(req.query.year);
       const monthName = req.query.month; // optional
 
@@ -49,7 +54,7 @@ router.get("/admin/monthly", authenticate, authorizeRole("ADMIN"),async (req, re
         return res.status(400).json({ message: "Year is required" });
       }
 
-      // ✅ 2. Month name → index
+      // 2️⃣ Month name → index
       const monthMap = {
         January: 0,
         February: 1,
@@ -65,39 +70,31 @@ router.get("/admin/monthly", authenticate, authorizeRole("ADMIN"),async (req, re
         December: 11,
       };
 
-      // ✅ 3. Prepare months container
+      // 3️⃣ Prepare months container
       const monthsData = {};
       Object.keys(monthMap).forEach((m) => (monthsData[m] = []));
 
-      // ✅ 4. Build Prisma filter (YEAR + optional MONTH)
+      // 4️⃣ Build Prisma date filter
       let whereCondition = {};
 
       if (monthName) {
-        // YEAR + MONTH filter
         const monthIndex = monthMap[monthName];
-
         if (monthIndex === undefined) {
           return res.status(400).json({ message: "Invalid month" });
         }
 
-        const startOfMonth = new Date(Date.UTC(year, monthIndex, 1, 0, 0, 0));
-        const endOfMonth = new Date(
-          Date.UTC(year, monthIndex + 1, 0, 23, 59, 59)
-        );
-
         whereCondition.date = {
-          gte: startOfMonth,
-          lte: endOfMonth,
+          gte: new Date(Date.UTC(year, monthIndex, 1, 0, 0, 0)),
+          lte: new Date(Date.UTC(year, monthIndex + 1, 0, 23, 59, 59)),
         };
       } else {
-        // YEAR only filter
         whereCondition.date = {
           gte: new Date(Date.UTC(year, 0, 1, 0, 0, 0)),
           lte: new Date(Date.UTC(year, 11, 31, 23, 59, 59)),
         };
       }
 
-      // ✅ 5. Fetch leads
+      // 5️⃣ Fetch leads
       const leads = await prisma.lead.findMany({
         where: whereCondition,
         include: {
@@ -106,18 +103,21 @@ router.get("/admin/monthly", authenticate, authorizeRole("ADMIN"),async (req, re
               employeeId: true,
               fullName: true,
               email: true,
+              target: true, // 🎯 TARGET
             },
           },
         },
         orderBy: { date: "asc" },
       });
 
-      // ✅ 6. Group by MONTH + EMPLOYEE
+      // 6️⃣ Group by MONTH + EMPLOYEE
       leads.forEach((lead) => {
         const month = format(lead.date, "MMMM");
-        const empId = lead.employeeId;
+        const empId = lead.employee.employeeId;
 
-        const idx = monthsData[month].findIndex((e) => e.employeeId === empId);
+        const idx = monthsData[month].findIndex(
+          (e) => e.employeeId === empId
+        );
 
         const type = lead.leadType?.toLowerCase() || "";
         const isAssociation = type.includes("association");
@@ -125,41 +125,51 @@ router.get("/admin/monthly", authenticate, authorizeRole("ADMIN"),async (req, re
         const isIndustry = type.includes("industry");
 
         if (idx === -1) {
+          // 🆕 First record for employee
           monthsData[month].push({
-            id: lead.id,
             employeeId: empId,
             name: lead.employee.fullName,
             email: lead.employee.email,
+
+            // 🎯 Target
+            target: lead.employee.target || 0,
+
+            // 📊 Counts
             totalLeads: 1,
             qualified: lead.qualified === true ? 1 : 0,
             disqualified: lead.qualified === false ? 1 : 0,
-            leaveOut: 0,
-            noResponse: 0,
+
+            associationLeads: isAssociation ? 1 : 0,
+            attendeeLeads: isAttendee ? 1 : 0,
+            industryLeads: isIndustry ? 1 : 0,
+
             deal: 0,
+            active: 0,
             invoicePending: 0,
             invoiceCanceled: 0,
-            active: 0,
-            association: isAssociation ? 1 : 0,
-            attendees: isAttendee ? 1 : 0,
-            industry: isIndustry ? 1 : 0,
+            leaveOut: 0,
+            noResponse: 0,
           });
         } else {
+          // 🔁 Existing employee
           const emp = monthsData[month][idx];
+
           emp.totalLeads += 1;
           if (lead.qualified === true) emp.qualified += 1;
           if (lead.qualified === false) emp.disqualified += 1;
-          if (isAssociation) emp.association += 1;
-          if (isAttendee) emp.attendees += 1;
-          if (isIndustry) emp.industry += 1;
+
+          if (isAssociation) emp.associationLeads += 1;
+          if (isAttendee) emp.attendeeLeads += 1;
+          if (isIndustry) emp.industryLeads += 1;
         }
       });
 
-      // ✅ 7. If month filter used → return only that month
+      // 7️⃣ Return single month if requested
       if (monthName) {
         return res.json({ [monthName]: monthsData[monthName] });
       }
 
-      // ✅ 8. Otherwise return full year
+      // 8️⃣ Return full year
       res.json(monthsData);
     } catch (error) {
       console.error("Error fetching monthly reports:", error);
@@ -167,6 +177,7 @@ router.get("/admin/monthly", authenticate, authorizeRole("ADMIN"),async (req, re
     }
   }
 );
+
 
 
 
