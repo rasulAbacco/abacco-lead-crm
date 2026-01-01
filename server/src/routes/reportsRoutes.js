@@ -12,6 +12,22 @@ const getMonthName = (date) => {
     return format(date, "MMMM");
 };
 
+const monthMap = {
+  January: 0,
+  February: 1,
+  March: 2,
+  April: 3,
+  May: 4,
+  June: 5,
+  July: 6,
+  August: 7,
+  September: 8,
+  October: 9,
+  November: 10,
+  December: 11,
+};
+
+
 // Helper function to get all months in a year
 const getAllMonthsInYear = (year) => {
     const months = [];
@@ -23,78 +39,135 @@ const getAllMonthsInYear = (year) => {
 };
 
 // Get all months with leads data for admin dashboard
-// Get all months with leads data for admin dashboard
-router.get("/admin/monthly", authenticate, authorizeRole("ADMIN"), async (req, res) => {
+router.get("/admin/monthly", authenticate, authorizeRole("ADMIN"),async (req, res) => {
     try {
-        const currentYear = new Date().getFullYear();
-        const monthsData = {};
+      // ✅ 1. Read query params
+      const year = parseInt(req.query.year);
+      const monthName = req.query.month; // optional
 
-        // Create empty month arrays
-        const allMonths = getAllMonthsInYear(currentYear);
-        allMonths.forEach((m) => (monthsData[m] = []));
+      if (!year) {
+        return res.status(400).json({ message: "Year is required" });
+      }
 
-        const startDate = new Date(currentYear, 0, 1);
-        const endDate = new Date(currentYear, 11, 31, 23, 59, 59);
+      // ✅ 2. Month name → index
+      const monthMap = {
+        January: 0,
+        February: 1,
+        March: 2,
+        April: 3,
+        May: 4,
+        June: 5,
+        July: 6,
+        August: 7,
+        September: 8,
+        October: 9,
+        November: 10,
+        December: 11,
+      };
 
-        const leads = await prisma.lead.findMany({
-            where: { date: { gte: startDate, lte: endDate } },
-            include: {
-                employee: {
-                    select: { employeeId: true, fullName: true, email: true },
-                },
+      // ✅ 3. Prepare months container
+      const monthsData = {};
+      Object.keys(monthMap).forEach((m) => (monthsData[m] = []));
+
+      // ✅ 4. Build Prisma filter (YEAR + optional MONTH)
+      let whereCondition = {};
+
+      if (monthName) {
+        // YEAR + MONTH filter
+        const monthIndex = monthMap[monthName];
+
+        if (monthIndex === undefined) {
+          return res.status(400).json({ message: "Invalid month" });
+        }
+
+        const startOfMonth = new Date(Date.UTC(year, monthIndex, 1, 0, 0, 0));
+        const endOfMonth = new Date(
+          Date.UTC(year, monthIndex + 1, 0, 23, 59, 59)
+        );
+
+        whereCondition.date = {
+          gte: startOfMonth,
+          lte: endOfMonth,
+        };
+      } else {
+        // YEAR only filter
+        whereCondition.date = {
+          gte: new Date(Date.UTC(year, 0, 1, 0, 0, 0)),
+          lte: new Date(Date.UTC(year, 11, 31, 23, 59, 59)),
+        };
+      }
+
+      // ✅ 5. Fetch leads
+      const leads = await prisma.lead.findMany({
+        where: whereCondition,
+        include: {
+          employee: {
+            select: {
+              employeeId: true,
+              fullName: true,
+              email: true,
             },
-            orderBy: { date: "asc" },
-        });
+          },
+        },
+        orderBy: { date: "asc" },
+      });
 
-        // Group by month and employee
-        leads.forEach((lead) => {
-            const month = getMonthName(lead.date);
-            const empId = lead.employeeId;
-            const idx = monthsData[month].findIndex((e) => e.employeeId === empId);
+      // ✅ 6. Group by MONTH + EMPLOYEE
+      leads.forEach((lead) => {
+        const month = format(lead.date, "MMMM");
+        const empId = lead.employeeId;
 
-            // Case-insensitive type detection
-            const type = lead.leadType?.toLowerCase() || "";
-            const isAssociation = type.includes("association");
-            const isAttendee = type.includes("attendee");
-            const isIndustry = type.includes("industry");
+        const idx = monthsData[month].findIndex((e) => e.employeeId === empId);
 
-            if (idx === -1) {
-                monthsData[month].push({
-                    id: lead.id,
-                    employeeId: empId,
-                    name: lead.employee.fullName,
-                    email: lead.employee.email,
-                    totalLeads: 1,
-                    qualified: lead.qualified === true ? 1 : 0,
-                    disqualified: lead.qualified === false ? 1 : 0,
-                    leaveOut: 0,
-                    noResponse: 0,
-                    deal: 0,
-                    invoicePending: 0,
-                    invoiceCanceled: 0,
-                    active: 0,
-                    association: isAssociation ? 1 : 0,
-                    attendees: isAttendee ? 1 : 0,
-                    industry: isIndustry ? 1 : 0,
-                });
-            } else {
-                const emp = monthsData[month][idx];
-                emp.totalLeads += 1;
-                if (lead.qualified === true) emp.qualified += 1;
-                if (lead.qualified === false) emp.disqualified += 1;
-                if (isAssociation) emp.association += 1;
-                if (isAttendee) emp.attendees += 1;
-                if (isIndustry) emp.industry += 1;
-            }
-        });
+        const type = lead.leadType?.toLowerCase() || "";
+        const isAssociation = type.includes("association");
+        const isAttendee = type.includes("attendee");
+        const isIndustry = type.includes("industry");
 
-        console.log("Admin monthly sample:", monthsData["October"]?.[0]);
-        res.json(monthsData);
+        if (idx === -1) {
+          monthsData[month].push({
+            id: lead.id,
+            employeeId: empId,
+            name: lead.employee.fullName,
+            email: lead.employee.email,
+            totalLeads: 1,
+            qualified: lead.qualified === true ? 1 : 0,
+            disqualified: lead.qualified === false ? 1 : 0,
+            leaveOut: 0,
+            noResponse: 0,
+            deal: 0,
+            invoicePending: 0,
+            invoiceCanceled: 0,
+            active: 0,
+            association: isAssociation ? 1 : 0,
+            attendees: isAttendee ? 1 : 0,
+            industry: isIndustry ? 1 : 0,
+          });
+        } else {
+          const emp = monthsData[month][idx];
+          emp.totalLeads += 1;
+          if (lead.qualified === true) emp.qualified += 1;
+          if (lead.qualified === false) emp.disqualified += 1;
+          if (isAssociation) emp.association += 1;
+          if (isAttendee) emp.attendees += 1;
+          if (isIndustry) emp.industry += 1;
+        }
+      });
+
+      // ✅ 7. If month filter used → return only that month
+      if (monthName) {
+        return res.json({ [monthName]: monthsData[monthName] });
+      }
+
+      // ✅ 8. Otherwise return full year
+      res.json(monthsData);
     } catch (error) {
-        console.error("Error fetching monthly reports:", error);
-        res.status(500).json({ message: "Failed to fetch monthly reports" });
+      console.error("Error fetching monthly reports:", error);
+      res.status(500).json({ message: "Failed to fetch monthly reports" });
     }
-});
+  }
+);
+
 
 
 
