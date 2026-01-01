@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   Download,
   RefreshCw,
-  Calendar,
   ChevronDown,
   ChevronUp,
   Users,
@@ -13,12 +12,18 @@ import {
   XCircle,
   DollarSign,
   Activity,
-  Filter,
   Search,
-  Briefcase,
-  Building,
 } from "lucide-react";
 import Loader from "../components/Loader";
+import * as XLSX from "xlsx";
+
+// Helper function to convert string to ArrayBuffer
+const s2ab = (s) => {
+  const buf = new ArrayBuffer(s.length);
+  const view = new Uint8Array(buf);
+  for (let i = 0; i < s.length; i++) view[i] = s.charCodeAt(i) & 0xff;
+  return buf;
+};
 
 const Reports = () => {
   const [reportData, setReportData] = useState({});
@@ -27,8 +32,8 @@ const Reports = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [sortField, setSortField] = useState("totalLeads"); // Default sort by leads
-  const [sortDirection, setSortDirection] = useState("desc"); // Default desc
+  const [sortField, setSortField] = useState("totalLeads");
+  const [sortDirection, setSortDirection] = useState("desc");
   const dropdownRef = useRef(null);
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
@@ -88,6 +93,7 @@ const Reports = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Enhanced Excel Export with Formatting and Colors
   const handleExport = () => {
     if (!selectedMonth || !reportData[selectedMonth]?.length) {
       alert("No data available to export for the selected month");
@@ -95,55 +101,233 @@ const Reports = () => {
     }
 
     const data = reportData[selectedMonth];
+
+    // Create workbook and worksheet
+    const wb = XLSX.utils.book_new();
+
+    // Headers
     const headers = [
       "Employee Name",
       "Email",
-      "Association Leads", // Added
-      "Industry Leads", // Added
-      "Target", // Added
+      "Target",
       "Total Leads",
       "Qualified",
+      "Association Leads",
+      "Industry Leads",
+      "Attendee Leads",
+      "Active",
+      "Deals",
       "Disqualified",
-      "Leave Out",
       "No Response",
-      "Deal",
+      "Leave Out",
       "Invoice Pending",
       "Invoice Canceled",
-      "Active",
-      "Attendees Type",
     ];
 
-    const csvContent = [
-      headers.join(","),
-      ...data.map((r) =>
-        [
-          r.name,
-          r.email,
-          r.associationLeads || 0, // Added
-          r.industryLeads || 0, // Added
-          r.attendeesLeads || 0, // Added
-          r.target || 0, // Added
-          r.totalLeads,
-          r.qualified,
-          r.disqualified,
-          r.leaveOut,
-          r.noResponse,
-          r.deal,
-          r.invoicePending,
-          r.invoiceCanceled,
-          r.active,
-          r.attendees,
-        ].join(",")
-      ),
-    ].join("\n");
+    // Prepare data rows
+    const rows = data.map((r) => [
+      r.name,
+      r.email,
+      r.target ?? 0,
+      r.totalLeads ?? 0,
+      r.qualified ?? 0,
+      r.associationLeads ?? 0,
+      r.industryLeads ?? 0,
+      r.attendeeLeads ?? 0,
+      r.active ?? 0,
+      r.deal ?? 0,
+      r.disqualified ?? 0,
+      r.noResponse ?? 0,
+      r.leaveOut ?? 0,
+      r.invoicePending ?? 0,
+      r.invoiceCanceled ?? 0,
+    ]);
 
-    const blob = new Blob([csvContent], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
+    // Combine headers and data
+    const wsData = [headers, ...rows];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+    // Set column widths
+    const colWidths = [
+      { wch: 22 }, // Employee Name
+      { wch: 28 }, // Email
+      { wch: 10 }, // Target
+      { wch: 12 }, // Total Leads
+      { wch: 12 }, // Qualified
+      { wch: 16 }, // Association Leads
+      { wch: 14 }, // Industry Leads
+      { wch: 14 }, // Attendee Leads
+      { wch: 10 }, // Active
+      { wch: 10 }, // Deals
+      { wch: 12 }, // Disqualified
+      { wch: 12 }, // No Response
+      { wch: 12 }, // Leave Out
+      { wch: 14 }, // Invoice Pending
+      { wch: 14 }, // Invoice Canceled
+    ];
+    ws["!cols"] = colWidths;
+
+    // Apply styles
+    const range = XLSX.utils.decode_range(ws["!ref"]);
+
+    // Header style (Row 1)
+    for (let C = range.s.c; C <= range.e.c; ++C) {
+      const address = XLSX.utils.encode_col(C) + "1";
+      if (!ws[address]) continue;
+
+      ws[address].s = {
+        fill: { fgColor: { rgb: "4F46E5" } }, // Indigo background
+        font: { bold: true, color: { rgb: "FFFFFF" }, sz: 11 },
+        alignment: { horizontal: "center", vertical: "center" },
+        border: {
+          top: { style: "thin", color: { rgb: "000000" } },
+          bottom: { style: "thin", color: { rgb: "000000" } },
+          left: { style: "thin", color: { rgb: "000000" } },
+          right: { style: "thin", color: { rgb: "000000" } },
+        },
+      };
+    }
+
+    // Data rows styling
+    for (let R = range.s.r + 1; R <= range.e.r; ++R) {
+      const rowIndex = R - 1; // Adjust for header
+      const rowData = data[rowIndex - 1];
+
+      if (!rowData) continue;
+
+      // Calculate achievement percentage
+      const achievement =
+        rowData.target > 0 ? (rowData.totalLeads / rowData.target) * 100 : 100;
+
+      // Determine row background color based on achievement
+      const isLowPerformance = achievement < 50;
+
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        const address = XLSX.utils.encode_col(C) + (R + 1);
+        if (!ws[address]) continue;
+
+        let cellBgColor = "FFFFFF"; // Default white
+        let fontColor = "000000"; // Default black
+        let isBold = false;
+
+        // Apply yellow background to entire row if achievement < 50%
+        if (isLowPerformance) {
+          cellBgColor = "FEF3C7"; // Yellow background for low performance
+        }
+
+        // Column-specific colors
+        switch (C) {
+          case 2: // Target column (C in Excel)
+            if (!isLowPerformance) {
+              cellBgColor = "DCFCE7"; // Light green
+            }
+            isBold = true;
+            fontColor = "059669"; // Emerald
+            break;
+
+          case 3: // Total Leads column (D in Excel)
+            if (!isLowPerformance) {
+              cellBgColor = "EEF2FF"; // Light indigo
+            }
+            isBold = true;
+            fontColor = "4338CA"; // Indigo
+            break;
+
+          case 4: // Qualified column (E in Excel)
+            if (!isLowPerformance) {
+              cellBgColor = "D1FAE5"; // Light emerald
+            }
+            isBold = true;
+            fontColor = "047857"; // Emerald dark
+            break;
+
+          case 5: // Association Leads
+            fontColor = "2563EB"; // Blue
+            isBold = true;
+            break;
+
+          case 6: // Industry Leads
+            fontColor = "4F46E5"; // Indigo
+            isBold = true;
+            break;
+
+          case 7: // Attendee Leads
+            fontColor = "6366F1"; // Indigo lighter
+            isBold = true;
+            break;
+
+          case 8: // Active
+            if (rowData.active > 0) {
+              fontColor = "D97706"; // Amber
+              isBold = true;
+            }
+            break;
+
+          case 9: // Deals
+            fontColor = "7C3AED"; // Purple
+            isBold = true;
+            break;
+
+          case 10: // Disqualified
+            if (rowData.disqualified > 0) {
+              fontColor = "DC2626"; // Red
+            }
+            break;
+
+          case 13: // Invoice Pending
+            if (rowData.invoicePending > 0) {
+              fontColor = "EA580C"; // Orange
+              isBold = true;
+            }
+            break;
+
+          case 14: // Invoice Canceled
+            if (rowData.invoiceCanceled > 0) {
+              fontColor = "DC2626"; // Red
+              isBold = true;
+            }
+            break;
+        }
+
+        ws[address].s = {
+          fill: { fgColor: { rgb: cellBgColor } },
+          font: {
+            color: { rgb: fontColor },
+            sz: 10,
+            bold: isBold,
+          },
+          alignment: {
+            horizontal: C === 0 || C === 1 ? "left" : "center",
+            vertical: "center",
+          },
+          border: {
+            top: { style: "thin", color: { rgb: "E5E7EB" } },
+            bottom: { style: "thin", color: { rgb: "E5E7EB" } },
+            left: { style: "thin", color: { rgb: "E5E7EB" } },
+            right: { style: "thin", color: { rgb: "E5E7EB" } },
+          },
+        };
+      }
+    }
+
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(wb, ws, selectedMonth);
+
+    // Generate Excel file
+    const wbout = XLSX.write(wb, { bookType: "xlsx", type: "binary" });
+
+    // Create blob and download
+    const blob = new Blob([s2ab(wbout)], {
+      type: "application/octet-stream",
+    });
+
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${selectedMonth}_Full_Report.csv`;
+    link.download = `${selectedMonth}_Performance_Report_${selectedYear}.xlsx`;
     link.click();
-    window.URL.revokeObjectURL(url);
+
+    URL.revokeObjectURL(url);
   };
 
   const getStats = () => {
@@ -166,7 +350,7 @@ const Reports = () => {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
     } else {
       setSortField(field);
-      setSortDirection("desc"); // Default to high-to-low for numbers
+      setSortDirection("desc");
     }
   };
 
@@ -204,7 +388,6 @@ const Reports = () => {
 
   const filteredData = getFilteredAndSortedData();
 
-  // Helper Component for Table Headers
   const SortableHeader = ({ label, field, align = "left", onClick }) => (
     <th
       className={`px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors border-b border-gray-200`}
@@ -326,17 +509,17 @@ const Reports = () => {
                             }
                           }}
                           className={`w-full text-left px-4 py-2.5 text-sm flex items-center justify-between
-                                                ${
-                                                  selectedMonth === month
-                                                    ? "bg-indigo-50 text-indigo-700 font-medium"
-                                                    : "text-gray-700"
-                                                }
-                                                ${
-                                                  hasData
-                                                    ? "hover:bg-gray-50 cursor-pointer"
-                                                    : "opacity-50 cursor-not-allowed"
-                                                }
-                                            `}
+                            ${
+                              selectedMonth === month
+                                ? "bg-indigo-50 text-indigo-700 font-medium"
+                                : "text-gray-700"
+                            }
+                            ${
+                              hasData
+                                ? "hover:bg-gray-50 cursor-pointer"
+                                : "opacity-50 cursor-not-allowed"
+                            }
+                          `}
                         >
                           {month}
                           {!hasData && (
@@ -449,15 +632,12 @@ const Reports = () => {
                       onClick={handleSort}
                     />
 
-                    {/* --- NEW HEADERS START --- */}
-
                     <SortableHeader
                       label="Target"
                       field="target"
                       align="center"
                       onClick={handleSort}
                     />
-                    {/* --- NEW HEADERS END --- */}
 
                     {/* Metrics - All Center Aligned for perfect stacking */}
                     <SortableHeader
@@ -533,12 +713,6 @@ const Reports = () => {
                       align="center"
                       onClick={handleSort}
                     />
-                    <SortableHeader
-                      label="Attendees"
-                      field="attendees"
-                      align="center"
-                      onClick={handleSort}
-                    />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -570,10 +744,6 @@ const Reports = () => {
                         </div>
                       </td>
 
-                      {/* --- NEW CELLS START --- */}
-
-                      {/* Association Leads */}
-
                       {/* Target with Progress Calculation */}
                       <td className="px-4 py-3 text-center align-middle">
                         <div className="flex flex-col items-center">
@@ -589,7 +759,6 @@ const Reports = () => {
                           </span>
                         </div>
                       </td>
-                      {/* --- NEW CELLS END --- */}
 
                       {/* Metrics - Center Aligned */}
                       <td className="px-4 py-3 text-center align-middle">
@@ -617,7 +786,8 @@ const Reports = () => {
                         {row.industryLeads ?? 0}
                       </td>
                       <td className="px-4 py-3 text-center align-middle font-semibold text-indigo-600">
-                        {row.attendeeLeads ?? 0}
+                        {/* Checked for both spellings: attendee vs attendees */}
+                        {row.attendeesLeads || row.attendeeLeads || 0}
                       </td>
                       <td className="px-4 py-3 text-center align-middle">
                         <span
@@ -670,11 +840,6 @@ const Reports = () => {
                             {row.invoiceCanceled}
                           </span>
                         ) : (
-                          <span className="text-gray-200">0</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-center align-middle text-sm text-gray-600">
-                        {row.attendees || (
                           <span className="text-gray-200">0</span>
                         )}
                       </td>

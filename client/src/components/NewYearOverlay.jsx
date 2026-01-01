@@ -1,11 +1,17 @@
 import { useEffect, useState, useMemo } from "react";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 export default function NewYearOverlay() {
   const [visible, setVisible] = useState(true);
   const [isFadingOut, setIsFadingOut] = useState(false);
   const [particles, setParticles] = useState([]);
   const [fireworks, setFireworks] = useState([]);
   const [stars, setStars] = useState([]);
+
+  // Quote states
+  const [quote, setQuote] = useState("");
+  const [author, setAuthor] = useState("");
 
   const DISPLAY_DURATION = 6000;
   const FADE_OUT_DURATION = 1000;
@@ -60,6 +66,30 @@ export default function NewYearOverlay() {
     return () => intervals.forEach(clearTimeout);
   }, []);
 
+  // Quote polling (3s)
+  useEffect(() => {
+    let lastQuote = "";
+
+    const fetchQuote = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/quotes`);
+        const data = await res.json();
+
+        if (data?.quote?.text && data.quote.text !== lastQuote) {
+          setQuote(data.quote.text);
+          setAuthor(data.quote.author || "");
+          lastQuote = data.quote.text;
+        }
+      } catch (err) {
+        console.error("Failed to fetch quote", err);
+      }
+    };
+
+    fetchQuote();
+    const interval = setInterval(fetchQuote, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     const fadeTimer = setTimeout(() => {
       setIsFadingOut(true);
@@ -77,20 +107,6 @@ export default function NewYearOverlay() {
       document.body.style.overflow = "unset";
     };
   }, []);
-
-  const quotes = [
-    "The magic in new beginnings is truly the most powerful of them all.",
-    "Your present circumstances don't determine where you can go. They determine where you start.",
-    "A new year. A fresh, clean slate. Write a great story.",
-    "Focus on the step in front of you, not the whole staircase.",
-    "Level up. The new year is ready for the new you.",
-    "Cheers to a new year and another chance for us to get it right.",
-  ];
-
-  const quote = useMemo(
-    () => quotes[Math.floor(Math.random() * quotes.length)],
-    []
-  );
 
   if (!visible) return null;
 
@@ -228,12 +244,12 @@ export default function NewYearOverlay() {
 
         .ny-year-label {
           font-family: 'Montserrat', sans-serif;
-          font-weight: 300;
+          font-weight: 700;
           letter-spacing: 8px;
           text-transform: uppercase;
           color: #FFD700;
           margin-bottom: 1rem;
-          font-size: 0.9rem;
+          font-size: 1.5rem;
           text-shadow: 0 2px 20px rgba(255, 215, 0, 0.5);
           opacity: 0;
           animation: fadeInDown 1s ease-out 0.3s forwards;
@@ -250,61 +266,6 @@ export default function NewYearOverlay() {
           }
         }
 
-        .ny-main-title {
-          font-family: 'Great Vibes', cursive;
-          font-size: clamp(3.5rem, 10vw, 5rem);
-          font-weight: 400;
-          line-height: 1.2;
-          margin: 0 0 1rem 0;
-          color: #FFD700;
-          text-shadow: 0 0 30px rgba(255, 215, 0, 0.8);
-          opacity: 0;
-          animation: slideUp 1s ease-out 0.5s forwards;
-        }
-
-        @keyframes slideUp {
-          from {
-            opacity: 0;
-            transform: translateY(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        .ny-year-number {
-          display: block;
-          font-family: 'Cinzel', serif;
-          font-size: clamp(6rem, 15vw, 10rem);
-          line-height: 0.9;
-          font-weight: 900;
-          background: linear-gradient(180deg, #fff 0%, #00F5FF 40%, #BC13FE 100%);
-          background-clip: text;
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          filter: drop-shadow(0 0 30px rgba(0, 245, 255, 0.6));
-          margin: 1rem 0 2rem 0;
-          position: relative;
-          opacity: 0;
-          transform: scale(0.5);
-          animation: textPop 1s cubic-bezier(0.175, 0.885, 0.32, 1.275) 0.8s forwards;
-        }
-
-        @keyframes textPop {
-          0% {
-            opacity: 0;
-            transform: scale(0.5) rotate(-5deg);
-          }
-          50% {
-            transform: scale(1.1) rotate(2deg);
-          }
-          100% {
-            opacity: 1;
-            transform: scale(1) rotate(0deg);
-          }
-        }
-
         .ny-quote-box {
           display: inline-block;
           background: rgba(255, 255, 255, 0.05);
@@ -317,7 +278,7 @@ export default function NewYearOverlay() {
           position: relative;
           overflow: hidden;
           opacity: 0;
-          animation: fadeIn 1.5s ease-out 1.5s forwards;
+          animation: fadeIn 1.5s ease-out 0.5s forwards;
         }
 
         @keyframes fadeIn {
@@ -425,10 +386,15 @@ export default function NewYearOverlay() {
         {/* Content */}
         <div className="ny-content-wrapper">
           <div className="ny-year-label">ABACCO TECHNOLOGY</div>
-          <h1 className="ny-main-title">Happy New Year</h1>
-          <div className="ny-year-number">2026</div>
           <div className="ny-quote-box">
-            <p className="ny-quote-text">"{quote}"</p>
+            <p className="ny-quote-text">
+              "{quote}"
+              {author && (
+                <span className="block mt-4 text-sm opacity-70">
+                  — {author}
+                </span>
+              )}
+            </p>
           </div>
         </div>
       </div>

@@ -58,6 +58,19 @@ model Employee {
   @@index([employeeId])
 }
 
+model Quote {
+  id       Int     @id @default(autoincrement())
+  text     String  @db.Text
+  author   String?
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([createdAt])
+}
+
 model SharedLink {
   id Int @id @default(autoincrement())
 
