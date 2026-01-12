@@ -27,7 +27,7 @@ import IncentiveManagement from "./pages/IncentiveManagement";
 import NewYearOverlay from "./components/NewYearOverlay";
 import Maintenance from "./pages/Maintenance";
 
-const MAINTENANCE_MODE = false;
+const MAINTENANCE_MODE = true;
 
 function App() {
   if (MAINTENANCE_MODE) {
