@@ -25,8 +25,14 @@ import Reports from "./pages/Reports";
 import ShareLinkAccessWrapper from "./components/ShareLinkAccessWrapper";
 import IncentiveManagement from "./pages/IncentiveManagement";
 import NewYearOverlay from "./components/NewYearOverlay";
+import Maintenance from "./pages/Maintenance";
+
+const MAINTENANCE_MODE = false;
 
 function App() {
+  if (MAINTENANCE_MODE) {
+    return <Maintenance />;
+  }
   return (
     <>
       <NewYearOverlay />
