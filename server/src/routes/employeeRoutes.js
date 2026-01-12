@@ -55,7 +55,7 @@ router.get("/", async (req, res) => {
     const employees = await prisma.employee.findMany({
       where: {
         role: "EMPLOYEE",
-        isActive: true
+        isActive: true,
       },
       select: {
         employeeId: true,
@@ -65,7 +65,6 @@ router.get("/", async (req, res) => {
         isActive: true,
       },
     });
-
 
     const { start: startOfMonth, end: endOfMonth } = getUSAMonthRange();
     const { start: startOfToday, end: endOfToday } = getUSATodayRange();
@@ -130,9 +129,10 @@ router.get("/", async (req, res) => {
           pendingLeads,
           target: emp.target || 0,
           // <-- NEW: double target achieved (monthly)
-          doubleTargetAchieved: (emp.target && emp.target > 0)
-            ? (qualifiedLeads >= (emp.target * 2))
-            : false,
+          doubleTargetAchieved:
+            emp.target && emp.target > 0
+              ? qualifiedLeads >= emp.target * 2
+              : false,
         };
       })
     );
@@ -284,13 +284,10 @@ router.post("/leads/:id/forward", async (req, res) => {
       link: existingLead.link,
     };
 
-
     console.log("📤 Sending payload to Sales CRM:", payload);
 
     // Send to Sales CRM
     const crmResponse = await fetch(
-
-      
       "https://abacco-sales-crm1.onrender.com/api/sales/leads",
       // "http://localhost:4002/api/sales/leads",
       {
@@ -345,9 +342,6 @@ router.post("/leads/:id/forward", async (req, res) => {
     });
   }
 });
-
-
-
 
 /* ===========================================================
    ✅ POST /api/employees/leads/:id/forward
@@ -915,12 +909,6 @@ router.get("/leads/:employeeId", async (req, res) => {
       },
     });
 
-    if (!leads.length) {
-      return res
-        .status(404)
-        .json({ message: "No leads found for this employee" });
-    }
-
     res.json(leads);
   } catch (error) {
     console.error("Error fetching employee leads:", error);
@@ -995,10 +983,5 @@ router.put("/leads/:id", async (req, res) => {
     res.status(500).json({ error: "Failed to update lead" });
   }
 });
-
-
-
-
-
 
 export default router;
