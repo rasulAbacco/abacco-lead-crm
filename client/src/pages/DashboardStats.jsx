@@ -18,7 +18,11 @@ const DashboardStats = ({ leads }) => {
 
   // ✅ Get today's date in Central USA
   const nowUSA = toZonedTime(new Date(), USA_TZ);
-  const today = new Date(nowUSA.getFullYear(), nowUSA.getMonth(), nowUSA.getDate());
+  const today = new Date(
+    nowUSA.getFullYear(),
+    nowUSA.getMonth(),
+    nowUSA.getDate()
+  );
 
   // ✅ Year and month in Central Time
   const currentYear = nowUSA.getFullYear();
@@ -52,10 +56,8 @@ const DashboardStats = ({ leads }) => {
     return local >= startOfWeekUSA && local < endOfWeekUSA;
   });
 
-
   const weekTotal = weekLeads.length;
   const avgDaily = weekTotal / 6;
-
 
   // ✅ Calculate month stats based on Central Time
   const monthlyLeads = leads.filter((l) => {
@@ -65,7 +67,6 @@ const DashboardStats = ({ leads }) => {
 
   // ✅ Stats calculations
   const achievementRate = Math.round((monthlyLeads / monthlyTarget) * 100);
-
 
   // ✅ Fetch employee monthly target
   useEffect(() => {
@@ -93,15 +94,48 @@ const DashboardStats = ({ leads }) => {
   }, []);
 
   // ✅ Fetch “Today’s Leads” directly from backend (accurate Central Time)
+  // useEffect(() => {
+  //   async function fetchTodayLeads() {
+  //     try {
+  //       const res = await axios.get(`${API_BASE_URL}/api/leads/today`);
+  //       if (res.data?.success) {
+  //         setTodayCount(res.data.leads.length);
+  //       }
+  //     } catch (err) {
+  //       console.error("Error fetching today's leads:", err);
+  //     }
+  //   }
+
+  //   fetchTodayLeads();
+  // }, []);
+  // ✅ Fetch “Today’s Leads” directly from backend (accurate Central Time)
   useEffect(() => {
     async function fetchTodayLeads() {
       try {
-        const res = await axios.get(`${API_BASE_URL}/api/leads/today`);
-        if (res.data?.success) {
+        const token = localStorage.getItem("token");
+
+        // Defensive: if user not logged in yet
+        if (!token) {
+          setTodayCount(0);
+          return;
+        }
+
+        const res = await axios.get(`${API_BASE_URL}/api/leads/today`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        // Defensive: empty DB or no leads today
+        if (res.data?.leads && Array.isArray(res.data.leads)) {
           setTodayCount(res.data.leads.length);
+        } else {
+          setTodayCount(0);
         }
       } catch (err) {
-        console.error("Error fetching today's leads:", err);
+        // Empty DB or auth issue should NOT break dashboard
+        console.warn("Today's leads unavailable, using fallback");
+        setTodayCount(0);
       }
     }
 

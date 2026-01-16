@@ -9,6 +9,133 @@ import {
 
 const router = express.Router();
 const prisma = new PrismaClient();
+// ==========================================================
+// ✅ Get Today's Leads (Central USA Time)
+// ==========================================================
+router.get("/today", async (req, res) => {
+  try {
+    const { start, end } = getUSATodayRange();
+
+    const leads = await prisma.lead.findMany({
+      where: {
+        createdAt: {
+          gte: start,
+          lte: end,
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const formatted = leads.map((lead) => ({
+      ...lead,
+      createdAt: toUSAZone(lead.createdAt),
+      phones: lead.phone ? lead.phone.split(',') : [], // Use existing field name
+      ccEmails: lead.ccEmail ? lead.ccEmail.split(',') : [], // Use existing field name
+      attendeesCount: lead.attendeesCount,
+    }));
+
+    res.json({ success: true, leads: formatted });
+  } catch (err) {
+    console.error("Error fetching today's leads:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// ==========================================================
+// ✅ Fetch all leads with employee info
+// ==========================================================
+router.get("/all", async (req, res) => {
+  try {
+    const leads = await prisma.lead.findMany({
+      include: {
+        employee: {
+          select: {
+            employeeId: true,
+            fullName: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: { id: "asc" },
+    });
+
+    const formattedLeads = leads.map((lead) => ({
+      id: lead.id,
+      employeeId: lead.employeeId,
+      agentName: lead.agentName,
+      clientEmail: lead.clientEmail,
+      leadEmail: lead.leadEmail,
+      subjectLine: lead.subjectLine,
+      leadType: lead.leadType,
+      date: toUSAZone(lead.date),
+      link: lead.link,
+      phones: lead.phone ? lead.phone.split(',') : [], // Use existing field name
+      ccEmails: lead.ccEmail ? lead.ccEmail.split(',') : [], // Use existing field name
+      attendeesCount: lead.attendeesCount,
+      employee: lead.employee,
+    }));
+
+    res.json(formattedLeads);
+  } catch (error) {
+    console.error("Error fetching leads:", error);
+    res.status(500).json({ error: "Failed to fetch leads" });
+  }
+});
+// ==========================================================
+// ✅ Get all leads by employee ID
+// ==========================================================
+router.get("/", async (req, res) => {
+  try {
+    const { employeeId } = req.query;
+
+    if (!employeeId) {
+      return res.status(400).json({ success: false, message: "Employee ID is required" });
+    }
+
+    const leads = await prisma.lead.findMany({
+      where: { employeeId: employeeId.toString() },
+      orderBy: { id: "desc" },
+    });
+
+    // Process phone numbers and CC emails for frontend
+    const processedLeads = leads.map(lead => ({
+      ...lead,
+      phones: lead.phone ? lead.phone.split(',') : [], // Use existing field name
+      ccEmails: lead.ccEmail ? lead.ccEmail.split(',') : [] // Use existing field name
+    }));
+
+    res.json({ success: true, leads: processedLeads });
+  } catch (err) {
+    console.error("Error fetching leads:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ==========================================================
+// ✅ Get single lead by ID
+// ==========================================================
+router.get("/:id", async (req, res) => {
+  try {
+    const lead = await prisma.lead.findUnique({
+      where: { id: Number(req.params.id) },
+    });
+
+    if (!lead) {
+      return res.status(404).json({ success: false, message: "Lead not found" });
+    }
+
+    // Process phone numbers and CC emails for frontend
+    const processedLead = {
+      ...lead,
+      phones: lead.phone ? lead.phone.split(',') : [], // Use existing field name
+      ccEmails: lead.ccEmail ? lead.ccEmail.split(',') : [] // Use existing field name
+    };
+
+    res.json({ success: true, lead: processedLead });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 
 // ==========================================================
 // ✅ Create Lead (Central USA Time)
@@ -133,61 +260,7 @@ router.post("/", async (req, res) => {
     return res.status(500).json({ success: false, message: "Server error" });
   }
 });
-// ==========================================================
-// ✅ Get all leads by employee ID
-// ==========================================================
-router.get("/", async (req, res) => {
-  try {
-    const { employeeId } = req.query;
 
-    if (!employeeId) {
-      return res.status(400).json({ success: false, message: "Employee ID is required" });
-    }
-
-    const leads = await prisma.lead.findMany({
-      where: { employeeId: employeeId.toString() },
-      orderBy: { id: "desc" },
-    });
-
-    // Process phone numbers and CC emails for frontend
-    const processedLeads = leads.map(lead => ({
-      ...lead,
-      phones: lead.phone ? lead.phone.split(',') : [], // Use existing field name
-      ccEmails: lead.ccEmail ? lead.ccEmail.split(',') : [] // Use existing field name
-    }));
-
-    res.json({ success: true, leads: processedLeads });
-  } catch (err) {
-    console.error("Error fetching leads:", err);
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-// ==========================================================
-// ✅ Get single lead by ID
-// ==========================================================
-router.get("/:id", async (req, res) => {
-  try {
-    const lead = await prisma.lead.findUnique({
-      where: { id: Number(req.params.id) },
-    });
-
-    if (!lead) {
-      return res.status(404).json({ success: false, message: "Lead not found" });
-    }
-
-    // Process phone numbers and CC emails for frontend
-    const processedLead = {
-      ...lead,
-      phones: lead.phone ? lead.phone.split(',') : [], // Use existing field name
-      ccEmails: lead.ccEmail ? lead.ccEmail.split(',') : [] // Use existing field name
-    };
-
-    res.json({ success: true, lead: processedLead });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
 
 // ==========================================================
 // ✅ Update lead (maintaining Central USA Time)
@@ -242,76 +315,6 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-// ==========================================================
-// ✅ Fetch all leads with employee info
-// ==========================================================
-router.get("/all", async (req, res) => {
-  try {
-    const leads = await prisma.lead.findMany({
-      include: {
-        employee: {
-          select: {
-            employeeId: true,
-            fullName: true,
-            email: true,
-          },
-        },
-      },
-      orderBy: { id: "asc" },
-    });
 
-    const formattedLeads = leads.map((lead) => ({
-      id: lead.id,
-      employeeId: lead.employeeId,
-      agentName: lead.agentName,
-      clientEmail: lead.clientEmail,
-      leadEmail: lead.leadEmail,
-      subjectLine: lead.subjectLine,
-      leadType: lead.leadType,
-      date: toUSAZone(lead.date),
-      link: lead.link,
-      phones: lead.phone ? lead.phone.split(',') : [], // Use existing field name
-      ccEmails: lead.ccEmail ? lead.ccEmail.split(',') : [], // Use existing field name
-      attendeesCount: lead.attendeesCount,
-      employee: lead.employee,
-    }));
 
-    res.json(formattedLeads);
-  } catch (error) {
-    console.error("Error fetching leads:", error);
-    res.status(500).json({ error: "Failed to fetch leads" });
-  }
-});
-
-// ==========================================================
-// ✅ Get Today's Leads (Central USA Time)
-// ==========================================================
-router.get("/today", async (req, res) => {
-  try {
-    const { start, end } = getUSATodayRange();
-
-    const leads = await prisma.lead.findMany({
-      where: {
-        createdAt: {
-          gte: start,
-          lte: end,
-        },
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    const formatted = leads.map((lead) => ({
-      ...lead,
-      createdAt: toUSAZone(lead.createdAt),
-      phones: lead.phone ? lead.phone.split(',') : [], // Use existing field name
-      ccEmails: lead.ccEmail ? lead.ccEmail.split(',') : [], // Use existing field name
-      attendeesCount: lead.attendeesCount,
-    }));
-
-    res.json({ success: true, leads: formatted });
-  } catch (err) {
-    console.error("Error fetching today's leads:", err);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-});
 export default router;
