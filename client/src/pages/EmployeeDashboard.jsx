@@ -352,7 +352,6 @@ const EmployeeDashboard = () => {
     fetchIncentiveProgress();
   }, [leads, API_BASE_URL]);
 
-
   if (loading) return <Loader />;
 
   const loggedInId = localStorage.getItem("employeeId");
