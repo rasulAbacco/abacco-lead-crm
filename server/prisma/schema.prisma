@@ -37,21 +37,22 @@ model Lead {
 }
 
 model Employee {
-  id            Int            @id @default(autoincrement())
-  employeeId    String         @unique
-  fullName      String
-  email         String         @unique
-  password      String
-  role          String         @default("EMPLOYEE")
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime?      @updatedAt
-  target        Int            @default(0)
-  joiningDate   DateTime
-  isActive      Boolean        @default(true)
-  leads         Lead[]
-  sharedLinks   SharedLink[]   @relation("CreatedLinks") // Links created by admin
-  receivedLinks ReceivedLink[] @relation("ReceivedByEmployee") // Links received by employee
-  Notification  Notification[]
+  id                Int                @id @default(autoincrement())
+  employeeId        String             @unique
+  fullName          String
+  email             String             @unique
+  password          String
+  role              String             @default("EMPLOYEE")
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime?          @updatedAt
+  target            Int                @default(0)
+  joiningDate       DateTime
+  isActive          Boolean            @default(true)
+  leads             Lead[]
+  sharedLinks       SharedLink[]       @relation("CreatedLinks") // Links created by admin
+  receivedLinks     ReceivedLink[]     @relation("ReceivedByEmployee") // Links received by employee
+  Notification      Notification[]
+  pushSubscriptions PushSubscription[]
 
   @@index([role])
   @@index([isActive])
@@ -144,16 +145,26 @@ model Industry {
 }
 
 model Notification {
-  id        Int       @id @default(autoincrement())
-  userId    Int
-  title     String
-  message   String?
-  link      String?
-  type      String    @default("info") // success | warning | link
-  isRead    Boolean   @default(false)
+  id      Int     @id @default(autoincrement())
+  userId  Int
+  title   String
+  message String?
+  link    String?
+  type    String  @default("info")
+
+  isRead Boolean @default(false)
+
+  // 🔒 NEW FIELDS (SAFE)
+  isDismissed Boolean   @default(false) // ⭐ important
+  dismissedAt DateTime?
+
   createdAt DateTime  @default(now())
   readAt    DateTime?
-  user      Employee  @relation(fields: [userId], references: [id])
+
+  user Employee @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([isDismissed])
 }
 
 model IncentivePlan {
@@ -191,4 +202,17 @@ model IncentiveRule {
   incentivePlan   IncentivePlan @relation(fields: [incentivePlanId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
+}
+
+model PushSubscription {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  endpoint  String   @db.Text
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  user Employee @relation(fields: [userId], references: [id])
+
+  @@index([userId])
 }

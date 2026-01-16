@@ -18,6 +18,74 @@ import MonthlyDoubleTarget from "../components/MonthlyDoubleTarget";
 import Leaderboard from "../components/Leaderboard";
 
 const EmployeeDashboard = () => {
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+  const USA_TZ = "America/Chicago";
+
+  const urlBase64ToUint8Array = (base64String) => {
+    const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding)
+      .replace(/-/g, "+")
+      .replace(/_/g, "/");
+
+    const rawData = window.atob(base64);
+    return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
+  };
+
+  /* ---------------------------------------
+   🔔 PUSH NOTIFICATION REGISTRATION
+   (Runs once after employee login)
+---------------------------------------- */
+  useEffect(() => {
+    const registerForPush = async () => {
+      try {
+        // Browser support check
+        if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+          console.warn("Push notifications not supported");
+          return;
+        }
+
+        // Ask permission (only once)
+        if (Notification.permission === "default") {
+          const permission = await Notification.requestPermission();
+          if (permission !== "granted") return;
+        }
+
+        if (Notification.permission !== "granted") return;
+
+        // Get service worker
+        const registration = await navigator.serviceWorker.ready;
+
+        // Avoid duplicate subscriptions
+        const existingSub = await registration.pushManager.getSubscription();
+        if (existingSub) return;
+
+        // Subscribe
+        const subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(
+            import.meta.env.VITE_VAPID_PUBLIC_KEY
+          ),
+        });
+
+        // Save subscription to backend
+        const token = localStorage.getItem("token");
+        await axios.post(
+          `${API_BASE_URL}/api/notifications/subscribe`,
+          subscription,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+
+        console.log("✅ Push notification subscribed");
+      } catch (err) {
+        console.error("Push registration failed:", err);
+      }
+    };
+
+    registerForPush();
+  }, []);
+
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -29,9 +97,6 @@ const EmployeeDashboard = () => {
   const [incentive, setIncentive] = useState(0);
   const [achievedIncentive, setAchievedIncentive] = useState(null);
   const [plans, setPlans] = useState([]);
-
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-  const USA_TZ = "America/Chicago";
 
   /* ---------------------------
      Clock — Always in USA time
@@ -235,21 +300,58 @@ const EmployeeDashboard = () => {
   /* ---------------------------
      Fetch Today's Achieved Incentive
   ----------------------------- */
+  // useEffect(() => {
+  //   const fetchIncentiveProgress = async () => {
+  //     try {
+  //       const employeeId = localStorage.getItem("employeeId");
+  //       const res = await axios.get(
+  //         `${API_BASE_URL}/api/incentives/progress/${employeeId}`
+  //       );
+  //       setAchievedIncentive(res.data.achieved || null);
+  //     } catch (err) {
+  //       console.error("Incentive progress error:", err);
+  //     }
+  //   };
+
+  //   fetchIncentiveProgress();
+  // }, [leads]);
   useEffect(() => {
     const fetchIncentiveProgress = async () => {
       try {
         const employeeId = localStorage.getItem("employeeId");
+        const token = localStorage.getItem("token");
+
+        // Defensive guards (important for empty / fresh DB)
+        if (!employeeId || !token) {
+          setAchievedIncentive(null);
+          return;
+        }
+
         const res = await axios.get(
-          `${API_BASE_URL}/api/incentives/progress/${employeeId}`
+          `${API_BASE_URL}/api/incentives/progress/${employeeId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
         );
-        setAchievedIncentive(res.data.achieved || null);
+
+        setAchievedIncentive(res.data?.achieved ?? null);
       } catch (err) {
-        console.error("Incentive progress error:", err);
+        // 401 / empty DB / no plans → NOT an app error
+        if (err.response?.status === 401) {
+          console.warn("Incentive progress: unauthorized");
+        } else {
+          console.error("Incentive progress error:", err);
+        }
+
+        setAchievedIncentive(null);
       }
     };
 
     fetchIncentiveProgress();
-  }, [leads]);
+  }, [leads, API_BASE_URL]);
+
 
   if (loading) return <Loader />;
 
