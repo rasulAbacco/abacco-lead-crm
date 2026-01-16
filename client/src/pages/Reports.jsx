@@ -1,538 +1,884 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
-    Download,
-    RefreshCw,
-    Calendar,
-    ChevronDown,
-    Users,
-    TrendingUp,
-    FileText,
-    AlertCircle,
-    CheckCircle,
-    XCircle,
-    Clock,
-    DollarSign,
-    Briefcase,
-    Building,
-    UserCheck,
-    Activity,
-    Filter,
-    BarChart3,
+  Download,
+  RefreshCw,
+  ChevronDown,
+  ChevronUp,
+  Users,
+  TrendingUp,
+  FileText,
+  AlertCircle,
+  CheckCircle,
+  XCircle,
+  DollarSign,
+  Activity,
+  Search,
 } from "lucide-react";
 import Loader from "../components/Loader";
+import * as XLSX from "xlsx";
+
+// Helper function to convert string to ArrayBuffer
+const s2ab = (s) => {
+  const buf = new ArrayBuffer(s.length);
+  const view = new Uint8Array(buf);
+  for (let i = 0; i < s.length; i++) view[i] = s.charCodeAt(i) & 0xff;
+  return buf;
+};
 
 const Reports = () => {
-    const [reportData, setReportData] = useState({});
-    const [selectedMonth, setSelectedMonth] = useState("");
-    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [searchTerm, setSearchTerm] = useState("");
-    const [sortField, setSortField] = useState("name");
-    const [sortDirection, setSortDirection] = useState("asc");
-    const [animatedCards, setAnimatedCards] = useState(new Set());
-    const dropdownRef = useRef(null);
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+  const [reportData, setReportData] = useState({});
+  const [selectedMonth, setSelectedMonth] = useState("");
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortField, setSortField] = useState("totalLeads");
+  const [sortDirection, setSortDirection] = useState("desc");
+  const dropdownRef = useRef(null);
+  const currentYear = new Date().getFullYear();
+  const [selectedYear, setSelectedYear] = useState(currentYear);
+  const years = Array.from({ length: 6 }, (_, i) => currentYear - i);
 
-    // Fetch data
-    useEffect(() => {
-        fetchReportData();
-    }, []);
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-    const fetchReportData = async () => {
-        try {
-            setLoading(true);
-            const res = await fetch(`${API_BASE_URL}/api/reports/admin/monthly`, {
-                headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-            });
-            if (!res.ok) throw new Error("Failed to fetch report data");
+  // Fetch data
+  useEffect(() => {
+    fetchReportData();
+  }, [selectedYear]);
 
-            const data = await res.json();
-            setReportData(data);
+  useEffect(() => {
+    setSelectedMonth("");
+  }, [selectedYear]);
 
-            const currentMonth = new Date().toLocaleString("default", {
-                month: "long",
-            });
-            setSelectedMonth(
-                data[currentMonth] && data[currentMonth].length > 0
-                    ? currentMonth
-                    : Object.keys(data).find((m) => data[m].length > 0) || ""
-            );
-        } catch (err) {
-            setError("Unable to load report data. Please try again.");
-            console.error(err);
-        } finally {
-            setLoading(false);
+  const fetchReportData = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch(
+        `${API_BASE_URL}/api/reports/admin/monthly?year=${selectedYear}`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
         }
-    };
+      );
+      if (!res.ok) throw new Error("Failed to fetch report data");
 
-    // Dropdown close on outside click
-    useEffect(() => {
-        const handleClickOutside = (e) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-                setIsDropdownOpen(false);
+      const data = await res.json();
+      setReportData(data);
+
+      const currentMonth = new Date().toLocaleString("default", {
+        month: "long",
+      });
+      setSelectedMonth(
+        data[currentMonth] && data[currentMonth].length > 0
+          ? currentMonth
+          : Object.keys(data).find((m) => data[m].length > 0) || ""
+      );
+    } catch (err) {
+      setError("Unable to load report data. Please try again.");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Dropdown close on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Enhanced Excel Export with Formatting and Colors
+  const handleExport = () => {
+    if (!selectedMonth || !reportData[selectedMonth]?.length) {
+      alert("No data available to export for the selected month");
+      return;
+    }
+
+    const data = reportData[selectedMonth];
+
+    // Create workbook and worksheet
+    const wb = XLSX.utils.book_new();
+
+    // Headers
+    const headers = [
+      "Employee Name",
+      "Email",
+      "Target",
+      "Total Leads",
+      "Qualified",
+      "Association Leads",
+      "Industry Leads",
+      "Attendee Leads",
+      "Active",
+      "Deals",
+      "Disqualified",
+      "No Response",
+      "Leave Out",
+      "Invoice Pending",
+      "Invoice Canceled",
+    ];
+
+    // Prepare data rows
+    const rows = data.map((r) => [
+      r.name,
+      r.email,
+      r.target ?? 0,
+      r.totalLeads ?? 0,
+      r.qualified ?? 0,
+      r.associationLeads ?? 0,
+      r.industryLeads ?? 0,
+      r.attendeeLeads ?? 0,
+      r.active ?? 0,
+      r.deal ?? 0,
+      r.disqualified ?? 0,
+      r.noResponse ?? 0,
+      r.leaveOut ?? 0,
+      r.invoicePending ?? 0,
+      r.invoiceCanceled ?? 0,
+    ]);
+
+    // Combine headers and data
+    const wsData = [headers, ...rows];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+    // Set column widths
+    const colWidths = [
+      { wch: 22 }, // Employee Name
+      { wch: 28 }, // Email
+      { wch: 10 }, // Target
+      { wch: 12 }, // Total Leads
+      { wch: 12 }, // Qualified
+      { wch: 16 }, // Association Leads
+      { wch: 14 }, // Industry Leads
+      { wch: 14 }, // Attendee Leads
+      { wch: 10 }, // Active
+      { wch: 10 }, // Deals
+      { wch: 12 }, // Disqualified
+      { wch: 12 }, // No Response
+      { wch: 12 }, // Leave Out
+      { wch: 14 }, // Invoice Pending
+      { wch: 14 }, // Invoice Canceled
+    ];
+    ws["!cols"] = colWidths;
+
+    // Apply styles
+    const range = XLSX.utils.decode_range(ws["!ref"]);
+
+    // Header style (Row 1)
+    for (let C = range.s.c; C <= range.e.c; ++C) {
+      const address = XLSX.utils.encode_col(C) + "1";
+      if (!ws[address]) continue;
+
+      ws[address].s = {
+        fill: { fgColor: { rgb: "4F46E5" } }, // Indigo background
+        font: { bold: true, color: { rgb: "FFFFFF" }, sz: 11 },
+        alignment: { horizontal: "center", vertical: "center" },
+        border: {
+          top: { style: "thin", color: { rgb: "000000" } },
+          bottom: { style: "thin", color: { rgb: "000000" } },
+          left: { style: "thin", color: { rgb: "000000" } },
+          right: { style: "thin", color: { rgb: "000000" } },
+        },
+      };
+    }
+
+    // Data rows styling
+    for (let R = range.s.r + 1; R <= range.e.r; ++R) {
+      const rowIndex = R - 1; // Adjust for header
+      const rowData = data[rowIndex - 1];
+
+      if (!rowData) continue;
+
+      // Calculate achievement percentage
+      const achievement =
+        rowData.target > 0 ? (rowData.totalLeads / rowData.target) * 100 : 100;
+
+      // Determine row background color based on achievement
+      const isLowPerformance = achievement < 50;
+
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        const address = XLSX.utils.encode_col(C) + (R + 1);
+        if (!ws[address]) continue;
+
+        let cellBgColor = "FFFFFF"; // Default white
+        let fontColor = "000000"; // Default black
+        let isBold = false;
+
+        // Apply yellow background to entire row if achievement < 50%
+        if (isLowPerformance) {
+          cellBgColor = "FEF3C7"; // Yellow background for low performance
+        }
+
+        // Column-specific colors
+        switch (C) {
+          case 2: // Target column (C in Excel)
+            if (!isLowPerformance) {
+              cellBgColor = "DCFCE7"; // Light green
             }
+            isBold = true;
+            fontColor = "059669"; // Emerald
+            break;
+
+          case 3: // Total Leads column (D in Excel)
+            if (!isLowPerformance) {
+              cellBgColor = "EEF2FF"; // Light indigo
+            }
+            isBold = true;
+            fontColor = "4338CA"; // Indigo
+            break;
+
+          case 4: // Qualified column (E in Excel)
+            if (!isLowPerformance) {
+              cellBgColor = "D1FAE5"; // Light emerald
+            }
+            isBold = true;
+            fontColor = "047857"; // Emerald dark
+            break;
+
+          case 5: // Association Leads
+            fontColor = "2563EB"; // Blue
+            isBold = true;
+            break;
+
+          case 6: // Industry Leads
+            fontColor = "4F46E5"; // Indigo
+            isBold = true;
+            break;
+
+          case 7: // Attendee Leads
+            fontColor = "6366F1"; // Indigo lighter
+            isBold = true;
+            break;
+
+          case 8: // Active
+            if (rowData.active > 0) {
+              fontColor = "D97706"; // Amber
+              isBold = true;
+            }
+            break;
+
+          case 9: // Deals
+            fontColor = "7C3AED"; // Purple
+            isBold = true;
+            break;
+
+          case 10: // Disqualified
+            if (rowData.disqualified > 0) {
+              fontColor = "DC2626"; // Red
+            }
+            break;
+
+          case 13: // Invoice Pending
+            if (rowData.invoicePending > 0) {
+              fontColor = "EA580C"; // Orange
+              isBold = true;
+            }
+            break;
+
+          case 14: // Invoice Canceled
+            if (rowData.invoiceCanceled > 0) {
+              fontColor = "DC2626"; // Red
+              isBold = true;
+            }
+            break;
+        }
+
+        ws[address].s = {
+          fill: { fgColor: { rgb: cellBgColor } },
+          font: {
+            color: { rgb: fontColor },
+            sz: 10,
+            bold: isBold,
+          },
+          alignment: {
+            horizontal: C === 0 || C === 1 ? "left" : "center",
+            vertical: "center",
+          },
+          border: {
+            top: { style: "thin", color: { rgb: "E5E7EB" } },
+            bottom: { style: "thin", color: { rgb: "E5E7EB" } },
+            left: { style: "thin", color: { rgb: "E5E7EB" } },
+            right: { style: "thin", color: { rgb: "E5E7EB" } },
+          },
         };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
+      }
+    }
 
-    // Animate cards when they come into view
-    useEffect(() => {
-        if (!loading && !error && selectedMonth && reportData[selectedMonth]) {
-            const timer = setTimeout(() => {
-                const cards = document.querySelectorAll('.employee-card');
-                cards.forEach((card, index) => {
-                    setTimeout(() => {
-                        setAnimatedCards(prev => new Set(prev).add(card.id));
-                    }, index * 100);
-                });
-            }, 300);
-            return () => clearTimeout(timer);
-        }
-    }, [loading, error, selectedMonth, reportData]);
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(wb, ws, selectedMonth);
 
-    const handleExport = () => {
-        if (!selectedMonth || !reportData[selectedMonth]?.length) {
-            alert("No data available to export for the selected month");
-            return;
-        }
+    // Generate Excel file
+    const wbout = XLSX.write(wb, { bookType: "xlsx", type: "binary" });
 
-        const data = reportData[selectedMonth];
-        const headers = [
-            "Employee Name",
-            "Email",
-            "Total Leads",
-            "Qualified",
-            "Disqualified",
-            "Leave Out",
-            "No Response",
-            "Deal",
-            "Invoice Pending",
-            "Invoice Canceled",
-            "Active",
-            "Association Type",
-            "Attendees Type",
-            "Industry Type",
-        ];
+    // Create blob and download
+    const blob = new Blob([s2ab(wbout)], {
+      type: "application/octet-stream",
+    });
 
-        const csvContent = [
-            headers.join(","),
-            ...data.map((r) =>
-                [
-                    r.name,
-                    r.email,
-                    r.totalLeads,
-                    r.qualified,
-                    r.disqualified,
-                    r.leaveOut,
-                    r.noResponse,
-                    r.deal,
-                    r.invoicePending,
-                    r.invoiceCanceled,
-                    r.active,
-                    r.association,
-                    r.attendees,
-                    r.industry,
-                ].join(",")
-            ),
-        ].join("\n");
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${selectedMonth}_Performance_Report_${selectedYear}.xlsx`;
+    link.click();
 
-        const blob = new Blob([csvContent], { type: "text/csv" });
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `${selectedMonth}_Full_Report.csv`;
-        link.click();
-        window.URL.revokeObjectURL(url);
+    URL.revokeObjectURL(url);
+  };
+
+  const getStats = () => {
+    if (!selectedMonth || !reportData[selectedMonth]) return {};
+    const data = reportData[selectedMonth];
+    return {
+      employees: data.length,
+      totalLeads: data.reduce((s, e) => s + e.totalLeads, 0),
+      qualified: data.reduce((s, e) => s + e.qualified, 0),
+      disqualified: data.reduce((s, e) => s + e.disqualified, 0),
+      deals: data.reduce((s, e) => s + e.deal, 0),
+      active: data.reduce((s, e) => s + e.active, 0),
     };
+  };
 
-    const getStats = () => {
-        if (!selectedMonth || !reportData[selectedMonth]) return {};
-        const data = reportData[selectedMonth];
-        return {
-            employees: data.length,
-            totalLeads: data.reduce((s, e) => s + e.totalLeads, 0),
-            qualified: data.reduce((s, e) => s + e.qualified, 0),
-            disqualified: data.reduce((s, e) => s + e.disqualified, 0),
-            deals: data.reduce((s, e) => s + e.deal, 0),
-            active: data.reduce((s, e) => s + e.active, 0),
-        };
-    };
+  const stats = getStats();
 
-    const stats = getStats();
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("desc");
+    }
+  };
 
-    // Filter and sort employee data
-    const getFilteredAndSortedData = () => {
-        if (!selectedMonth || !reportData[selectedMonth]) return [];
+  const getFilteredAndSortedData = () => {
+    if (!selectedMonth || !reportData[selectedMonth]) return [];
 
-        let data = [...reportData[selectedMonth]];
+    let data = [...reportData[selectedMonth]];
 
-        // Filter by search term
-        if (searchTerm) {
-            data = data.filter(emp =>
-                emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                emp.email.toLowerCase().includes(searchTerm.toLowerCase())
-            );
-        }
+    if (searchTerm) {
+      data = data.filter(
+        (emp) =>
+          emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          emp.email.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
 
-        // Sort data
-        data.sort((a, b) => {
-            let valueA = a[sortField];
-            let valueB = b[sortField];
+    data.sort((a, b) => {
+      let valueA = a[sortField];
+      let valueB = b[sortField];
 
-            if (typeof valueA === 'string') {
-                valueA = valueA.toLowerCase();
-                valueB = valueB.toLowerCase();
-            }
+      if (typeof valueA === "string") {
+        valueA = valueA.toLowerCase();
+        valueB = valueB.toLowerCase();
+      }
 
-            if (sortDirection === 'asc') {
-                return valueA > valueB ? 1 : -1;
-            } else {
-                return valueA < valueB ? 1 : -1;
-            }
-        });
+      if (sortDirection === "asc") {
+        return valueA > valueB ? 1 : -1;
+      } else {
+        return valueA < valueB ? 1 : -1;
+      }
+    });
 
-        return data;
-    };
+    return data;
+  };
 
-    const handleSort = (field) => {
-        if (sortField === field) {
-            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-        } else {
-            setSortField(field);
-            setSortDirection('asc');
-        }
-    };
+  const filteredData = getFilteredAndSortedData();
 
-    const filteredData = getFilteredAndSortedData();
-
-    if (loading)
-        return (
-            <Loader />
-        );
-
-    if (error)
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500">
-                <div className="bg-white p-8 rounded-2xl shadow-2xl max-w-md text-center transform transition-all hover:scale-105">
-                    <div className="relative">
-                        <div className="absolute inset-0 bg-red-100 rounded-full blur-xl opacity-70"></div>
-                        <AlertCircle size={64} className="text-red-500 mx-auto mb-4 relative" />
-                    </div>
-                    <h2 className="font-bold text-2xl text-gray-800 mb-2">Oops! Something went wrong</h2>
-                    <p className="text-gray-600 mb-6">{error}</p>
-                    <button
-                        onClick={fetchReportData}
-                        className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-3 rounded-full hover:from-indigo-600 hover:to-purple-700 mx-auto transition-all transform hover:scale-105 shadow-lg"
-                    >
-                        <RefreshCw size={18} />
-                        Retry
-                    </button>
-                </div>
-            </div>
-        );
-
-    return (
-        <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-xl">
-                <div className="max-w-[1600px] mx-auto px-6 py-8">
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
-                        <div>
-                            <h1 className="text-4xl font-bold mb-2">Employee Performance Reports</h1>
-                            <p className="text-indigo-100">Monthly breakdown of leads and performance metrics</p>
-                        </div>
-                        <div className="mt-4 md:mt-0 flex items-center gap-3">
-                            <div className="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full flex items-center gap-2">
-                                <Calendar size={18} />
-                                <span className="font-medium">{new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div className="max-w-[1600px] mx-auto px-6 py-8">
-                {/* Summary Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
-                    <div className="bg-white rounded-2xl shadow-lg p-6 border border-indigo-100 transform transition-all hover:scale-105 hover:shadow-xl overflow-hidden relative">
-                        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full blur-2xl opacity-20 -mr-12 -mt-12"></div>
-                        <div className="relative z-10">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-3 rounded-xl shadow-md">
-                                    <Users className="text-white" size={24} />
-                                </div>
-                                <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full">Team</span>
-                            </div>
-                            <p className="text-gray-500 text-sm mb-1">Employees</p>
-                            <h2 className="text-3xl font-bold text-gray-800">{stats.employees}</h2>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-2xl shadow-lg p-6 border border-green-100 transform transition-all hover:scale-105 hover:shadow-xl overflow-hidden relative">
-                        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-green-400 to-green-600 rounded-full blur-2xl opacity-20 -mr-12 -mt-12"></div>
-                        <div className="relative z-10">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="bg-gradient-to-r from-green-500 to-green-600 p-3 rounded-xl shadow-md">
-                                    <TrendingUp className="text-white" size={24} />
-                                </div>
-                                <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded-full">Growth</span>
-                            </div>
-                            <p className="text-gray-500 text-sm mb-1">Total Leads</p>
-                            <h2 className="text-3xl font-bold text-gray-800">{stats.totalLeads}</h2>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-2xl shadow-lg p-6 border border-emerald-100 transform transition-all hover:scale-105 hover:shadow-xl overflow-hidden relative">
-                        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-full blur-2xl opacity-20 -mr-12 -mt-12"></div>
-                        <div className="relative z-10">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 p-3 rounded-xl shadow-md">
-                                    <CheckCircle className="text-white" size={24} />
-                                </div>
-                                <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">Success</span>
-                            </div>
-                            <p className="text-gray-500 text-sm mb-1">Qualified</p>
-                            <h2 className="text-3xl font-bold text-gray-800">{stats.qualified}</h2>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-2xl shadow-lg p-6 border border-red-100 transform transition-all hover:scale-105 hover:shadow-xl overflow-hidden relative">
-                        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-red-400 to-red-600 rounded-full blur-2xl opacity-20 -mr-12 -mt-12"></div>
-                        <div className="relative z-10">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="bg-gradient-to-r from-red-500 to-red-600 p-3 rounded-xl shadow-md">
-                                    <XCircle className="text-white" size={24} />
-                                </div>
-                                <span className="text-xs font-medium text-red-600 bg-red-50 px-2 py-1 rounded-full">Lost</span>
-                            </div>
-                            <p className="text-gray-500 text-sm mb-1">Disqualified</p>
-                            <h2 className="text-3xl font-bold text-gray-800">{stats.disqualified}</h2>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-2xl shadow-lg p-6 border border-purple-100 transform transition-all hover:scale-105 hover:shadow-xl overflow-hidden relative">
-                        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full blur-2xl opacity-20 -mr-12 -mt-12"></div>
-                        <div className="relative z-10">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="bg-gradient-to-r from-purple-500 to-purple-600 p-3 rounded-xl shadow-md">
-                                    <DollarSign className="text-white" size={24} />
-                                </div>
-                                <span className="text-xs font-medium text-purple-600 bg-purple-50 px-2 py-1 rounded-full">Revenue</span>
-                            </div>
-                            <p className="text-gray-500 text-sm mb-1">Deals</p>
-                            <h2 className="text-3xl font-bold text-gray-800">{stats.deals}</h2>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-2xl shadow-lg p-6 border border-amber-100 transform transition-all hover:scale-105 hover:shadow-xl overflow-hidden relative">
-                        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-amber-400 to-amber-600 rounded-full blur-2xl opacity-20 -mr-12 -mt-12"></div>
-                        <div className="relative z-10">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="bg-gradient-to-r from-amber-500 to-amber-600 p-3 rounded-xl shadow-md">
-                                    <Activity className="text-white" size={24} />
-                                </div>
-                                <span className="text-xs font-medium text-amber-600 bg-amber-50 px-2 py-1 rounded-full">Active</span>
-                            </div>
-                            <p className="text-gray-500 text-sm mb-1">Active Leads</p>
-                            <h2 className="text-3xl font-bold text-gray-800">{stats.active}</h2>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Controls */}
-                <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-gray-100">
-                    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full lg:w-auto">
-                            <div className="flex items-center gap-3" ref={dropdownRef}>
-                                <Calendar size={20} className="text-indigo-600" />
-                                <span className="font-semibold text-gray-700">Month:</span>
-                                <button
-                                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                                    className="bg-gradient-to-r from-indigo-50 to-purple-50 px-4 py-2 rounded-xl flex items-center gap-2 hover:from-indigo-100 hover:to-purple-100 transition-all border border-indigo-200"
-                                >
-                                    {selectedMonth || "Select Month"}
-                                    <ChevronDown
-                                        size={16}
-                                        className={`transition-transform ${isDropdownOpen ? "rotate-180" : ""
-                                            }`}
-                                    />
-                                </button>
-                                {isDropdownOpen && (
-                                    <div className="absolute mt-48 bg-white rounded-xl shadow-xl border border-gray-200 z-50 w-56 max-h-64 overflow-y-auto">
-                                        {Object.keys(reportData)
-                                            .filter((m) => reportData[m].length > 0)
-                                            .map((month) => (
-                                                <button
-                                                    key={month}
-                                                    onClick={() => {
-                                                        setSelectedMonth(month);
-                                                        setIsDropdownOpen(false);
-                                                    }}
-                                                    className={`block w-full text-left px-4 py-3 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 transition-all ${selectedMonth === month ? "bg-gradient-to-r from-indigo-50 to-purple-50 font-semibold text-indigo-600" : ""
-                                                        }`}
-                                                >
-                                                    {month}
-                                                </button>
-                                            ))}
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="relative w-full sm:w-auto">
-                                <input
-                                    type="text"
-                                    placeholder="Search employees..."
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-64"
-                                />
-                                <Filter size={18} className="absolute left-3 top-2.5 text-gray-400" />
-                            </div>
-                        </div>
-
-                        <button
-                            onClick={handleExport}
-                            className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all transform hover:scale-105 shadow-lg"
-                        >
-                            <Download size={18} />
-                            Export CSV
-                        </button>
-                    </div>
-                </div>
-
-                {/* Employee Cards */}
-                {!selectedMonth || !reportData[selectedMonth]?.length ? (
-                    <div className="bg-white rounded-2xl shadow-lg p-16 text-center border border-gray-100">
-                        <div className="relative inline-block mb-6">
-                            <div className="absolute inset-0 bg-gray-100 rounded-full blur-xl opacity-50"></div>
-                            <FileText size={64} className="relative text-gray-300" />
-                        </div>
-                        <h3 className="text-2xl font-semibold text-gray-700 mb-2">No Data Available</h3>
-                        <p className="text-gray-500">There is no data available for the selected month</p>
-                    </div>
-                ) : (
-                    <div className="space-y-6">
-                        {filteredData.map((emp, index) => (
-                            <div
-                                key={emp.id}
-                                id={`card-${emp.id}`}
-                                className={`employee-card bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100 transform transition-all duration-500 hover:shadow-xl hover:scale-[1.02] ${animatedCards.has(`card-${emp.id}`) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
-                                    }`}
-                            >
-                                <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 text-white">
-                                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
-                                        <div className="flex items-center gap-4 mb-4 md:mb-0">
-                                            <div className="bg-white/20 backdrop-blur-sm p-3 rounded-full">
-                                                <UserCheck size={28} />
-                                            </div>
-                                            <div>
-                                                <h3 className="text-2xl font-bold">{emp.name}</h3>
-                                                <p className="text-indigo-100">{emp.email}</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full">
-                                            <Briefcase size={16} />
-                                            <span className="font-medium">{emp.association}</span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="p-6">
-                                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-                                        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <span className="text-xs font-medium text-blue-600 uppercase tracking-wider">Total Leads</span>
-                                                <TrendingUp size={16} className="text-blue-500" />
-                                            </div>
-                                            <p className="text-2xl font-bold text-gray-800">{emp.totalLeads}</p>
-                                        </div>
-
-                                        <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 border border-green-100">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <span className="text-xs font-medium text-green-600 uppercase tracking-wider">Qualified</span>
-                                                <CheckCircle size={16} className="text-green-500" />
-                                            </div>
-                                            <p className="text-2xl font-bold text-gray-800">{emp.qualified}</p>
-                                        </div>
-
-                                        <div className="bg-gradient-to-br from-red-50 to-pink-50 rounded-xl p-4 border border-red-100">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <span className="text-xs font-medium text-red-600 uppercase tracking-wider">Disqualified</span>
-                                                <XCircle size={16} className="text-red-500" />
-                                            </div>
-                                            <p className="text-2xl font-bold text-gray-800">{emp.disqualified}</p>
-                                        </div>
-
-                                        <div className="bg-gradient-to-br from-amber-50 to-yellow-50 rounded-xl p-4 border border-amber-100">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <span className="text-xs font-medium text-amber-600 uppercase tracking-wider">Leave Out</span>
-                                                <Clock size={16} className="text-amber-500" />
-                                            </div>
-                                            <p className="text-2xl font-bold text-gray-800">{emp.leaveOut}</p>
-                                        </div>
-
-                                        <div className="bg-gradient-to-br from-gray-50 to-slate-50 rounded-xl p-4 border border-gray-200">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <span className="text-xs font-medium text-gray-600 uppercase tracking-wider">No Response</span>
-                                                <Activity size={16} className="text-gray-500" />
-                                            </div>
-                                            <p className="text-2xl font-bold text-gray-800">{emp.noResponse}</p>
-                                        </div>
-
-                                        <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-4 border border-purple-100">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <span className="text-xs font-medium text-purple-600 uppercase tracking-wider">Deals</span>
-                                                <DollarSign size={16} className="text-purple-500" />
-                                            </div>
-                                            <p className="text-2xl font-bold text-gray-800">{emp.deal}</p>
-                                        </div>
-
-                                        <div className="bg-gradient-to-br from-teal-50 to-cyan-50 rounded-xl p-4 border border-teal-100">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <span className="text-xs font-medium text-teal-600 uppercase tracking-wider">Active</span>
-                                                <Activity size={16} className="text-teal-500" />
-                                            </div>
-                                            <p className="text-2xl font-bold text-gray-800">{emp.active}</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="mt-6 pt-6 border-t border-gray-100">
-                                        <div className="flex flex-wrap gap-4">
-                                            <div className="flex items-center gap-2 bg-gray-50 px-4 py-2 rounded-full">
-                                                <Building size={16} className="text-gray-500" />
-                                                <span className="text-sm text-gray-600">Industry:</span>
-                                                <span className="font-medium text-gray-800">{emp.industry}</span>
-                                            </div>
-
-                                            <div className="flex items-center gap-2 bg-gray-50 px-4 py-2 rounded-full">
-                                                <Users size={16} className="text-gray-500" />
-                                                <span className="text-sm text-gray-600">Attendees:</span>
-                                                <span className="font-medium text-gray-800">{emp.attendees}</span>
-                                            </div>
-
-                                            <div className="flex items-center gap-2 bg-gray-50 px-4 py-2 rounded-full">
-                                                <FileText size={16} className="text-gray-500" />
-                                                <span className="text-sm text-gray-600">Invoice Pending:</span>
-                                                <span className="font-medium text-gray-800">{emp.invoicePending}</span>
-                                            </div>
-
-                                            <div className="flex items-center gap-2 bg-gray-50 px-4 py-2 rounded-full">
-                                                <XCircle size={16} className="text-gray-500" />
-                                                <span className="text-sm text-gray-600">Invoice Canceled:</span>
-                                                <span className="font-medium text-gray-800">{emp.invoiceCanceled}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
+  const SortableHeader = ({ label, field, align = "left", onClick }) => (
+    <th
+      className={`px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors border-b border-gray-200`}
+      onClick={() => onClick(field)}
+    >
+      <div
+        className={`flex items-center gap-2 ${
+          align === "center"
+            ? "justify-center"
+            : align === "right"
+            ? "justify-end"
+            : "justify-start"
+        }`}
+      >
+        <span>{label}</span>
+        <div className="flex flex-col">
+          {sortField === field && sortDirection === "asc" ? (
+            <ChevronUp size={12} className="text-indigo-600" />
+          ) : (
+            <ChevronUp size={12} className="text-gray-300" />
+          )}
+          {sortField === field && sortDirection === "desc" ? (
+            <ChevronDown size={12} className="text-indigo-600" />
+          ) : (
+            <ChevronDown size={12} className="text-gray-300" />
+          )}
         </div>
+      </div>
+    </th>
+  );
+
+  if (loading) return <Loader />;
+
+  if (error)
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="bg-white p-8 rounded-xl shadow-lg max-w-md text-center">
+          <AlertCircle size={48} className="text-red-500 mx-auto mb-4" />
+          <h2 className="font-bold text-xl text-gray-800 mb-2">
+            Error Loading Reports
+          </h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <button
+            onClick={fetchReportData}
+            className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 mx-auto transition-colors"
+          >
+            <RefreshCw size={18} />
+            Retry
+          </button>
+        </div>
+      </div>
     );
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      {/* Top Navigation / Header */}
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-20">
+        <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                <Activity className="text-indigo-600" />
+                Performance Reports
+              </h1>
+              <p className="text-sm text-gray-500 mt-1">
+                Analytics for {selectedMonth} {selectedYear}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Year Selector */}
+              <div className="relative">
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(Number(e.target.value))}
+                  className="pl-3 pr-8 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none appearance-none"
+                >
+                  {years.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  size={14}
+                  className="absolute right-3 top-3 text-gray-500 pointer-events-none"
+                />
+              </div>
+
+              {/* Month Selector */}
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  className="flex items-center justify-between w-40 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm hover:bg-gray-50 focus:ring-2 focus:ring-indigo-500 transition-all"
+                >
+                  <span className="truncate">
+                    {selectedMonth || "Select Month"}
+                  </span>
+                  <ChevronDown
+                    size={14}
+                    className={`text-gray-500 transition-transform ${
+                      isDropdownOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+
+                {isDropdownOpen && (
+                  <div className="absolute top-full mt-1 right-0 w-56 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-50 max-h-80 overflow-y-auto">
+                    {Object.keys(reportData).map((month) => {
+                      const hasData = reportData[month]?.length > 0;
+                      return (
+                        <button
+                          key={month}
+                          disabled={!hasData}
+                          onClick={() => {
+                            if (hasData) {
+                              setSelectedMonth(month);
+                              setIsDropdownOpen(false);
+                            }
+                          }}
+                          className={`w-full text-left px-4 py-2.5 text-sm flex items-center justify-between
+                            ${
+                              selectedMonth === month
+                                ? "bg-indigo-50 text-indigo-700 font-medium"
+                                : "text-gray-700"
+                            }
+                            ${
+                              hasData
+                                ? "hover:bg-gray-50 cursor-pointer"
+                                : "opacity-50 cursor-not-allowed"
+                            }
+                          `}
+                        >
+                          {month}
+                          {!hasData && (
+                            <span className="text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-500">
+                              Empty
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Search */}
+              <div className="relative">
+                <Search
+                  size={16}
+                  className="absolute left-3 top-2.5 text-gray-400"
+                />
+                <input
+                  type="text"
+                  placeholder="Search employee..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none w-64"
+                />
+              </div>
+
+              {/* Export */}
+              <button
+                onClick={handleExport}
+                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm"
+              >
+                <Download size={16} />
+                Export Excel
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
+        {/* Compact Summary Cards */}
+        {selectedMonth && reportData[selectedMonth]?.length > 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
+            <StatCard
+              icon={Users}
+              label="Total Staff"
+              value={stats.employees}
+              color="blue"
+            />
+            <StatCard
+              icon={TrendingUp}
+              label="Total Leads"
+              value={stats.totalLeads}
+              color="indigo"
+            />
+            <StatCard
+              icon={CheckCircle}
+              label="Qualified"
+              value={stats.qualified}
+              color="emerald"
+            />
+            <StatCard
+              icon={Activity}
+              label="Active Leads"
+              value={stats.active}
+              color="amber"
+            />
+            <StatCard
+              icon={DollarSign}
+              label="Deals Closed"
+              value={stats.deals}
+              color="purple"
+            />
+            <StatCard
+              icon={XCircle}
+              label="Disqualified"
+              value={stats.disqualified}
+              color="red"
+            />
+          </div>
+        )}
+
+        {/* Main Data Table */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
+          {!selectedMonth || !reportData[selectedMonth]?.length ? (
+            <div className="p-12 text-center">
+              <div className="bg-gray-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <FileText size={32} className="text-gray-400" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900">
+                No Data Available
+              </h3>
+              <p className="text-gray-500 mt-1">
+                Please select a different month or year to view reports.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead className="bg-gray-50 sticky top-0 z-10">
+                  <tr>
+                    {/* Employee Name - Left Aligned */}
+                    <SortableHeader
+                      label="Employee"
+                      field="name"
+                      align="left"
+                      onClick={handleSort}
+                    />
+
+                    <SortableHeader
+                      label="Target"
+                      field="target"
+                      align="center"
+                      onClick={handleSort}
+                    />
+
+                    {/* Metrics - All Center Aligned for perfect stacking */}
+                    <SortableHeader
+                      label="Total Leads"
+                      field="totalLeads"
+                      align="center"
+                      onClick={handleSort}
+                    />
+                    <SortableHeader
+                      label="Qualified"
+                      field="qualified"
+                      align="center"
+                      onClick={handleSort}
+                    />
+                    <SortableHeader
+                      label="Association Leads"
+                      field="associationLeads"
+                      align="center"
+                      onClick={handleSort}
+                    />
+
+                    <SortableHeader
+                      label="Industry Leads"
+                      field="industryLeads"
+                      align="center"
+                      onClick={handleSort}
+                    />
+                    <SortableHeader
+                      label="Attendees Leads"
+                      field="attendeesLeads"
+                      align="center"
+                      onClick={handleSort}
+                    />
+                    <SortableHeader
+                      label="Active"
+                      field="active"
+                      align="center"
+                      onClick={handleSort}
+                    />
+                    <SortableHeader
+                      label="Deals"
+                      field="deal"
+                      align="center"
+                      onClick={handleSort}
+                    />
+                    <SortableHeader
+                      label="Disqualified"
+                      field="disqualified"
+                      align="center"
+                      onClick={handleSort}
+                    />
+                    <SortableHeader
+                      label="No Resp"
+                      field="noResponse"
+                      align="center"
+                      onClick={handleSort}
+                    />
+                    <SortableHeader
+                      label="Leave"
+                      field="leaveOut"
+                      align="center"
+                      onClick={handleSort}
+                    />
+                    <SortableHeader
+                      label="Inv. Pending"
+                      field="invoicePending"
+                      align="center"
+                      onClick={handleSort}
+                    />
+                    <SortableHeader
+                      label="Inv. Cancel"
+                      field="invoiceCanceled"
+                      align="center"
+                      onClick={handleSort}
+                    />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredData.map((row) => (
+                    <tr
+                      key={row.id}
+                      className="hover:bg-indigo-50/30 transition-colors group"
+                    >
+                      {/* Name Column - Left Aligned */}
+                      <td className="px-4 py-3 max-w-[250px] text-left">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-sm font-bold border border-indigo-200 shrink-0">
+                            {row.name.charAt(0)}
+                          </div>
+                          <div className="truncate">
+                            <div
+                              className="text-sm font-semibold text-gray-900 truncate"
+                              title={row.name}
+                            >
+                              {row.name}
+                            </div>
+                            <div
+                              className="text-xs text-gray-500 truncate"
+                              title={row.email}
+                            >
+                              {row.email}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Target with Progress Calculation */}
+                      <td className="px-4 py-3 text-center align-middle">
+                        <div className="flex flex-col items-center">
+                          <span className="font-bold text-emerald-600">
+                            {row.totalLeads}/{row.target ?? "-"}
+                          </span>
+                          <span className="text-[10px] text-gray-400">
+                            {row.target
+                              ? `${Math.round(
+                                  (row.totalLeads / row.target) * 100
+                                )}%`
+                              : "-"}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Metrics - Center Aligned */}
+                      <td className="px-4 py-3 text-center align-middle">
+                        <span className="font-bold text-gray-700">
+                          {row.totalLeads}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center align-middle">
+                        <span
+                          className={`font-semibold ${
+                            row.qualified > 0
+                              ? "text-emerald-600"
+                              : "text-gray-300"
+                          }`}
+                        >
+                          {row.qualified}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center align-middle font-semibold text-blue-600">
+                        {row.associationLeads ?? 0}
+                      </td>
+
+                      {/* Industry Leads */}
+                      <td className="px-4 py-3 text-center align-middle font-semibold text-indigo-600">
+                        {row.industryLeads ?? 0}
+                      </td>
+                      <td className="px-4 py-3 text-center align-middle font-semibold text-indigo-600">
+                        {/* Checked for both spellings: attendee vs attendees */}
+                        {row.attendeesLeads || row.attendeeLeads || 0}
+                      </td>
+                      <td className="px-4 py-3 text-center align-middle">
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
+                            row.active > 0
+                              ? "bg-amber-100 text-amber-800"
+                              : "text-gray-300"
+                          }`}
+                        >
+                          {row.active}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center align-middle">
+                        <span
+                          className={`font-bold ${
+                            row.deal > 0 ? "text-purple-600" : "text-gray-300"
+                          }`}
+                        >
+                          {row.deal}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center align-middle text-gray-500">
+                        {row.disqualified || (
+                          <span className="text-gray-200">0</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center align-middle text-gray-500 text-sm">
+                        {row.noResponse || (
+                          <span className="text-gray-200">0</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center align-middle text-gray-400 text-sm">
+                        {row.leaveOut || (
+                          <span className="text-gray-200">0</span>
+                        )}
+                      </td>
+
+                      <td className="px-4 py-3 text-center align-middle text-sm">
+                        {row.invoicePending > 0 ? (
+                          <span className="text-orange-600 font-medium">
+                            {row.invoicePending}
+                          </span>
+                        ) : (
+                          <span className="text-gray-200">0</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center align-middle text-sm">
+                        {row.invoiceCanceled > 0 ? (
+                          <span className="text-red-500 font-medium">
+                            {row.invoiceCanceled}
+                          </span>
+                        ) : (
+                          <span className="text-gray-200">0</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Helper Component for the top summary stats
+const StatCard = ({ icon: Icon, label, value, color }) => {
+  const colorClasses = {
+    blue: "bg-blue-50 text-blue-600 border-blue-200",
+    indigo: "bg-indigo-50 text-indigo-600 border-indigo-200",
+    emerald: "bg-emerald-50 text-emerald-600 border-emerald-200",
+    amber: "bg-amber-50 text-amber-600 border-amber-200",
+    purple: "bg-purple-50 text-purple-600 border-purple-200",
+    red: "bg-red-50 text-red-600 border-red-200",
+  };
+
+  return (
+    <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex items-center justify-between">
+      <div>
+        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+          {label}
+        </p>
+        <p className="text-2xl font-bold text-gray-800 mt-1">{value}</p>
+      </div>
+      <div className={`p-3 rounded-lg border ${colorClasses[color]}`}>
+        <Icon size={20} />
+      </div>
+    </div>
+  );
 };
 
 export default Reports;

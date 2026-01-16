@@ -120,7 +120,12 @@ export default function MyLeadsTable() {
       country: lead.country || "",
       subjectLine: lead.subjectLine || "",
       leadType: lead.leadType || "",
-      qualified: lead.qualified === true ? "true" : lead.qualified === false ? "false" : "null", // Convert to string for select
+      qualified:
+        lead.qualified === true
+          ? "true"
+          : lead.qualified === false
+          ? "false"
+          : "null", // Convert to string for select
       date: formatDateForInput(lead.date),
       link: lead.link || "",
       emailPitch: lead.emailPitch || "",
@@ -221,7 +226,11 @@ export default function MyLeadsTable() {
             lead.leadEmail,
             lead.ccEmail,
             lead.leadType,
-            lead.qualified ? "qualified" : lead.qualified === false ? "disqualified" : "pending",
+            lead.qualified
+              ? "qualified"
+              : lead.qualified === false
+              ? "disqualified"
+              : "pending",
             lead.country,
             lead.phone,
           ].some((field) =>
@@ -271,9 +280,9 @@ export default function MyLeadsTable() {
     };
     return (
       badges[
-      String(type || "")
-        .trim()
-        .toLowerCase()
+        String(type || "")
+          .trim()
+          .toLowerCase()
       ] || "bg-gray-100 text-gray-700 border-gray-200"
     );
   };
@@ -509,21 +518,23 @@ export default function MyLeadsTable() {
               const isEditing = editingLead === lead.id;
               const ccEmails = lead.ccEmail
                 ? lead.ccEmail
-                  .split(",")
-                  .map((e) => e.trim())
-                  .filter(Boolean)
+                    .split(",")
+                    .map((e) => e.trim())
+                    .filter(Boolean)
                 : [];
               const phoneNumbers = lead.phone
                 ? lead.phone
-                  .split(",")
-                  .map((p) => p.trim())
-                  .filter(Boolean)
+                    .split(",")
+                    .map((p) => p.trim())
+                    .filter(Boolean)
                 : [];
 
               return (
                 <div
                   key={lead.id}
-                  className={`bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden ${getCardBorderColor(lead.qualified)}`}
+                  className={`bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden ${getCardBorderColor(
+                    lead.qualified
+                  )}`}
                 >
                   {/* Card Header */}
                   <div className="p-4 sm:p-5 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
@@ -862,7 +873,7 @@ export default function MyLeadsTable() {
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center">
               <FileText className="w-16 h-16 text-slate-300 mx-auto mb-4" />
               <p className="text-slate-500 font-medium text-lg mb-2">
-                No leads found
+                Your lead board is empty… let’s change that today 💪
               </p>
               <p className="text-slate-400 text-sm">
                 Try adjusting your filters or search terms

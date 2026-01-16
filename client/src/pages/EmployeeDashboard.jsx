@@ -108,7 +108,9 @@ const EmployeeDashboard = () => {
     const fetchLeads = async () => {
       try {
         const employeeId = localStorage.getItem("employeeId");
-        const res = await axios.get(`${API_BASE_URL}/api/employees/${employeeId}/leads`);
+        const res = await axios.get(
+          `${API_BASE_URL}/api/employees/${employeeId}/leads`
+        );
         setLeads(res.data.leads || []);
       } catch (err) {
         console.error("Error fetching leads:", err);
@@ -150,7 +152,9 @@ const EmployeeDashboard = () => {
     if (!lt.includes(rt)) return false;
 
     if (rule.country) {
-      const allowed = rule.country.split(",").map((c) => c.trim().toLowerCase());
+      const allowed = rule.country
+        .split(",")
+        .map((c) => c.trim().toLowerCase());
       const leadCountry = (lead.country || "").trim().toLowerCase();
       if (!allowed.includes(leadCountry)) return false;
     }
@@ -160,7 +164,10 @@ const EmployeeDashboard = () => {
     }
 
     if (rule.industryDomain) {
-      if ((lead.industryDomain || "").toLowerCase() !== rule.industryDomain.toLowerCase())
+      if (
+        (lead.industryDomain || "").toLowerCase() !==
+        rule.industryDomain.toLowerCase()
+      )
         return false;
     }
 
@@ -202,7 +209,8 @@ const EmployeeDashboard = () => {
 
     const breakdown = {
       totalToday: leads.filter(
-        (l) => getUSADateKey(l.date) === getUSADateKey(new Date()) && l.qualified
+        (l) =>
+          getUSADateKey(l.date) === getUSADateKey(new Date()) && l.qualified
       ).length,
 
       plans: {},
@@ -231,7 +239,9 @@ const EmployeeDashboard = () => {
     const fetchIncentiveProgress = async () => {
       try {
         const employeeId = localStorage.getItem("employeeId");
-        const res = await axios.get(`${API_BASE_URL}/api/incentives/progress/${employeeId}`);
+        const res = await axios.get(
+          `${API_BASE_URL}/api/incentives/progress/${employeeId}`
+        );
         setAchievedIncentive(res.data.achieved || null);
       } catch (err) {
         console.error("Incentive progress error:", err);
@@ -244,29 +254,36 @@ const EmployeeDashboard = () => {
   if (loading) return <Loader />;
 
   const loggedInId = localStorage.getItem("employeeId");
-  const loggedPerf = performanceData.find((p) => String(p.employeeId) === String(loggedInId));
-  const loggedEmp = employees.find((e) => String(e.employeeId) === String(loggedInId));
+  const loggedPerf = performanceData.find(
+    (p) => String(p.employeeId) === String(loggedInId)
+  );
+  const loggedEmp = employees.find(
+    (e) => String(e.employeeId) === String(loggedInId)
+  );
 
   const todayKey = getUSADateKey(new Date());
   const todayLeadsCount = leads.filter(
     (l) => getUSADateKey(l.date) === todayKey
   ).length;
 
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-purple-50 to-pink-50 p-8">
       <div className="max-w-7xl mx-auto space-y-8">
-
+        {/* HEADER */}
         {/* HEADER */}
         <div className="flex items-center justify-between">
           <h1 className="text-4xl font-bold text-transparent bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text">
             My Performance Dashboard
           </h1>
 
-          <div className="text-right">
-            <div className="p-4 bg-white rounded-xl shadow">
-              <div className="text-xs text-gray-500">Central USA</div>
-              <div className="text-lg font-semibold">{usaTime}</div>
+          <div className="flex items-center gap-6">
+            <NotificationBell />
+
+            <div className="text-right">
+              <div className="p-4 bg-white rounded-xl shadow">
+                <div className="text-xs text-gray-500">Central USA</div>
+                <div className="text-lg font-semibold">{usaTime}</div>
+              </div>
             </div>
           </div>
         </div>
@@ -277,12 +294,11 @@ const EmployeeDashboard = () => {
           qualifiedMonthly={loggedPerf?.leads || 0}
           doubleTarget={loggedEmp?.doubleTargetAchieved || false}
           incentiveBreakdown={incentiveBreakdown}
-          incentive={incentive}                // NEW: required by new engine
+          incentive={incentive} // NEW: required by new engine
           employeeName={loggedEmp?.fullName}
-          todayLeads={todayLeadsCount}         // NEW: required for daily motivation
-          streak={loggedPerf?.streak || 0}     // OPTIONAL: if you track streaks
+          todayLeads={todayLeadsCount} // NEW: required for daily motivation
+          streak={loggedPerf?.streak || 0} // OPTIONAL: if you track streaks
         />
-
 
         <DashboardStats leads={leads} />
 
@@ -295,7 +311,10 @@ const EmployeeDashboard = () => {
           <DashboardWeeklyChart leads={leads} />
         </div>
 
-        <PerformanceChart employees={employees} performanceData={performanceData} />
+        <PerformanceChart
+          employees={employees}
+          performanceData={performanceData}
+        />
 
         <IncentivePlan />
 

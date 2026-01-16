@@ -55,7 +55,7 @@ router.get("/", async (req, res) => {
     const employees = await prisma.employee.findMany({
       where: {
         role: "EMPLOYEE",
-        isActive: true
+        isActive: true,
       },
       select: {
         employeeId: true,
@@ -65,7 +65,6 @@ router.get("/", async (req, res) => {
         isActive: true,
       },
     });
-
 
     const { start: startOfMonth, end: endOfMonth } = getUSAMonthRange();
     const { start: startOfToday, end: endOfToday } = getUSATodayRange();
@@ -130,9 +129,10 @@ router.get("/", async (req, res) => {
           pendingLeads,
           target: emp.target || 0,
           // <-- NEW: double target achieved (monthly)
-          doubleTargetAchieved: (emp.target && emp.target > 0)
-            ? (qualifiedLeads >= (emp.target * 2))
-            : false,
+          doubleTargetAchieved:
+            emp.target && emp.target > 0
+              ? qualifiedLeads >= emp.target * 2
+              : false,
         };
       })
     );
@@ -246,42 +246,6 @@ router.get("/with-leads", async (req, res) => {
    ✅ POST /api/employees/leads/:id/forward
    Marks a lead as forwarded in the DB
    =========================================================== */
-// router.post("/leads/:id/forward", async (req, res) => {
-//   try {
-//     const leadId = parseInt(req.params.id);
-
-//     if (isNaN(leadId)) {
-//       return res.status(400).json({ error: "Invalid lead ID" });
-//     }
-
-//     const existingLead = await prisma.lead.findUnique({
-//       where: { id: leadId },
-//     });
-
-//     if (!existingLead) {
-//       return res.status(404).json({ error: "Lead not found" });
-//     }
-
-//     const updatedLead = await prisma.lead.update({
-//       where: { id: leadId },
-//       data: { forwarded: true },
-//       select: {
-//         id: true,
-//         forwarded: true,
-//         qualified: true,
-//         subjectLine: true,
-//         leadEmail: true,
-//       },
-//     });
-
-//     console.log(`✅ Lead ${leadId} marked as forwarded`);
-//     res.json(updatedLead);
-//   } catch (error) {
-//     console.error("❌ Error forwarding lead:", error);
-//     res.status(500).json({ error: "Failed to forward lead" });
-//   }
-// });
-
 router.post("/leads/:id/forward", async (req, res) => {
   try {
     const leadId = parseInt(req.params.id);
@@ -304,26 +268,28 @@ router.post("/leads/:id/forward", async (req, res) => {
 
     // Build payload for Sales CRM
     const payload = {
+      empId: existingLead.employeeId,
+      agentName: existingLead.agentName,
       client: existingLead.clientEmail,
       email: existingLead.leadEmail,
       cc: existingLead.ccEmail,
       phone: existingLead.phone,
+      website: existingLead.website,
       country: existingLead.country,
       subject: existingLead.subjectLine,
       body: existingLead.emailPitch,
       leadType: existingLead.leadType,
+      date: existingLead.date,
       createdAt: existingLead.createdAt,
-      empId: existingLead.employeeId || null,
-
-      // 👇 OPTIONAL (currently always null unless you add it later)
-      leadDetailsId: null,
+      link: existingLead.link,
     };
 
     console.log("📤 Sending payload to Sales CRM:", payload);
 
     // Send to Sales CRM
     const crmResponse = await fetch(
-      "https://abacco-sales-crm.onrender.com/api/sales/leads",
+      "https://abacco-sales-crm1.onrender.com/api/sales/leads",
+      // "http://localhost:4002/api/sales/leads",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -376,6 +342,105 @@ router.post("/leads/:id/forward", async (req, res) => {
     });
   }
 });
+
+/* ===========================================================
+   ✅ POST /api/employees/leads/:id/forward
+   Marks a lead as forwarded in the DB
+   =========================================================== */
+// router.post("/leads/:id/forward", async (req, res) => {
+//   try {
+//     const leadId = parseInt(req.params.id);
+//     if (isNaN(leadId)) {
+//       return res.status(400).json({ error: "Invalid lead ID" });
+//     }
+
+//     console.log("🔹 Forward request received for lead ID:", leadId);
+
+//     // Fetch lead
+//     const existingLead = await prisma.lead.findUnique({
+//       where: { id: leadId },
+//     });
+
+//     if (!existingLead) {
+//       return res.status(404).json({ error: "Lead not found" });
+//     }
+
+//     console.log("🟢 Lead fetched successfully:", existingLead.id);
+
+//     // Build payload for Sales CRM
+//     const payload = {
+//       client: existingLead.clientEmail,
+//       email: existingLead.leadEmail,
+//       cc: existingLead.ccEmail,
+//       phone: existingLead.phone,
+//       country: existingLead.country,
+//       subject: existingLead.subjectLine,
+//       body: existingLead.emailPitch,
+//       leadType: existingLead.leadType,
+//       createdAt: existingLead.createdAt,
+//       empId: existingLead.employeeId || null,
+
+//       // 👇 OPTIONAL (currently always null unless you add it later)
+//       leadDetailsId: null,
+//     };
+
+//     console.log("📤 Sending payload to Sales CRM:", payload);
+
+//     // Send to Sales CRM
+//     const crmResponse = await fetch(
+//       "https://abacco-sales-crm.onrender.com/api/sales/leads",
+//       {
+//         method: "POST",
+//         headers: { "Content-Type": "application/json" },
+//         body: JSON.stringify(payload),
+//       }
+//     );
+
+//     const crmData = await crmResponse.json();
+//     console.log("✅ Sales CRM Response:", crmData);
+
+//     if (!crmResponse.ok) {
+//       return res.status(502).json({
+//         error: "Failed to forward lead to Sales CRM",
+//         crmResponse: crmData,
+//       });
+//     }
+
+//     // Update forwarded flag
+//     const updatedLead = await prisma.lead.update({
+//       where: { id: leadId },
+//       data: { forwarded: true },
+//       select: {
+//         id: true,
+//         forwarded: true,
+//         clientEmail: true,
+//         leadEmail: true,
+//         ccEmail: true,
+//         subjectLine: true,
+//         emailPitch: true,
+//         phone: true,
+//         country: true,
+//         leadType: true,
+//         createdAt: true,
+//         employeeId: true,
+//       },
+//     });
+
+//     console.log(`✅ Lead ${leadId} marked as forwarded`);
+//     res.json({
+//       message: "Lead forwarded successfully",
+//       forwardedLead: updatedLead,
+//       crmResponse: crmData,
+//     });
+//   } catch (error) {
+//     console.error("💥 SERVER ERROR:", error);
+//     return res.status(500).json({
+//       error: "Internal Server Error",
+//       details: error.message,
+//       stack: error.stack,
+//     });
+//   }
+// });
 
 /* ===========================================================
    ✅ POST /api/employees/leads/:id/qualify
@@ -844,12 +909,6 @@ router.get("/leads/:employeeId", async (req, res) => {
       },
     });
 
-    if (!leads.length) {
-      return res
-        .status(404)
-        .json({ message: "No leads found for this employee" });
-    }
-
     res.json(leads);
   } catch (error) {
     console.error("Error fetching employee leads:", error);
@@ -924,10 +983,5 @@ router.put("/leads/:id", async (req, res) => {
     res.status(500).json({ error: "Failed to update lead" });
   }
 });
-
-
-
-
-
 
 export default router;
