@@ -82,6 +82,9 @@ model SharedLink {
   linkType String
   country  String
 
+  message           String? @db.Text // ⭐ NEW FIELD (THIS IS THE CORE)
+  sharedEmployeeIds String? // "12,15,22"
+
   createdAt DateTime  @default(now())
   updatedAt DateTime? @updatedAt
 

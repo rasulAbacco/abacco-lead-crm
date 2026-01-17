@@ -136,6 +136,18 @@ const MyLinks = () => {
                 className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-100"
               >
                 <div className="p-5">
+                  {/* Optional Message */}
+                  {rl.sharedLink?.message && (
+                    <div className="mb-4 p-4 bg-indigo-50 border-l-4 border-indigo-500 rounded-lg">
+                      <p className="text-sm font-bold text-indigo-700 mb-1">
+                        Message from Admin
+                      </p>
+                      <p className="text-gray-800 text-sm whitespace-pre-line">
+                        {rl.sharedLink.message}
+                      </p>
+                    </div>
+                  )}
+
                   <div className="flex justify-between items-start mb-4">
                     {/* Link Type Badge */}
                     <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-bold bg-indigo-100 text-indigo-800">
@@ -146,11 +158,16 @@ const MyLinks = () => {
                     {/* Delete Button */}
                     <button
                       onClick={() => handleDelete(rl.id)}
-                      disabled={deleting === rl.id}
-                      className="px-3 py-1.5 bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-colors text-sm font-bold flex items-center gap-1.5 disabled:opacity-50"
+                      disabled={!rl.isOpen || deleting === rl.id}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1.5
+    ${
+      rl.isOpen
+        ? "bg-white border border-red-200 text-red-600 hover:bg-red-50"
+        : "bg-gray-100 border border-gray-300 text-gray-400 cursor-not-allowed"
+    }`}
                     >
                       <Trash2 className="w-4 h-4" />
-                      {deleting === rl.id ? "..." : "Delete"}
+                      Delete
                     </button>
                   </div>
 
@@ -168,11 +185,7 @@ const MyLinks = () => {
                           </span>
                         </div>
                         <a
-                          href={
-                            u.id
-                              ? `${API_URL}/api/links/open/${u.id}`
-                              : `${API_URL}/api/links/open/${rl.id}`
-                          }
+                          href={`${API_URL}/api/links/open/${rl.id}`}
                           target="_blank"
                           rel="noreferrer"
                           className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-semibold flex items-center gap-2 ml-4 flex-shrink-0"
@@ -203,6 +216,7 @@ const MyLinks = () => {
                     </div>
 
                     {/* Status */}
+                    {/* Status */}
                     <div
                       className={`flex items-center text-sm px-3 py-2 rounded-lg ${
                         rl.isOpen ? "bg-emerald-50" : "bg-amber-50"
@@ -225,6 +239,13 @@ const MyLinks = () => {
                           : "Not opened"}
                       </span>
                     </div>
+
+                    {/* 🔒 DELETE RULE MESSAGE — ADD HERE */}
+                    {!rl.isOpen && (
+                      <p className="text-xs text-amber-600 font-semibold mt-2">
+                        ⚠ You must open the link before deleting it
+                      </p>
+                    )}
                   </div>
                 </div>
 
