@@ -36,7 +36,7 @@ const app = express();
 // Middleware
 app.use(
   cors({
-    origin: "http://localhost:5173", // frontend URL
+    origin: ["http://localhost:5173", "https://leadcrm.abaccotech.com"],
     credentials: true, // allow cookies/auth headers
   }),
 );
