@@ -6,191 +6,6 @@ import { authenticate, authorizeRole } from "../middlewares/auth.js";
 
 const router = express.Router();
 const prisma = new PrismaClient();
-
-/**
- * ✅ ADMIN: Share a new link with employees
- */
-// inside linksRouter.js (replace previous /share implementation)
-// router.post("/share", authenticate, async (req, res) => {
-//   try {
-//     const rawRole = req.user?.role;
-//     const rawEmployeeId = req.user?.employeeId;
-//     const role = rawRole ? String(rawRole).trim().toUpperCase() : null;
-//     const employeeId = rawEmployeeId
-//       ? String(rawEmployeeId).trim().toUpperCase()
-//       : null;
-
-//     if (
-//       !(role === "ADMIN" || (role === "EMPLOYEE" && employeeId === "AT014"))
-//     ) {
-//       return res.status(403).json({ message: "Forbidden: Access denied" });
-//     }
-
-//     const { links, linkType, country, recipientIds } = req.body;
-
-//     // Validate links
-//     if (!Array.isArray(links) || links.length === 0) {
-//       return res
-//         .status(400)
-//         .json({ message: "links must be a non-empty array" });
-//     }
-
-//     const cleanedLinks = links
-//       .map((u) => (typeof u === "string" ? u.trim() : ""))
-//       .filter(Boolean);
-
-//     if (cleanedLinks.length === 0) {
-//       return res
-//         .status(400)
-//         .json({ message: "At least one valid URL is required" });
-//     }
-
-//     // Validate type
-//     const validTypes = [
-//       "Association Type",
-//       "Industry Type",
-//       "Attendees Type",
-//       "World Wide",
-//     ];
-//     if (!validTypes.includes(linkType)) {
-//       return res.status(400).json({ message: "Invalid link type" });
-//     }
-
-//     if (!country.trim()) {
-//       return res.status(400).json({ message: "Country required" });
-//     }
-
-//     if (!Array.isArray(recipientIds) || recipientIds.length === 0) {
-//       return res
-//         .status(400)
-//         .json({ message: "recipientIds must be non-empty array" });
-//     }
-
-//     const normalizedRecipientIds = recipientIds.map((id) => Number(id));
-
-//     // Validate recipients exist
-//     const validRecipients = await prisma.employee.findMany({
-//       where: {
-//         id: { in: normalizedRecipientIds },
-//         role: "EMPLOYEE",
-//         isActive: true,
-//       },
-//       select: { id: true },
-//     });
-
-//     if (validRecipients.length !== normalizedRecipientIds.length) {
-//       return res.status(400).json({ message: "Invalid employee IDs" });
-//     }
-
-//     // Resolve createdById
-//     let createdById = req.user?.id || req.user?.userId;
-//     if (!createdById && employeeId) {
-//       const emp = await prisma.employee.findUnique({
-//         where: { employeeId },
-//         select: { id: true },
-//       });
-//       createdById = emp?.id;
-//     }
-
-//     if (!createdById) {
-//       return res.status(401).json({ message: "Cannot resolve creator ID" });
-//     }
-
-//     // Build URL entries
-//     const urlCreateObjects = cleanedLinks.map((u) => ({ url: u }));
-
-//     // Build recipients
-//     const recipientCreateObjects = normalizedRecipientIds.map((rid) => ({
-//       recipientId: rid,
-//       receivedDate: new Date(),
-//       isSeen: false,
-//       isRead: false,
-//       isOpen: false,
-//     }));
-
-//     // MAIN CREATE
-//     const created = await prisma.sharedLink.create({
-//       data: {
-//         linkType,
-//         country,
-//         createdById,
-
-//         // New multiple-URL creation
-//         urls: {
-//           create: urlCreateObjects,
-//         },
-
-//         // Create recipient records
-//         recipients: {
-//           create: recipientCreateObjects,
-//         },
-
-//         // Legacy: Store first URL in old `link`
-//         link: cleanedLinks[0] || null,
-//       },
-//       include: {
-//         urls: true,
-//         createdBy: true,
-//         recipients: {
-//           include: {
-//             recipient: true,
-//           },
-//         },
-//       },
-//     });
-//     // 🔔 CREATE STICKY NOTIFICATIONS (NEW)
-//     await prisma.notification.createMany({
-//       data: normalizedRecipientIds.map((rid) => ({
-//         userId: rid,
-//         title: "📢 New Links Assigned",
-//         message: `New ${linkType} links have been shared with you`,
-//         link: "/my-links",
-//         type: "link",
-
-//         isRead: false,
-//         isDismissed: false, // ⭐ REQUIRED (sticky)
-//       })),
-//     });
-//     // 🔔 SEND SYSTEM PUSH NOTIFICATION
-//     const subscriptions = await prisma.pushSubscription.findMany({
-//       where: {
-//         userId: { in: recipientIds },
-//       },
-//     });
-
-//     for (const sub of subscriptions) {
-//       try {
-//         await webpush.sendNotification(
-//           {
-//             endpoint: sub.endpoint,
-//             keys: {
-//               p256dh: sub.p256dh,
-//               auth: sub.auth,
-//             },
-//           },
-//           JSON.stringify({
-//             title: "📢 New Links Assigned",
-//             message: "Admin has shared new links with you",
-//             link: "/my-links",
-//           })
-//         );
-//       } catch (err) {
-//         console.error("Push failed for", sub.endpoint, err.message);
-//         // 🔥 remove invalid subscription
-//         if (err.statusCode === 410 || err.statusCode === 404) {
-//           await prisma.pushSubscription.delete({
-//             where: { id: sub.id },
-//           });
-//         }
-//       }
-//     }
-
-//     res.status(201).json(created);
-//   } catch (err) {
-//     console.error("❌ Error in POST /share:", err);
-//     res.status(400).json({ message: err.message || "Failed to share" });
-//   }
-// });
 router.post("/share", authenticate, async (req, res) => {
   try {
     /* =====================================================
@@ -209,7 +24,7 @@ router.post("/share", authenticate, async (req, res) => {
     /* =====================================================
        2. INPUT VALIDATION
     ===================================================== */
-    const { links, linkType, country, recipientIds } = req.body;
+    const { links, linkType, country, recipientIds, message } = req.body;
 
     if (!Array.isArray(links) || links.length === 0) {
       return res.status(400).json({ message: "Links array is required" });
@@ -287,6 +102,17 @@ router.post("/share", authenticate, async (req, res) => {
     if (!createdById) {
       return res.status(401).json({ message: "Unable to resolve creator" });
     }
+    // ✅ Resolve sender name for notification
+    let senderName = "Admin";
+
+    if (role === "EMPLOYEE" && employeeId === "AT014") {
+      const senderEmp = await prisma.employee.findUnique({
+        where: { id: createdById },
+        select: { fullName: true },
+      });
+
+      senderName = senderEmp?.fullName || "Admin";
+    }
 
     /* =====================================================
        6. CREATE SHARED LINK + RECIPIENTS
@@ -295,8 +121,10 @@ router.post("/share", authenticate, async (req, res) => {
       data: {
         linkType,
         country,
+        message: message?.trim() ? message.trim() : null, // ⭐ THIS LINE
         createdById,
         link: cleanedLinks[0], // legacy support
+        sharedEmployeeIds: normalizedRecipientIds.join(","), // ⭐ SNAPSHOT
 
         urls: {
           create: cleanedLinks.map((url) => ({ url })),
@@ -320,7 +148,9 @@ router.post("/share", authenticate, async (req, res) => {
       data: normalizedRecipientIds.map((id) => ({
         userId: id,
         title: "📢 New Links Assigned",
-        message: `New ${linkType} links have been shared with you`,
+        message: message?.trim()
+          ? message.trim().slice(0, 120)
+          : `New ${linkType} links have been shared with you`,
         link: "/my-links",
         type: "link",
         isRead: false,
@@ -356,7 +186,7 @@ router.post("/share", authenticate, async (req, res) => {
           },
           JSON.stringify({
             title: "📢 New Links Assigned",
-            message: "Admin has shared new links with you",
+            message: `${senderName} has shared a link with you`,
             link: "/my-links",
           })
         );
@@ -417,16 +247,55 @@ router.get("/shared-info", authenticate, async (req, res) => {
       },
       orderBy: { createdAt: "desc" },
     });
+    // 1️⃣ Collect ALL snapshot employee IDs (numeric)
+    const snapshotEmployeeIds = [
+      ...new Set(
+        links
+          .flatMap((sl) =>
+            sl.sharedEmployeeIds
+              ? sl.sharedEmployeeIds.split(",").map((id) => Number(id))
+              : []
+          )
+          .filter(Boolean)
+      ),
+    ];
+    // 2️⃣ Fetch employees using numeric IDs
+    const employees = await prisma.employee.findMany({
+      where: { id: { in: snapshotEmployeeIds } },
+      select: {
+        id: true,
+        fullName: true,
+        employeeId: true, // AT012 etc
+      },
+    });
 
-    const result = links.map((sl) => ({
-      ...sl,
-      allUrls:
-        sl.urls && sl.urls.length > 0
-          ? sl.urls.map((u) => ({ id: u.id, url: u.url }))
-          : sl.link
-          ? [{ id: null, url: sl.link }]
-          : [],
-    }));
+    // 3️⃣ Create lookup map
+    const employeeMap = Object.fromEntries(
+      employees.map((e) => [e.id, `${e.fullName} (${e.employeeId})`])
+    );
+
+    const result = links.map((sl) => {
+      const snapshotIds = sl.sharedEmployeeIds
+        ? sl.sharedEmployeeIds.split(",").map(Number)
+        : [];
+
+      return {
+        ...sl,
+
+        // ✅ THIS IS THE FIX
+        snapshotEmployees: snapshotIds.map((id) => ({
+          id,
+          name: employeeMap[id] || `Employee (${id})`,
+        })),
+
+        allUrls:
+          sl.urls && sl.urls.length > 0
+            ? sl.urls.map((u) => ({ id: u.id, url: u.url }))
+            : sl.link
+            ? [{ id: null, url: sl.link }]
+            : [],
+      };
+    });
 
     res.json(result);
   } catch (err) {
@@ -566,7 +435,12 @@ router.delete(
           .status(404)
           .json({ message: "Link not found or you don't have access" });
       }
-
+      // ❗ BLOCK delete if link is not opened
+      if (!receivedLink.isOpen) {
+        return res.status(400).json({
+          message: "You must open the link before deleting it",
+        });
+      }
       // Delete the received link
       await prisma.receivedLink.delete({
         where: { id: receivedLinkId },
@@ -609,7 +483,7 @@ router.put("/:id", authenticate, async (req, res) => {
 
     // --- inputs ---
     const id = parseInt(req.params.id, 10);
-    const { link, linkType, country } = req.body;
+    const { link, linkType, country, message } = req.body;
 
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid link ID" });
@@ -650,6 +524,7 @@ router.put("/:id", authenticate, async (req, res) => {
         link: link.trim(),
         linkType,
         country: country.trim(),
+        message: message?.trim() ? message.trim() : null, // ⭐ ADD
       },
       include: {
         recipients: {
@@ -895,35 +770,83 @@ router.put(
  * e.g. GET /api/links/open/:receivedLinkId
  */
 // REMOVE authenticate + authorizeRole middlewares
-router.get("/open/:urlId", async (req, res) => {
+// router.get("/open/:urlId", async (req, res) => {
+//   try {
+//     const urlId = Number(req.params.urlId);
+//     if (isNaN(urlId)) {
+//       return res.status(400).json({ message: "Invalid URL ID" });
+//     }
+
+//     // Find the URL and its sharedLink
+//     const urlEntry = await prisma.sharedLinkUrl.findUnique({
+//       where: { id: urlId },
+//       include: { sharedLink: true },
+//     });
+
+//     if (!urlEntry) {
+//       return res.status(404).json({ message: "URL not found" });
+//     }
+
+//     // Mark ALL recipients of this SharedLink as "opened"
+//     await prisma.receivedLink.updateMany({
+//       where: { sharedLinkId: urlEntry.sharedLinkId },
+//       data: {
+//         isOpen: true,
+//         openedAt: new Date(),
+//       },
+//     });
+
+//     return res.redirect(urlEntry.url);
+//   } catch (err) {
+//     console.error("❌ Error in GET /open/:urlId:", err);
+//     res.status(500).json({ message: "Failed to open URL" });
+//   }
+// });
+// ✅ Track and redirect when employee clicks a shared link
+// GET /api/links/open/:receivedLinkId
+router.get("/open/:receivedLinkId", async (req, res) => {
   try {
-    const urlId = Number(req.params.urlId);
-    if (isNaN(urlId)) {
-      return res.status(400).json({ message: "Invalid URL ID" });
+    const receivedLinkId = Number(req.params.receivedLinkId);
+    if (isNaN(receivedLinkId)) {
+      return res.status(400).json({ message: "Invalid received link ID" });
     }
 
-    // Find the URL and its sharedLink
-    const urlEntry = await prisma.sharedLinkUrl.findUnique({
-      where: { id: urlId },
-      include: { sharedLink: true },
-    });
-
-    if (!urlEntry) {
-      return res.status(404).json({ message: "URL not found" });
-    }
-
-    // Mark ALL recipients of this SharedLink as "opened"
-    await prisma.receivedLink.updateMany({
-      where: { sharedLinkId: urlEntry.sharedLinkId },
-      data: {
-        isOpen: true,
-        openedAt: new Date(),
+    // Find the received link (this identifies the employee!)
+    const receivedLink = await prisma.receivedLink.findUnique({
+      where: { id: receivedLinkId },
+      include: {
+        sharedLink: {
+          include: { urls: true },
+        },
       },
     });
 
-    return res.redirect(urlEntry.url);
+    if (!receivedLink) {
+      return res.status(404).json({ message: "Received link not found" });
+    }
+
+    // ✅ Mark ONLY THIS employee's link as opened
+    if (!receivedLink.isOpen) {
+      await prisma.receivedLink.update({
+        where: { id: receivedLinkId },
+        data: {
+          isOpen: true,
+          openedAt: new Date(),
+        },
+      });
+    }
+
+    // Redirect to the first URL (or you can improve later)
+    const redirectUrl =
+      receivedLink.sharedLink.urls?.[0]?.url || receivedLink.sharedLink.link;
+
+    if (!redirectUrl) {
+      return res.status(404).json({ message: "No URL found" });
+    }
+
+    return res.redirect(redirectUrl);
   } catch (err) {
-    console.error("❌ Error in GET /open/:urlId:", err);
+    console.error("❌ Error in GET /open/:receivedLinkId:", err);
     res.status(500).json({ message: "Failed to open URL" });
   }
 });

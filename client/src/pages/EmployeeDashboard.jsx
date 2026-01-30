@@ -327,31 +327,6 @@ const EmployeeDashboard = () => {
   //         return;
   //       }
 
-  //       const res = await axios.get(
-  //         `${API_BASE_URL}/api/incentives/progress/${employeeId}`,
-  //         {
-  //           headers: {
-  //             Authorization: `Bearer ${token}`,
-  //           },
-  //         }
-  //       );
-
-  //       setAchievedIncentive(res.data?.achieved ?? null);
-  //     } catch (err) {
-  //       // 401 / empty DB / no plans → NOT an app error
-  //       if (err.response?.status === 401) {
-  //         console.warn("Incentive progress: unauthorized");
-  //       } else {
-  //         console.error("Incentive progress error:", err);
-  //       }
-
-  //       setAchievedIncentive(null);
-  //     }
-  //   };
-
-  //   fetchIncentiveProgress();
-  // }, [leads, API_BASE_URL]);
-
   if (loading) return <Loader />;
 
   const loggedInId = localStorage.getItem("employeeId");

@@ -16,7 +16,7 @@ const API_URL = import.meta.env.VITE_API_BASE_URL;
 
 const ShareLink = () => {
   const [linkInputs, setLinkInputs] = useState([
-    { links: [""], linkType: "", country: "", recipientIds: [] },
+    { links: [""], linkType: "", country: "", recipientIds: [], message: "" },
   ]);
   const [employees, setEmployees] = useState([]);
   const [showSharedInfo, setShowSharedInfo] = useState(false);
@@ -27,6 +27,7 @@ const ShareLink = () => {
     allUrls: [""],
     linkType: "",
     country: "",
+    message: "", // ⭐ ADD
   });
 
   useEffect(() => {
@@ -49,11 +50,10 @@ const ShareLink = () => {
       setEmployees([]);
     }
   };
-
   const handleAddInput = () => {
     setLinkInputs((prev) => [
       ...prev,
-      { links: [""], linkType: "", country: "", recipientIds: [] },
+      { links: [""], linkType: "", country: "", recipientIds: [], message: "" },
     ]);
   };
 
@@ -123,6 +123,7 @@ const ShareLink = () => {
           linkType: card.linkType,
           country: card.country,
           recipientIds: card.recipientIds,
+          message: card.message, // ⭐ THIS WAS MISSING
         };
 
         await axios.post(`${API_URL}/api/links/share`, payload, {
@@ -133,8 +134,15 @@ const ShareLink = () => {
       alert("✅ Links shared successfully!");
       // Reset to single empty card
       setLinkInputs([
-        { links: [""], linkType: "", country: "", recipientIds: [] },
+        {
+          links: [""],
+          linkType: "",
+          country: "",
+          recipientIds: [],
+          message: "",
+        },
       ]);
+
       if (showSharedInfo) {
         loadSharedInfo();
       }
@@ -179,6 +187,7 @@ const ShareLink = () => {
       allUrls: urls,
       linkType: link.linkType,
       country: link.country,
+      message: link.message || "",
     });
   };
 
@@ -190,6 +199,7 @@ const ShareLink = () => {
         link: editForm.allUrls[0] || "", // First URL as primary link
         linkType: editForm.linkType,
         country: editForm.country,
+        message: editForm.message, // ⭐ THIS WAS MISSING
       };
       await axios.put(`${API_URL}/api/links/${linkId}`, payload, {
         headers: { Authorization: `Bearer ${token}` },
@@ -299,304 +309,341 @@ const ShareLink = () => {
                 ))}
               </div>
             ) : Array.isArray(sharedInfo) && sharedInfo.length > 0 ? (
-              sharedInfo.map((sl) => (
-                <div
-                  key={sl.id}
-                  className="bg-white rounded-2xl shadow-lg overflow-hidden"
-                >
-                  {editingLink === sl.id ? (
-                    // Edit Form
-                    <div className="p-6">
-                      <h3 className="text-xl font-bold mb-4">Edit Link</h3>
-                      <div className="space-y-4">
-                        {/* URLs section */}
-                        <div>
-                          <label className="block text-base font-bold text-gray-700 mb-2">
-                            Link URLs
-                          </label>
-                          {editForm.allUrls.map((url, urlIdx) => (
-                            <div
-                              key={urlIdx}
-                              className="flex items-center gap-2 mb-2"
+              sharedInfo.map((sl) => {
+                const liveRecipientIds =
+                  sl.recipients?.map((r) => r.recipientId) || [];
+
+                // 👇 comes from backend (resolved using employee.id)
+                const snapshotEmployees = sl.snapshotEmployees || [];
+
+                // employees who deleted the link
+                const removedEmployees = snapshotEmployees.filter(
+                  (emp) => !liveRecipientIds.includes(emp.id)
+                );
+
+                return (
+                  <div
+                    key={sl.id}
+                    className="bg-white rounded-2xl shadow-lg overflow-hidden"
+                  >
+                    {editingLink === sl.id ? (
+                      // Edit Form
+                      <div className="p-6">
+                        <h3 className="text-xl font-bold mb-4">Edit Link</h3>
+                        <div className="space-y-4">
+                          {/* URLs section */}
+                          <div>
+                            <label className="block text-base font-bold text-gray-700 mb-2">
+                              Link URLs
+                            </label>
+                            {editForm.allUrls.map((url, urlIdx) => (
+                              <div
+                                key={urlIdx}
+                                className="flex items-center gap-2 mb-2"
+                              >
+                                <input
+                                  type="url"
+                                  className="w-full px-4 py-3 border border-gray-200 rounded-lg text-base"
+                                  value={url}
+                                  onChange={(e) =>
+                                    updateEditUrl(urlIdx, e.target.value)
+                                  }
+                                />
+                                {editForm.allUrls.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => removeEditUrlField(urlIdx)}
+                                    className="p-2 bg-red-50 text-red-600 rounded-lg"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                            <button
+                              type="button"
+                              onClick={addEditUrlField}
+                              className="px-4 py-2 border-2 border-dashed border-purple-300 text-purple-600 rounded-lg font-medium"
                             >
-                              <input
-                                type="url"
+                              + Add URL
+                            </button>
+                          </div>
+
+                          {/* Link Type and Country */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-base font-bold text-gray-700 mb-2">
+                                Link Type
+                              </label>
+                              <select
                                 className="w-full px-4 py-3 border border-gray-200 rounded-lg text-base"
-                                value={url}
+                                value={editForm.linkType}
                                 onChange={(e) =>
-                                  updateEditUrl(urlIdx, e.target.value)
+                                  setEditForm({
+                                    ...editForm,
+                                    linkType: e.target.value,
+                                  })
+                                }
+                              >
+                                <option value="">Select type</option>
+                                <option value="Association Type">
+                                  Association Type
+                                </option>
+                                <option value="Industry Type">
+                                  Industry Type
+                                </option>
+                                <option value="Attendees Type">
+                                  Attendees Type
+                                </option>
+                                <option value="World Wide">World Wide</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-base font-bold text-gray-700 mb-2">
+                                Country
+                              </label>
+                              <input
+                                type="text"
+                                className="w-full px-4 py-3 border border-gray-200 rounded-lg text-base"
+                                value={editForm.country}
+                                onChange={(e) =>
+                                  setEditForm({
+                                    ...editForm,
+                                    country: e.target.value,
+                                  })
                                 }
                               />
-                              {editForm.allUrls.length > 1 && (
-                                <button
-                                  type="button"
-                                  onClick={() => removeEditUrlField(urlIdx)}
-                                  className="p-2 bg-red-50 text-red-600 rounded-lg"
-                                >
-                                  <X className="w-4 h-4" />
-                                </button>
-                              )}
                             </div>
-                          ))}
-                          <button
-                            type="button"
-                            onClick={addEditUrlField}
-                            className="px-4 py-2 border-2 border-dashed border-purple-300 text-purple-600 rounded-lg font-medium"
-                          >
-                            + Add URL
-                          </button>
-                        </div>
-
-                        {/* Link Type and Country */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-base font-bold text-gray-700 mb-2">
-                              Link Type
-                            </label>
-                            <select
-                              className="w-full px-4 py-3 border border-gray-200 rounded-lg text-base"
-                              value={editForm.linkType}
-                              onChange={(e) =>
-                                setEditForm({
-                                  ...editForm,
-                                  linkType: e.target.value,
-                                })
-                              }
-                            >
-                              <option value="">Select type</option>
-                              <option value="Association Type">
-                                Association Type
-                              </option>
-                              <option value="Industry Type">
-                                Industry Type
-                              </option>
-                              <option value="Attendees Type">
-                                Attendees Type
-                              </option>
-                              <option value="World Wide">World Wide</option>
-                            </select>
                           </div>
+                          {/* Message (optional) */}
                           <div>
                             <label className="block text-base font-bold text-gray-700 mb-2">
-                              Country
+                              Message (optional)
                             </label>
-                            <input
-                              type="text"
-                              className="w-full px-4 py-3 border border-gray-200 rounded-lg text-base"
-                              value={editForm.country}
+                            <textarea
+                              rows={4}
+                              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500"
+                              placeholder="Optional message for employees..."
+                              value={editForm.message}
                               onChange={(e) =>
                                 setEditForm({
                                   ...editForm,
-                                  country: e.target.value,
+                                  message: e.target.value,
                                 })
                               }
                             />
                           </div>
-                        </div>
 
-                        {/* Buttons */}
-                        <div className="flex gap-3">
-                          <button
-                            type="button"
-                            onClick={() => setEditingLink(null)}
-                            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateLink(sl.id)}
-                            className="px-4 py-2 bg-purple-600 text-white rounded-lg font-medium"
-                          >
-                            Save Changes
-                          </button>
+                          {/* Buttons */}
+                          <div className="flex gap-3">
+                            <button
+                              type="button"
+                              onClick={() => setEditingLink(null)}
+                              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateLink(sl.id)}
+                              className="px-4 py-2 bg-purple-600 text-white rounded-lg font-medium"
+                            >
+                              Save Changes
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ) : (
-                    // Original card content
-                    <>
-                      <div className="mt-3 ml-7">
-                        <span className="px-3 py-1 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-full text-sm font-semibold">
-                          Shared by: {sl.createdBy?.fullName} (
-                          {sl.createdBy?.employeeId})
-                        </span>
-                      </div>
+                    ) : (
+                      // Original card content
+                      <>
+                        <div className="mt-3 ml-7">
+                          <span className="px-3 py-1 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-full text-sm font-semibold">
+                            Shared by: {sl.createdBy?.fullName} (
+                            {sl.createdBy?.employeeId})
+                          </span>
+                        </div>
 
-                      <div className="p-5">
-                        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
-                          {/* Link Info */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start gap-3 mb-3">
-                              <div className="p-2 bg-purple-50 rounded-lg mt-1">
-                                <LinkIcon className="w-6 h-6 text-purple-600" />
+                        <div className="p-5">
+                          <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                            {/* Link Info */}
+                            <div className="flex-1 min-w-0">
+                              {/* Optional Message */}
+                              {sl.message && (
+                                <div className="mb-4 p-4 bg-indigo-50 border-l-4 border-indigo-500 rounded-lg">
+                                  <p className="text-sm font-bold text-indigo-700 mb-1">
+                                    Message
+                                  </p>
+                                  <p className="text-gray-800 text-sm whitespace-pre-line">
+                                    {sl.message}
+                                  </p>
+                                </div>
+                              )}
+
+                              <div className="flex items-start gap-3 mb-3">
+                                <div className="p-2 bg-purple-50 rounded-lg mt-1">
+                                  <LinkIcon className="w-6 h-6 text-purple-600" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-bold text-gray-500 mb-1">
+                                    Link URLs
+                                  </p>
+
+                                  {/* Updated to use allUrls and display each on its own line */}
+                                  <div className="space-y-2">
+                                    {Array.isArray(sl.allUrls) &&
+                                    sl.allUrls.length > 0 ? (
+                                      sl.allUrls.map((u, index) => (
+                                        <a
+                                          key={index}
+                                          href={
+                                            u.id
+                                              ? `${API_URL}/api/links/open/${u.id}`
+                                              : u.url
+                                          }
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="block text-purple-600 hover:text-purple-700 font-semibold underline decoration-2 break-all text-lg leading-relaxed"
+                                        >
+                                          {u.url}
+                                        </a>
+                                      ))
+                                    ) : (
+                                      <p className="text-base text-gray-500">
+                                        No URLs available
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-bold text-gray-500 mb-1">
-                                  Link URLs
+
+                              <div className="flex flex-wrap gap-3 mb-3">
+                                <div className="flex items-center gap-2">
+                                  <div className="p-1.5 bg-blue-50 rounded-lg">
+                                    <Tag className="w-5 h-5 text-blue-600" />
+                                  </div>
+                                  <div>
+                                    <p className="text-sm font-semibold text-gray-500">
+                                      Type
+                                    </p>
+                                    <p className="text-base font-semibold text-gray-900">
+                                      {sl.linkType}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <div className="p-1.5 bg-green-50 rounded-lg">
+                                    <Globe className="w-5 h-5 text-green-600" />
+                                  </div>
+                                  <div>
+                                    <p className="text-sm font-semibold text-gray-500">
+                                      Country
+                                    </p>
+                                    <p className="text-base font-semibold text-gray-900">
+                                      {sl.country.toUpperCase()}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <div className="p-1.5 bg-orange-50 rounded-lg">
+                                    <Users className="w-5 h-5 text-orange-600" />
+                                  </div>
+                                  <div>
+                                    <p className="text-sm font-semibold text-gray-500">
+                                      Recipients
+                                    </p>
+                                    <p className="text-base font-semibold text-gray-900">
+                                      {sl.sharedEmployeeIds
+                                        ? sl.sharedEmployeeIds
+                                            .split(",")
+                                            .filter(Boolean).length
+                                        : 0}{" "}
+                                      employees
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Recipients List */}
+                              <div>
+                                <p className="text-sm font-semibold text-gray-500 mb-2">
+                                  Shared with:
                                 </p>
 
-                                {/* Updated to use allUrls and display each on its own line */}
-                                <div className="space-y-2">
-                                  {Array.isArray(sl.allUrls) &&
-                                  sl.allUrls.length > 0 ? (
-                                    sl.allUrls.map((u, index) => (
-                                      <a
-                                        key={index}
-                                        href={
-                                          u.id
-                                            ? `${API_URL}/api/links/open/${u.id}`
-                                            : u.url
-                                        }
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="block text-purple-600 hover:text-purple-700 font-semibold underline decoration-2 break-all text-lg leading-relaxed"
-                                      >
-                                        {u.url}
-                                      </a>
-                                    ))
-                                  ) : (
-                                    <p className="text-base text-gray-500">
-                                      No URLs available
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="flex flex-wrap gap-3 mb-3">
-                              <div className="flex items-center gap-2">
-                                <div className="p-1.5 bg-blue-50 rounded-lg">
-                                  <Tag className="w-5 h-5 text-blue-600" />
-                                </div>
-                                <div>
-                                  <p className="text-sm font-semibold text-gray-500">
-                                    Type
-                                  </p>
-                                  <p className="text-base font-semibold text-gray-900">
-                                    {sl.linkType}
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <div className="p-1.5 bg-green-50 rounded-lg">
-                                  <Globe className="w-5 h-5 text-green-600" />
-                                </div>
-                                <div>
-                                  <p className="text-sm font-semibold text-gray-500">
-                                    Country
-                                  </p>
-                                  <p className="text-base font-semibold text-gray-900">
-                                    {sl.country.toUpperCase()}
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <div className="p-1.5 bg-orange-50 rounded-lg">
-                                  <Users className="w-5 h-5 text-orange-600" />
-                                </div>
-                                <div>
-                                  <p className="text-sm font-semibold text-gray-500">
-                                    Recipients
-                                  </p>
-                                  <p className="text-base font-semibold text-gray-900">
-                                    {sl.recipients?.length || 0} employees
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Recipients List */}
-                            <div>
-                              <p className="text-sm font-semibold text-gray-500 mb-2">
-                                Shared with:
-                              </p>
-                              <div className="flex flex-wrap gap-2">
-                                {sl.recipients?.map((r) => (
-                                  <span
-                                    key={r.recipientId}
-                                    className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-bold transition-all duration-200 ${
-                                      r.isOpen
-                                        ? "bg-gradient-to-r from-emerald-50 to-teal-50 text-emerald-800 border border-emerald-200 shadow-sm hover:shadow-md"
-                                        : "bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-800 border border-indigo-200 shadow-sm hover:shadow-md"
-                                    }`}
-                                  >
-                                    <span className="font-semibold">
-                                      {r.recipient.fullName}
-                                    </span>
-                                    <span className="text-xs opacity-75 ml-1">
-                                      ({r.recipient.employeeId})
-                                    </span>
+                                <div className="flex flex-wrap gap-2">
+                                  {/* ✅ Live recipients */}
+                                  {sl.recipients?.map((r) => (
                                     <span
-                                      className={`ml-2 flex items-center ${
+                                      key={r.recipientId}
+                                      className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-bold transition-all duration-200 ${
                                         r.isOpen
-                                          ? "text-emerald-600"
-                                          : "text-indigo-600"
+                                          ? "bg-gradient-to-r from-emerald-50 to-teal-50 text-emerald-800 border border-emerald-200 shadow-sm"
+                                          : "bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-800 border border-indigo-200 shadow-sm"
                                       }`}
                                     >
-                                      {r.isOpen ? (
-                                        <>
-                                          <svg
-                                            className="w-3 h-3 mr-1"
-                                            fill="currentColor"
-                                            viewBox="0 0 20 20"
-                                          >
-                                            <path
-                                              fillRule="evenodd"
-                                              d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                              clipRule="evenodd"
-                                            />
-                                          </svg>
-                                          Opened
-                                        </>
-                                      ) : (
-                                        <p className="text-red-500 flex items-center justify-center">
-                                          <svg
-                                            className="w-3 h-3 mr-1"
-                                            fill="currentColor"
-                                            viewBox="0 0 20 20"
-                                          >
-                                            <path
-                                              fillRule="evenodd"
-                                              d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                                              clipRule="evenodd"
-                                            />
-                                          </svg>
-                                          Not Opened
-                                        </p>
-                                      )}
+                                      <span className="font-semibold">
+                                        {r.recipient.fullName}
+                                      </span>
+                                      <span className="text-xs opacity-75 ml-1">
+                                        ({r.recipient.employeeId})
+                                      </span>
+
+                                      <span
+                                        className={`ml-2 flex items-center ${
+                                          r.isOpen
+                                            ? "text-emerald-600"
+                                            : "text-red-500"
+                                        }`}
+                                      >
+                                        {r.isOpen ? "Opened" : "Not Opened"}
+                                      </span>
                                     </span>
-                                  </span>
-                                ))}
+                                  ))}
+
+                                  {/* 🟡 Removed recipients (deleted by employee) */}
+                                  {removedEmployees.map((emp) => (
+                                    <span
+                                      key={`removed-${emp.id}`}
+                                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full
+               bg-red-50 text-red-700 border border-red-200
+               text-sm font-semibold italic"
+                                    >
+                                      <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                                      {emp.name}
+                                      <span className="text-xs font-medium text-red-500">
+                                        (Employee Deleted Link)
+                                      </span>
+                                    </span>
+                                  ))}
+                                </div>
                               </div>
                             </div>
-                          </div>
 
-                          {/* Actions */}
-                          <div className="flex lg:flex-col gap-2 lg:w-32">
-                            <button
-                              onClick={() => handleEdit(sl)}
-                              className="px-4 py-3 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition font-bold flex items-center justify-center gap-2 text-base"
-                            >
-                              <Edit2 className="w-5 h-5" />
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => handleDelete(sl.id)}
-                              className="px-4 py-3 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition font-bold flex items-center justify-center gap-2 text-base"
-                            >
-                              <Trash2 className="w-5 h-5" />
-                              Delete
-                            </button>
+                            {/* Actions */}
+                            <div className="flex lg:flex-col gap-2 lg:w-32">
+                              <button
+                                onClick={() => handleEdit(sl)}
+                                className="px-4 py-3 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition font-bold flex items-center justify-center gap-2 text-base"
+                              >
+                                <Edit2 className="w-5 h-5" />
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDelete(sl.id)}
+                                className="px-4 py-3 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition font-bold flex items-center justify-center gap-2 text-base"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                                Delete
+                              </button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </>
-                  )}
+                      </>
+                    )}
 
-                  <div className="h-0.5 bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600"></div>
-                </div>
-              ))
+                    <div className="h-0.5 bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600"></div>
+                  </div>
+                );
+              })
             ) : (
               <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
                 <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -671,7 +718,20 @@ const ShareLink = () => {
                     + Add Another URL
                   </button>
                 </div>
-
+                <div>
+                  <label className="block text-base font-bold text-gray-700 mb-2">
+                    Message (optional)
+                  </label>
+                  <textarea
+                    rows={4}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500"
+                    placeholder="Optional message for employees..."
+                    value={li.message}
+                    onChange={(e) =>
+                      handleChange(idx, "message", e.target.value)
+                    }
+                  />
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-base font-bold text-gray-700 mb-2">
