@@ -17,6 +17,7 @@ import incentiveRoutes from "./src/routes/incentiveRoutes.js";
 import leaderboardRoutes from "./src/routes/leaderboardRoutes.js";
 import quoteRoutes from "./src/routes/quoteRoutes.js";
 import notificationRoutes from "./src/routes/notificationRoutes.js";
+import adminRoutes from "./src/routes/admin.routes.js";
 
 console.log("🕐 Server time (UTC):", new Date().toISOString());
 console.log("🇺🇸 US (New York) time:", getUSADateTime());
@@ -27,13 +28,19 @@ dotenv.config();
 webpush.setVapidDetails(
   "mailto:support.tech@abaccotech.com",
   process.env.VAPID_PUBLIC_KEY,
-  process.env.VAPID_PRIVATE_KEY
+  process.env.VAPID_PRIVATE_KEY,
 );
 const prisma = new PrismaClient();
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(
+  cors({
+    origin: "http://localhost:5173", // frontend URL
+    credentials: true, // allow cookies/auth headers
+  }),
+);
+
 app.use(express.json());
 
 // Routes
@@ -49,6 +56,7 @@ app.use("/api/incentives", incentiveRoutes);
 app.use("/api/employee", leaderboardRoutes);
 app.use("/api/quotes", quoteRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/admin", adminRoutes);
 
 // Add JWT secret to environment
 process.env.JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";

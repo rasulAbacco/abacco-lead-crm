@@ -176,6 +176,11 @@ function Layout({ children }) {
                 <NavLink to="/reports" icon={ServerCrash} label="Reports" />
                 <NavLink to="/incentives" icon={HandCoins} label="Incentives" />
                 <NavLink to="/employees" icon={Users} label="All Employees" />
+                <NavLink
+                  to="/sales-employee"
+                  icon={Users}
+                  label="Sales Employees"
+                />
                 {/* <NavLink to="/industry-types" icon={Briefcase} label="Industry Types" /> */}
               </>
             )}

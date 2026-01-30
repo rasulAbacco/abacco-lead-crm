@@ -39,11 +39,41 @@ const ForwardLeads = () => {
   const [errorMessage, setErrorMessage] = useState("");
   const [debugMode, setDebugMode] = useState(false);
   const [debugTab, setDebugTab] = useState("overview");
+
+  // State for Sales Modal
+  const [salesEmployees, setSalesEmployees] = useState([]);
+  const [salesAssignModal, setSalesAssignModal] = useState({
+    open: false,
+    leadId: null,
+    empId: null,
+    isOldLead: false,
+  });
+  const [selectedSalesEmployee, setSelectedSalesEmployee] = useState("");
+
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+  // Fetch Sales Employees
+  const fetchSalesEmployees = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_BASE_URL}/api/admin/sales-employees`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) throw new Error("Failed to load sales employees");
+      const data = await res.json();
+      setSalesEmployees(data.filter((s) => s.isActive));
+    } catch (err) {
+      console.error("Failed to fetch sales employees", err);
+    }
+  };
 
   // Fetch employees with leads
   useEffect(() => {
     fetchEmployees();
+    fetchSalesEmployees();
   }, []);
 
   const fetchEmployees = async () => {
@@ -57,7 +87,6 @@ const ForwardLeads = () => {
 
       setEmployees(
         data.map((emp) => {
-          // Separate today's leads and previous unforwarded leads
           const todayLeads = emp.leads.filter((lead) => {
             const leadDateUSA = toZonedTime(new Date(lead.date), USA_TZ);
             const leadDateStr = format(leadDateUSA, "yyyy-MM-dd", {
@@ -66,7 +95,6 @@ const ForwardLeads = () => {
             return leadDateStr === todayStr;
           });
 
-          // Updated filtering logic for old unforwarded leads
           const oldUnforwardedLeads = emp.leads.filter((lead) => {
             const leadDateUSA = toZonedTime(new Date(lead.date), USA_TZ);
             const leadDateStr = format(leadDateUSA, "yyyy-MM-dd", {
@@ -95,10 +123,12 @@ const ForwardLeads = () => {
                 leadType: lead.leadType,
                 clientEmail: lead.clientEmail,
                 leadEmail: lead.leadEmail,
-                // Process CC emails - convert comma-separated string to array
-                ccEmail: lead.ccEmail ? lead.ccEmail.split(',').map(email => email.trim()) : [],
-                // Process phone numbers - convert comma-separated string to array
-                phone: lead.phone ? lead.phone.split(',').map(phone => phone.trim()) : [],
+                ccEmail: lead.ccEmail
+                  ? lead.ccEmail.split(",").map((email) => email.trim())
+                  : [],
+                phone: lead.phone
+                  ? lead.phone.split(",").map((phone) => phone.trim())
+                  : [],
                 website: lead.website,
                 country: lead.country,
                 contactDate: format(leadDateUSA, "MMM dd, yyyy", {
@@ -110,9 +140,10 @@ const ForwardLeads = () => {
                 emailResponce: lead.emailResponce,
                 link: lead.link,
                 forwarded: lead.forwarded || false,
+                salesEmployeeId: lead.salesEmployeeId || null,
                 qualified: lead.qualified,
                 isEdited: lead.isEdited,
-                attendeesCount: lead.attendeesCount || null, // Add attendees count
+                attendeesCount: lead.attendeesCount || null,
               };
             }),
             oldLeads: oldUnforwardedLeads.map((lead) => {
@@ -123,10 +154,12 @@ const ForwardLeads = () => {
                 leadType: lead.leadType,
                 clientEmail: lead.clientEmail,
                 leadEmail: lead.leadEmail,
-                // Process CC emails - convert comma-separated string to array
-                ccEmail: lead.ccEmail ? lead.ccEmail.split(',').map(email => email.trim()) : [],
-                // Process phone numbers - convert comma-separated string to array
-                phone: lead.phone ? lead.phone.split(',').map(phone => phone.trim()) : [],
+                ccEmail: lead.ccEmail
+                  ? lead.ccEmail.split(",").map((email) => email.trim())
+                  : [],
+                phone: lead.phone
+                  ? lead.phone.split(",").map((phone) => phone.trim())
+                  : [],
                 website: lead.website,
                 country: lead.country,
                 contactDate: format(leadDateUSA, "MMM dd, yyyy", {
@@ -140,11 +173,11 @@ const ForwardLeads = () => {
                 forwarded: lead.forwarded || false,
                 qualified: lead.qualified,
                 isEdited: lead.isEdited,
-                attendeesCount: lead.attendeesCount || null, // Add attendees count
+                attendeesCount: lead.attendeesCount || null,
               };
             }),
           };
-        })
+        }),
       );
       setErrorMessage("");
     } catch (err) {
@@ -161,22 +194,17 @@ const ForwardLeads = () => {
     await fetchEmployees();
   };
 
-  // Calculate stats for today's leads only
   const stats = useMemo(() => {
     const totalLeads = employees.reduce((sum, emp) => sum + emp.dailyLeads, 0);
-
     const forwardedCount = employees.reduce((sum, emp) => {
       return sum + emp.leads.filter((lead) => lead.forwarded).length;
     }, 0);
-
     const qualifiedCount = employees.reduce((sum, emp) => {
       return sum + emp.leads.filter((lead) => lead.qualified === true).length;
     }, 0);
-
     const disqualifiedCount = employees.reduce((sum, emp) => {
       return sum + emp.leads.filter((lead) => lead.qualified === false).length;
     }, 0);
-
     const oldUnforwardedCount = employees.reduce((sum, emp) => {
       return sum + emp.oldUnforwardedLeads;
     }, 0);
@@ -190,7 +218,7 @@ const ForwardLeads = () => {
     };
   }, [employees]);
 
-  // Forward a lead
+  // Standard Forward Function (Based on working reference)
   const forwardLead = async (leadId, empId, isOldLead = false) => {
     setActionLoading((prev) => ({ ...prev, [leadId]: "forwarding" }));
     try {
@@ -198,12 +226,11 @@ const ForwardLeads = () => {
         `${API_BASE_URL}/api/employees/leads/${leadId}/forward`,
         {
           method: "POST",
-        }
+        },
       );
 
       if (!res.ok) throw new Error("Failed to forward lead");
 
-      // Update UI immediately
       setEmployees((prevEmployees) =>
         prevEmployees.map((emp) => {
           if (emp.id !== empId) return emp;
@@ -211,19 +238,19 @@ const ForwardLeads = () => {
 
           if (isOldLead) {
             updatedEmp.oldLeads = emp.oldLeads.map((lead) =>
-              lead.id === leadId ? { ...lead, forwarded: true } : lead
+              lead.id === leadId ? { ...lead, forwarded: true } : lead,
             );
             updatedEmp.oldUnforwardedLeads = updatedEmp.oldLeads.filter(
-              (l) => !l.forwarded
+              (l) => !l.forwarded,
             ).length;
           } else {
             updatedEmp.leads = emp.leads.map((lead) =>
-              lead.id === leadId ? { ...lead, forwarded: true } : lead
+              lead.id === leadId ? { ...lead, forwarded: true } : lead,
             );
           }
 
           return updatedEmp;
-        })
+        }),
       );
 
       showSuccessMessage("✅ Lead forwarded to CRM successfully!");
@@ -235,12 +262,11 @@ const ForwardLeads = () => {
     }
   };
 
-  // Mark lead as qualified
   const markQualified = async (
     leadId,
     empId,
     isQualified,
-    isOldLead = false
+    isOldLead = false,
   ) => {
     setActionLoading((prev) => ({ ...prev, [leadId]: "qualifying" }));
     try {
@@ -250,49 +276,111 @@ const ForwardLeads = () => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ qualified: isQualified }),
-        }
+        },
       );
 
       if (!res.ok) throw new Error("Failed to update lead qualification");
 
-      // Update local state
       setEmployees((prevEmployees) =>
         prevEmployees.map((emp) => {
           if (emp.id !== empId) return emp;
-
           const updatedEmp = { ...emp };
 
           if (isOldLead) {
             updatedEmp.oldLeads = emp.oldLeads.map((lead) =>
-              lead.id === leadId ? { ...lead, qualified: isQualified } : lead
+              lead.id === leadId ? { ...lead, qualified: isQualified } : lead,
             );
-            // If marking as disqualified, remove from old leads
             if (isQualified === false) {
               updatedEmp.oldLeads = updatedEmp.oldLeads.filter(
-                (l) => l.id !== leadId
+                (l) => l.id !== leadId,
               );
               updatedEmp.oldUnforwardedLeads = updatedEmp.oldLeads.length;
             }
           } else {
             updatedEmp.leads = emp.leads.map((lead) =>
-              lead.id === leadId ? { ...lead, qualified: isQualified } : lead
+              lead.id === leadId ? { ...lead, qualified: isQualified } : lead,
             );
           }
-
           return updatedEmp;
-        })
+        }),
       );
 
       showSuccessMessage(
         isQualified
           ? "Lead marked as Qualified!"
-          : "Lead marked as Disqualified!"
+          : "Lead marked as Disqualified!",
       );
     } catch (error) {
       console.error("❌ Error updating qualification:", error);
       alert("Failed to update lead. Please try again.");
     } finally {
       setActionLoading((prev) => ({ ...prev, [leadId]: null }));
+    }
+  };
+
+  // Updated to use the same logic as forwardLead
+  const confirmForwardWithSales = async () => {
+    const { leadId, empId, isOldLead } = salesAssignModal;
+
+    if (!selectedSalesEmployee) {
+      alert("Please select a sales employee");
+      return;
+    }
+
+    try {
+      setActionLoading((prev) => ({ ...prev, [leadId]: "assigning" }));
+
+      const token = localStorage.getItem("token");
+
+      const res = await fetch(
+        `${API_BASE_URL}/api/admin/leads/${leadId}/assign-sales`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            salesEmployeeId: Number(selectedSalesEmployee),
+          }),
+        },
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to assign sales employee");
+      }
+
+      // ✅ Update UI (assignment only)
+      setEmployees((prev) =>
+        prev.map((emp) => {
+          if (emp.id !== empId) return emp;
+
+          const updateLead = (lead) =>
+            lead.id === leadId
+              ? {
+                  ...lead,
+                  salesEmployeeId: selectedSalesEmployee,
+                }
+              : lead;
+
+          return {
+            ...emp,
+            leads: emp.leads.map(updateLead),
+            oldLeads: emp.oldLeads?.map(updateLead),
+          };
+        }),
+      );
+
+      showSuccessMessage("✅ Sales employee assigned successfully");
+    } catch (error) {
+      console.error("❌ Assign sales error:", error);
+      alert(error.message || "Failed to assign sales employee");
+    } finally {
+      setActionLoading((prev) => ({ ...prev, [leadId]: null }));
+      setSalesAssignModal({ open: false });
+      setSelectedSalesEmployee("");
     }
   };
 
@@ -307,7 +395,7 @@ const ForwardLeads = () => {
       selectedEmployee?.id === emp.id &&
         selectedEmployee?.isOldLead === isOldLead
         ? null
-        : { ...emp, isOldLead }
+        : { ...emp, isOldLead },
     );
   };
 
@@ -315,7 +403,6 @@ const ForwardLeads = () => {
     return <Loader />;
   }
 
-  // Display current Central USA time
   const currentUSA = toZonedTime(new Date(), USA_TZ);
   const currentUSADate = format(currentUSA, "MMM dd, yyyy", {
     timeZone: USA_TZ,
@@ -325,7 +412,6 @@ const ForwardLeads = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 p-4 md:p-8">
       <div className="max-w-7xl mx-auto space-y-8">
-        {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-1">
@@ -336,7 +422,6 @@ const ForwardLeads = () => {
             </p>
           </div>
 
-          {/* USA Time Display */}
           <div className="px-5 py-3 rounded-xl bg-white/60 backdrop-blur-md border border-gray-200 shadow-sm text-center">
             <div className="text-sm text-gray-500">Central USA Time (CST)</div>
             <div className="text-gray-900 font-semibold text-lg">
@@ -348,7 +433,6 @@ const ForwardLeads = () => {
           </div>
         </div>
 
-        {/* Error Message */}
         {errorMessage && (
           <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg shadow-md">
             <div className="flex items-center">
@@ -361,7 +445,6 @@ const ForwardLeads = () => {
           </div>
         )}
 
-        {/* Success Message */}
         {showSuccess && (
           <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded-lg shadow-md animate-fade-in">
             <div className="flex items-center">
@@ -374,7 +457,6 @@ const ForwardLeads = () => {
           </div>
         )}
 
-        {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           {[
             {
@@ -431,14 +513,14 @@ const ForwardLeads = () => {
           ))}
         </div>
 
-        {/* Controls */}
         <div className="flex justify-between">
           <button
             onClick={() => setDebugMode(!debugMode)}
-            className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-all ${debugMode
-              ? "bg-gradient-to-r from-purple-500 to-indigo-500 text-white hover:from-purple-600 hover:to-indigo-600"
-              : "bg-gray-600 text-white hover:bg-gray-700"
-              }`}
+            className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-all ${
+              debugMode
+                ? "bg-gradient-to-r from-purple-500 to-indigo-500 text-white hover:from-purple-600 hover:to-indigo-600"
+                : "bg-gray-600 text-white hover:bg-gray-700"
+            }`}
           >
             {debugMode ? (
               <Bug className="w-4 h-4" />
@@ -460,10 +542,8 @@ const ForwardLeads = () => {
           </button>
         </div>
 
-        {/* Debug Section - Unchanged */}
         {debugMode && (
           <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-2xl shadow-xl border border-purple-200 overflow-hidden">
-            {/* Debug content remains the same */}
             <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -497,10 +577,11 @@ const ForwardLeads = () => {
                 <button
                   key={tab.id}
                   onClick={() => setDebugTab(tab.id)}
-                  className={`flex items-center gap-2 px-4 py-3 font-medium transition-colors ${debugTab === tab.id
-                    ? "text-purple-600 border-b-2 border-purple-600 bg-purple-50"
-                    : "text-gray-600 hover:text-purple-600 hover:bg-purple-50"
-                    }`}
+                  className={`flex items-center gap-2 px-4 py-3 font-medium transition-colors ${
+                    debugTab === tab.id
+                      ? "text-purple-600 border-b-2 border-purple-600 bg-purple-50"
+                      : "text-gray-600 hover:text-purple-600 hover:bg-purple-50"
+                  }`}
                 >
                   {tab.icon}
                   {tab.label}
@@ -679,10 +760,11 @@ const ForwardLeads = () => {
                                   Forwarded:
                                 </span>
                                 <span
-                                  className={`font-semibold ${lead.forwarded
-                                    ? "text-green-600"
-                                    : "text-red-600"
-                                    }`}
+                                  className={`font-semibold ${
+                                    lead.forwarded
+                                      ? "text-green-600"
+                                      : "text-red-600"
+                                  }`}
                                 >
                                   {lead.forwarded ? "Yes" : "No"}
                                 </span>
@@ -692,12 +774,13 @@ const ForwardLeads = () => {
                                   Qualified:
                                 </span>
                                 <span
-                                  className={`font-semibold ${lead.qualified === true
-                                    ? "text-green-600"
-                                    : lead.qualified === false
-                                      ? "text-red-600"
-                                      : "text-gray-600"
-                                    }`}
+                                  className={`font-semibold ${
+                                    lead.qualified === true
+                                      ? "text-green-600"
+                                      : lead.qualified === false
+                                        ? "text-red-600"
+                                        : "text-gray-600"
+                                  }`}
                                 >
                                   {lead.qualified === true
                                     ? "Yes"
@@ -718,7 +801,6 @@ const ForwardLeads = () => {
           </div>
         )}
 
-        {/* Today's Leads Section */}
         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
           <div className="p-6 border-b border-gray-200 flex items-center justify-between">
             <h2 className="text-xl font-bold text-gray-900">
@@ -802,14 +884,13 @@ const ForwardLeads = () => {
                               className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg hover:from-blue-600 hover:to-indigo-600 transition-all font-medium text-sm shadow-md"
                             >
                               {selectedEmployee?.id === emp.id &&
-                                !selectedEmployee?.isOldLead
+                              !selectedEmployee?.isOldLead
                                 ? "Hide Details"
                                 : "View Details"}
                             </button>
                           </td>
                         </tr>
 
-                        {/* Lead Details Expanded View */}
                         {selectedEmployee?.id === emp.id &&
                           !selectedEmployee?.isOldLead &&
                           emp.leads.length > 0 && (
@@ -832,6 +913,9 @@ const ForwardLeads = () => {
                                         markQualified={markQualified}
                                         actionLoading={actionLoading}
                                         isOldLead={false}
+                                        setSalesAssignModal={
+                                          setSalesAssignModal
+                                        }
                                       />
                                     ))}
                                   </div>
@@ -847,7 +931,6 @@ const ForwardLeads = () => {
           </div>
         </div>
 
-        {/* Old Unforwarded Leads Section */}
         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
           <div className="p-6 border-b border-gray-200 flex items-center justify-between">
             <h2 className="text-xl font-bold text-gray-900">
@@ -933,14 +1016,13 @@ const ForwardLeads = () => {
                               className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg hover:from-amber-600 hover:to-orange-600 transition-all font-medium text-sm shadow-md"
                             >
                               {selectedEmployee?.id === emp.id &&
-                                selectedEmployee?.isOldLead
+                              selectedEmployee?.isOldLead
                                 ? "Hide Details"
                                 : "View Details"}
                             </button>
                           </td>
                         </tr>
 
-                        {/* Lead Details Expanded View */}
                         {selectedEmployee?.id === emp.id &&
                           selectedEmployee?.isOldLead &&
                           emp.oldLeads.length > 0 && (
@@ -963,6 +1045,9 @@ const ForwardLeads = () => {
                                         markQualified={markQualified}
                                         actionLoading={actionLoading}
                                         isOldLead={true}
+                                        setSalesAssignModal={
+                                          setSalesAssignModal
+                                        }
                                       />
                                     ))}
                                   </div>
@@ -978,11 +1063,46 @@ const ForwardLeads = () => {
           </div>
         </div>
       </div>
+
+      {salesAssignModal.open && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
+            <h3 className="text-lg font-bold mb-4">Assign Sales Employee</h3>
+
+            <select
+              className="w-full border rounded-lg px-3 py-2 mb-4"
+              value={selectedSalesEmployee}
+              onChange={(e) => setSelectedSalesEmployee(e.target.value)}
+            >
+              <option value="">Select Sales Employee</option>
+              {salesEmployees.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.fullName} ({s.email})
+                </option>
+              ))}
+            </select>
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setSalesAssignModal({ open: false })}
+                className="px-4 py-2 bg-gray-200 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmForwardWithSales}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg"
+              >
+                Assign Sales Employee
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-// Lead Card Component - Redesigned with modern styling
 const LeadCard = ({
   lead,
   empId,
@@ -990,16 +1110,17 @@ const LeadCard = ({
   markQualified,
   actionLoading,
   isOldLead,
+  setSalesAssignModal,
 }) => (
   <div
-    className={`bg-white rounded-xl shadow-lg border-2 overflow-hidden transition-all duration-300 hover:shadow-xl ${lead.qualified === true
-      ? "border-green-300 bg-green-50/30"
-      : lead.qualified === false
-        ? "border-red-300 bg-red-50/30"
-        : "border-gray-200"
-      }`}
+    className={`bg-white rounded-xl shadow-lg border-2 overflow-hidden transition-all duration-300 hover:shadow-xl ${
+      lead.qualified === true
+        ? "border-green-300 bg-green-50/30"
+        : lead.qualified === false
+          ? "border-red-300 bg-red-50/30"
+          : "border-gray-200"
+    }`}
   >
-    {/* Header with status badges */}
     <div className="p-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
@@ -1046,9 +1167,7 @@ const LeadCard = ({
       </h4>
     </div>
 
-    {/* Information Grid */}
     <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-5">
-      {/* Email Information */}
       <div className="space-y-4">
         <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
           <div className="flex items-center gap-2 mb-2">
@@ -1071,21 +1190,27 @@ const LeadCard = ({
               type="email"
             />
 
-            {/* CC Emails - Display as tags */}
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <Mail className="w-4 h-4 text-blue-500" />
-                <span className="text-sm font-medium text-blue-700">CC Emails:</span>
+                <span className="text-sm font-medium text-blue-700">
+                  CC Emails:
+                </span>
               </div>
               <div className="flex flex-wrap gap-2">
                 {Array.isArray(lead.ccEmail) && lead.ccEmail.length > 0 ? (
                   lead.ccEmail.map((email, index) => (
-                    <span key={index} className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                    <span
+                      key={index}
+                      className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200"
+                    >
                       {email}
                     </span>
                   ))
                 ) : (
-                  <span className="text-sm text-gray-500 italic">No CC emails</span>
+                  <span className="text-sm text-gray-500 italic">
+                    No CC emails
+                  </span>
                 )}
               </div>
             </div>
@@ -1093,30 +1218,37 @@ const LeadCard = ({
         </div>
       </div>
 
-      {/* Contact Information */}
       <div className="space-y-4">
         <div className="bg-indigo-50 rounded-lg p-4 border border-indigo-100">
           <div className="flex items-center gap-2 mb-2">
             <Phone className="w-5 h-5 text-indigo-500" />
-            <h5 className="font-semibold text-indigo-800">Contact Information</h5>
+            <h5 className="font-semibold text-indigo-800">
+              Contact Information
+            </h5>
           </div>
 
           <div className="space-y-3">
-            {/* Phone Numbers - Display as tags */}
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <Phone className="w-4 h-4 text-indigo-500" />
-                <span className="text-sm font-medium text-indigo-700">Phone Numbers:</span>
+                <span className="text-sm font-medium text-indigo-700">
+                  Phone Numbers:
+                </span>
               </div>
               <div className="flex flex-wrap gap-2">
                 {Array.isArray(lead.phone) && lead.phone.length > 0 ? (
                   lead.phone.map((phone, index) => (
-                    <span key={index} className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 border border-indigo-200">
+                    <span
+                      key={index}
+                      className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 border border-indigo-200"
+                    >
                       {phone}
                     </span>
                   ))
                 ) : (
-                  <span className="text-sm text-gray-500 italic">No phone numbers</span>
+                  <span className="text-sm text-gray-500 italic">
+                    No phone numbers
+                  </span>
                 )}
               </div>
             </div>
@@ -1145,7 +1277,6 @@ const LeadCard = ({
       </div>
     </div>
 
-    {/* Attendees Count - Only show for Attendees Lead */}
     {lead.leadType === "Attendees Lead" && lead.attendeesCount && (
       <div className="px-5 pb-3">
         <div className="bg-amber-50 rounded-lg p-4 border border-amber-100">
@@ -1156,15 +1287,18 @@ const LeadCard = ({
 
           <div className="flex items-center justify-center py-2">
             <div className="text-center">
-              <div className="text-3xl font-bold text-amber-600">{lead.attendeesCount}</div>
-              <div className="text-sm font-medium text-amber-700">Attendees</div>
+              <div className="text-3xl font-bold text-amber-600">
+                {lead.attendeesCount}
+              </div>
+              <div className="text-sm font-medium text-amber-700">
+                Attendees
+              </div>
             </div>
           </div>
         </div>
       </div>
     )}
 
-    {/* Email Content */}
     <div className="px-5 pb-5 space-y-4">
       {lead.emailResponce?.trim() && (
         <TextBlock
@@ -1177,7 +1311,6 @@ const LeadCard = ({
         />
       )}
 
-
       <TextBlock
         icon={<FileText />}
         label="Email Pitch"
@@ -1188,18 +1321,17 @@ const LeadCard = ({
       />
     </div>
 
-    {/* Action Buttons */}
     <div className="px-5 py-4 bg-gray-50 border-t border-gray-200 flex flex-wrap gap-3">
-      {/* Qualified Button */}
       <button
         onClick={() => markQualified(lead.id, empId, true, isOldLead)}
         disabled={
           lead.qualified === true || actionLoading[lead.id] === "qualifying"
         }
-        className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-all ${lead.qualified === true || actionLoading[lead.id] === "qualifying"
-          ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-          : "bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 shadow-md hover:shadow-lg"
-          }`}
+        className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-all ${
+          lead.qualified === true || actionLoading[lead.id] === "qualifying"
+            ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+            : "bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 shadow-md hover:shadow-lg"
+        }`}
       >
         {actionLoading[lead.id] === "qualifying" ? (
           <>Processing...</>
@@ -1211,16 +1343,16 @@ const LeadCard = ({
         )}
       </button>
 
-      {/* Disqualified Button */}
       <button
         onClick={() => markQualified(lead.id, empId, false, isOldLead)}
         disabled={
           lead.qualified === false || actionLoading[lead.id] === "qualifying"
         }
-        className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-all ${lead.qualified === false || actionLoading[lead.id] === "qualifying"
-          ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-          : "bg-gradient-to-r from-red-500 to-rose-500 text-white hover:from-red-600 hover:to-rose-600 shadow-md hover:shadow-lg"
-          }`}
+        className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-all ${
+          lead.qualified === false || actionLoading[lead.id] === "qualifying"
+            ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+            : "bg-gradient-to-r from-red-500 to-rose-500 text-white hover:from-red-600 hover:to-rose-600 shadow-md hover:shadow-lg"
+        }`}
       >
         {actionLoading[lead.id] === "qualifying" ? (
           <>Processing...</>
@@ -1232,20 +1364,31 @@ const LeadCard = ({
         )}
       </button>
 
-      {/* Forward Button - Disabled if lead is disqualified */}
       <button
-        onClick={() => forwardLead(lead.id, empId, isOldLead)}
+        onClick={() => {
+          if (lead.salesEmployeeId) {
+            forwardLead(lead.id, empId, isOldLead);
+          } else {
+            setSalesAssignModal({
+              open: true,
+              leadId: lead.id,
+              empId,
+              isOldLead,
+            });
+          }
+        }}
         disabled={
           lead.forwarded ||
           actionLoading[lead.id] === "forwarding" ||
-          lead.qualified === false // Disable if lead is disqualified
+          lead.qualified === false
         }
-        className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-all ${lead.forwarded ||
+        className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-all ${
+          lead.forwarded ||
           actionLoading[lead.id] === "forwarding" ||
           lead.qualified === false
-          ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-          : "bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:from-blue-600 hover:to-indigo-600 shadow-md hover:shadow-lg"
-          }`}
+            ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+            : "bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:from-blue-600 hover:to-indigo-600 shadow-md hover:shadow-lg"
+        }`}
         title={
           lead.qualified === false ? "Cannot forward disqualified leads" : ""
         }
@@ -1270,7 +1413,6 @@ const LeadCard = ({
   </div>
 );
 
-// Info Box Component - For displaying individual info items
 const InfoBox = ({ icon, label, value, type = "text" }) => (
   <div className="flex items-start gap-2">
     {React.cloneElement(icon, { className: "w-4 h-4" })}
@@ -1294,12 +1436,24 @@ const InfoBox = ({ icon, label, value, type = "text" }) => (
   </div>
 );
 
-// Text Block Component - For longer text content
-const TextBlock = ({ icon, label, value, bgColor = "bg-gray-50", borderColor = "border-gray-200", textColor = "text-gray-800" }) => (
+const TextBlock = ({
+  icon,
+  label,
+  value,
+  bgColor = "bg-gray-50",
+  borderColor = "border-gray-200",
+  textColor = "text-gray-800",
+}) => (
   <div className={`${bgColor} rounded-lg p-4 border ${borderColor}`}>
     <div className="flex items-start gap-2 mb-2">
-      {React.cloneElement(icon, { className: `w-4 h-4 ${textColor.replace('text-', 'text-')}` })}
-      <div className={`text-sm font-medium ${textColor.replace('text-', 'text-')}`}>{label}:</div>
+      {React.cloneElement(icon, {
+        className: `w-4 h-4 ${textColor.replace("text-", "text-")}`,
+      })}
+      <div
+        className={`text-sm font-medium ${textColor.replace("text-", "text-")}`}
+      >
+        {label}:
+      </div>
     </div>
     <div className={`text-sm ${textColor} whitespace-pre-wrap pl-6`}>
       {value || "Not Available"}
