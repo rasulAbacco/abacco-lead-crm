@@ -21,5 +21,7 @@ router.patch("/sales-employees/:id/status", toggleSalesEmployeeStatus);
 
 /* LEAD ASSIGNMENT */
 router.post("/leads/:leadId/assign-sales", assignSalesAndForwardLead);
+/* LEAD ASSIGNMENT */
+router.put("/leads/:leadId/assign-sales", assignSalesAndForwardLead);
 
 export default router;

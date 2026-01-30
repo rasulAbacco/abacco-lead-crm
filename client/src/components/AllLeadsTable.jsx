@@ -19,6 +19,7 @@ import {
   CheckCircle,
 } from "lucide-react";
 import Loader from "./Loader";
+import AssignSalesModal from "./AssignSalesModal";
 
 const defaultFilters = {
   leadType: "all",
@@ -50,6 +51,11 @@ export default function AllLeadsTable() {
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(true);
   const [expandedCards, setExpandedCards] = useState(new Set());
+
+  const [assignModal, setAssignModal] = useState({
+    open: false,
+    lead: null,
+  });
 
   const safe = (val) => (val && val.trim() !== "" ? val : "Not available");
 
@@ -471,10 +477,34 @@ export default function AllLeadsTable() {
                               </span>
                             </span>
                           ) : (
-                            <span className="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-600 border border-gray-200">
-                              <User className="h-4" />
-                              Sales: Not Assigned
-                            </span>
+                            <button
+                              onClick={() =>
+                                setAssignModal({
+                                  open: true,
+                                  lead: {
+                                    id: lead.id,
+                                    salesEmployeeId:
+                                      lead.salesEmployeeId ?? null,
+                                  },
+                                })
+                              }
+                              className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full
+             bg-gray-100 text-gray-700 border border-gray-200
+             hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-300
+             transition cursor-pointer"
+                            >
+                              <User className="h-4 w-4" />
+                              {lead.salesEmployeeName ? (
+                                <>
+                                  {lead.salesEmployeeName}
+                                  <span className="text-indigo-500">
+                                    ({lead.salesEmployeeEmail})
+                                  </span>
+                                </>
+                              ) : (
+                                "Sales: Not Assigned"
+                              )}
+                            </button>
                           )}
                         </div>
                         <h3 className="text-lg font-semibold text-slate-900 mb-1">
@@ -630,6 +660,12 @@ export default function AllLeadsTable() {
           )}
         </div>
       </div>
+      <AssignSalesModal
+        open={assignModal.open}
+        lead={assignModal.lead}
+        onClose={() => setAssignModal({ open: false, lead: null })}
+        onSuccess={fetchLeads}
+      />
     </div>
   );
 }
