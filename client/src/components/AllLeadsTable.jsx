@@ -155,8 +155,7 @@ export default function AllLeadsTable() {
         const fromDateMatch =
           !filters.fromDate ||
           (leadDate !== null &&
-            leadDate >=
-            new Date(filters.fromDate).setHours(0, 0, 0, 0));
+            leadDate >= new Date(filters.fromDate).setHours(0, 0, 0, 0));
 
         const toDateMatch =
           !filters.toDate ||
@@ -176,19 +175,22 @@ export default function AllLeadsTable() {
             lead.subjectLine,
             lead.country,
             lead.phone,
-            lead.qualified ? "qualified" : lead.qualified === false ? "disqualified" : "pending",
+            lead.qualified
+              ? "qualified"
+              : lead.qualified === false
+                ? "disqualified"
+                : "pending",
           ].some((field) =>
             (field || "")
               .toString()
               .toLowerCase()
-              .includes(filters.search.toLowerCase())
+              .includes(filters.search.toLowerCase()),
           );
 
         const leadEmailMatch =
           filters.leadEmail === "all" ||
           (lead.leadEmail &&
-            lead.leadEmail.toLowerCase() ===
-            filters.leadEmail.toLowerCase());
+            lead.leadEmail.toLowerCase() === filters.leadEmail.toLowerCase());
 
         return (
           leadTypeMatch &&
@@ -201,12 +203,8 @@ export default function AllLeadsTable() {
         );
       })
       .sort((a, b) => {
-        const aDate = a.date
-          ? new Date(a.date).setHours(0, 0, 0, 0)
-          : 0;
-        const bDate = b.date
-          ? new Date(b.date).setHours(0, 0, 0, 0)
-          : 0;
+        const aDate = a.date ? new Date(a.date).setHours(0, 0, 0, 0) : 0;
+        const bDate = b.date ? new Date(b.date).setHours(0, 0, 0, 0) : 0;
 
         switch (filters.sortBy) {
           case "id-asc":
@@ -274,7 +272,7 @@ export default function AllLeadsTable() {
       .map((row) =>
         row
           .map((val) => `"${(val || "").toString().replace(/"/g, '""')}"`)
-          .join(",")
+          .join(","),
       )
       .join("\n");
 
@@ -423,15 +421,15 @@ export default function AllLeadsTable() {
               const isExpanded = expandedCards.has(lead.id);
               const ccEmails = lead.ccEmail
                 ? lead.ccEmail
-                  .split(",")
-                  .map((e) => e.trim())
-                  .filter(Boolean)
+                    .split(",")
+                    .map((e) => e.trim())
+                    .filter(Boolean)
                 : [];
               const phoneNumbers = lead.phone
                 ? lead.phone
-                  .split(",")
-                  .map((p) => p.trim())
-                  .filter(Boolean)
+                    .split(",")
+                    .map((p) => p.trim())
+                    .filter(Boolean)
                 : [];
 
               return (
@@ -459,11 +457,25 @@ export default function AllLeadsTable() {
                           {/* Add qualified badge */}
                           <span
                             className={`inline-flex px-2.5 py-0.5 text-xs font-semibold rounded-full border ${getQualifiedBadge(
-                              lead.qualified
+                              lead.qualified,
                             )}`}
                           >
                             {getQualifiedLabel(lead.qualified)}
                           </span>
+                          {lead.salesEmployeeName && lead.salesEmployeeEmail ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200">
+                              <User className="h-4" />
+                              {lead.salesEmployeeName.trim()}
+                              <span className="text-indigo-500">
+                                ({lead.salesEmployeeEmail})
+                              </span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-600 border border-gray-200">
+                              <User className="h-4" />
+                              Sales: Not Assigned
+                            </span>
+                          )}
                         </div>
                         <h3 className="text-lg font-semibold text-slate-900 mb-1">
                           {safe(lead.subjectLine)}
@@ -509,7 +521,7 @@ export default function AllLeadsTable() {
                       color="blue"
                       title="Employee"
                       value={`${safe(lead.employee?.fullName)} (${safe(
-                        lead.employeeId
+                        lead.employeeId,
                       )})`}
                     />
                     <InfoCard

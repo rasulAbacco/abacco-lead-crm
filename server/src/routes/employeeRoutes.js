@@ -24,7 +24,7 @@ function getUSAMonthRange() {
     1,
     0,
     0,
-    0
+    0,
   );
   const endOfMonth = new Date(
     nowUSA.getFullYear(),
@@ -32,7 +32,7 @@ function getUSAMonthRange() {
     0,
     23,
     59,
-    59
+    59,
   );
   return {
     start: fromZonedTime(startOfMonth, USA_TZ),
@@ -134,7 +134,7 @@ router.get("/", async (req, res) => {
               ? qualifiedLeads >= emp.target * 2
               : false,
         };
-      })
+      }),
     );
 
     res.json(employeesWithLeads);
@@ -153,7 +153,18 @@ router.get("/full", async (req, res) => {
     const leads = await prisma.lead.findMany({
       include: {
         employee: {
-          select: { employeeId: true, fullName: true, email: true },
+          select: {
+            employeeId: true,
+            fullName: true,
+            email: true,
+          },
+        },
+        salesEmployee: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+          },
         },
       },
       orderBy: { id: "asc" },
@@ -179,7 +190,14 @@ router.get("/full", async (req, res) => {
       isEdited: lead.isEdited,
       forwarded: lead.forwarded,
       qualified: lead.qualified,
+
+      // ✅ EMPLOYEE
       employee: lead.employee,
+
+      // ✅ SALES (THIS WAS MISSING)
+      salesEmployeeId: lead.salesEmployee?.id ?? null,
+      salesEmployeeName: lead.salesEmployee?.fullName ?? null,
+      salesEmployeeEmail: lead.salesEmployee?.email ?? null,
     }));
 
     res.json(formattedLeads);
@@ -255,7 +273,7 @@ router.post("/leads/:id/forward", async (req, res) => {
 
     console.log("🔹 Forward request received for lead ID:", leadId);
 
-    // Fetch lead
+    // 1️⃣ Fetch lead FIRST
     const existingLead = await prisma.lead.findUnique({
       where: { id: leadId },
     });
@@ -264,9 +282,23 @@ router.post("/leads/:id/forward", async (req, res) => {
       return res.status(404).json({ error: "Lead not found" });
     }
 
+    // 2️⃣ 🔒 Block forwarding if sales not assigned
+    if (!existingLead.salesEmployeeId) {
+      return res.status(400).json({
+        error: "Assign a sales employee before forwarding the lead",
+      });
+    }
+
+    // 3️⃣ Block disqualified leads (recommended)
+    if (existingLead.qualified === false) {
+      return res.status(400).json({
+        error: "Disqualified leads cannot be forwarded",
+      });
+    }
+
     console.log("🟢 Lead fetched successfully:", existingLead.id);
 
-    // Build payload for Sales CRM
+    // 4️⃣ Build CRM payload (NO sales data)
     const payload = {
       empId: existingLead.employeeId,
       agentName: existingLead.agentName,
@@ -286,19 +318,17 @@ router.post("/leads/:id/forward", async (req, res) => {
 
     console.log("📤 Sending payload to Sales CRM:", payload);
 
-    // Send to Sales CRM
+    // 5️⃣ Send to Sales CRM
     const crmResponse = await fetch(
       "https://abacco-sales-crm1.onrender.com/api/sales/leads",
-      // "http://localhost:4002/api/sales/leads",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      }
+      },
     );
 
     const crmData = await crmResponse.json();
-    console.log("✅ Sales CRM Response:", crmData);
 
     if (!crmResponse.ok) {
       return res.status(502).json({
@@ -307,38 +337,26 @@ router.post("/leads/:id/forward", async (req, res) => {
       });
     }
 
-    // Update forwarded flag
+    // 6️⃣ Mark forwarded ONLY after CRM success
     const updatedLead = await prisma.lead.update({
       where: { id: leadId },
-      data: { forwarded: true },
-      select: {
-        id: true,
+      data: {
         forwarded: true,
-        clientEmail: true,
-        leadEmail: true,
-        ccEmail: true,
-        subjectLine: true,
-        emailPitch: true,
-        phone: true,
-        country: true,
-        leadType: true,
-        createdAt: true,
-        employeeId: true,
+        forwardedToSales: true,
+        forwardedAt: new Date(),
       },
     });
 
-    console.log(`✅ Lead ${leadId} marked as forwarded`);
+    console.log(`✅ Lead ${leadId} forwarded successfully`);
+
     res.json({
       message: "Lead forwarded successfully",
-      forwardedLead: updatedLead,
-      crmResponse: crmData,
+      lead: updatedLead,
     });
   } catch (error) {
     console.error("💥 SERVER ERROR:", error);
-    return res.status(500).json({
+    res.status(500).json({
       error: "Internal Server Error",
-      details: error.message,
-      stack: error.stack,
     });
   }
 });
@@ -482,7 +500,7 @@ router.post("/leads/:id/qualify", async (req, res) => {
     });
 
     console.log(
-      `✅ Lead ${leadId} marked as ${qualified ? "qualified" : "disqualified"}`
+      `✅ Lead ${leadId} marked as ${qualified ? "qualified" : "disqualified"}`,
     );
     res.json(updatedLead);
   } catch (error) {
@@ -527,7 +545,7 @@ router.get("/leads/stats", async (req, res) => {
 
     console.log(
       `✅ Stats fetched for ${targetDate.toISOString().split("T")[0]}:`,
-      stats
+      stats,
     );
     res.json(stats);
   } catch (error) {
@@ -681,7 +699,7 @@ router.get("/leads/today/count", async (req, res) => {
     }));
 
     console.log(
-      `✅ Today's lead count fetched for ${employees.length} employees`
+      `✅ Today's lead count fetched for ${employees.length} employees`,
     );
     res.json(result);
   } catch (error) {
@@ -751,9 +769,9 @@ router.get("/leads-summary", async (req, res) => {
           dayUSA.getDate(),
           0,
           0,
-          0
+          0,
         ),
-        USA_TZ
+        USA_TZ,
       );
       const end = fromZonedTime(
         new Date(
@@ -762,9 +780,9 @@ router.get("/leads-summary", async (req, res) => {
           dayUSA.getDate(),
           23,
           59,
-          59
+          59,
         ),
-        USA_TZ
+        USA_TZ,
       );
 
       const summary = await getSummary(start, end);
@@ -779,11 +797,11 @@ router.get("/leads-summary", async (req, res) => {
     for (let m = 0; m < 12; m++) {
       const start = fromZonedTime(
         new Date(nowUSA.getFullYear(), m, 1, 0, 0, 0),
-        USA_TZ
+        USA_TZ,
       );
       const end = fromZonedTime(
         new Date(nowUSA.getFullYear(), m + 1, 0, 23, 59, 59),
-        USA_TZ
+        USA_TZ,
       );
       monthsData[months[m]] = await getSummary(start, end);
     }

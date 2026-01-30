@@ -113,27 +113,28 @@ const DashboardStats = ({ leads }) => {
     async function fetchTodayLeads() {
       try {
         const token = localStorage.getItem("token");
+        const employeeId = localStorage.getItem("employeeId");
 
-        // Defensive: if user not logged in yet
-        if (!token) {
+        if (!token || !employeeId) {
           setTodayCount(0);
           return;
         }
 
-        const res = await axios.get(`${API_BASE_URL}/api/leads/today`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const res = await axios.get(
+          `${API_BASE_URL}/api/leads/today/${employeeId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
 
-        // Defensive: empty DB or no leads today
         if (res.data?.leads && Array.isArray(res.data.leads)) {
           setTodayCount(res.data.leads.length);
         } else {
           setTodayCount(0);
         }
       } catch (err) {
-        // Empty DB or auth issue should NOT break dashboard
         console.warn("Today's leads unavailable, using fallback");
         setTodayCount(0);
       }

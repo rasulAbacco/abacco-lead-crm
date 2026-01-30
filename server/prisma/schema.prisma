@@ -13,27 +13,35 @@ enum Role {
 }
 
 model Lead {
-  id             Int      @id @default(autoincrement())
-  employeeId     String
-  agentName      String?
-  clientEmail    String
-  leadEmail      String
-  ccEmail        String? // Keep original name
-  subjectLine    String
-  emailPitch     String
-  emailResponce  String?
-  website        String?
-  phone          String? // Keep original name
-  country        String?
-  leadType       String
-  date           DateTime
-  createdAt      DateTime @default(now())
-  employee       Employee @relation(fields: [employeeId], references: [employeeId])
-  link           String
-  isEdited       Boolean? @default(false)
-  forwarded      Boolean  @default(false)
-  qualified      Boolean?
-  attendeesCount Int? // New field
+  id                 Int      @id @default(autoincrement())
+  employeeId         String
+  agentName          String?
+  clientEmail        String
+  leadEmail          String
+  ccEmail            String? // Keep original name
+  subjectLine        String
+  emailPitch         String
+  emailResponce      String?
+  website            String?
+  phone              String? // Keep original name
+  country            String?
+  leadType           String
+  date               DateTime
+  createdAt          DateTime @default(now())
+  employee           Employee @relation(fields: [employeeId], references: [employeeId])
+  link               String
+  isEdited           Boolean? @default(false)
+  forwarded          Boolean  @default(false)
+  qualified          Boolean?
+  attendeesCount     Int? // New field
+  salesEmployeeId    Int?
+  salesEmployeeName  String?
+  salesEmployeeEmail String?
+
+  forwardedToSales Boolean   @default(false)
+  forwardedAt      DateTime?
+
+  salesEmployee SalesEmployee? @relation(fields: [salesEmployeeId], references: [id], onDelete: SetNull)
 }
 
 model Employee {
@@ -218,4 +226,20 @@ model PushSubscription {
   user Employee @relation(fields: [userId], references: [id])
 
   @@index([userId])
+}
+
+model SalesEmployee {
+  id       Int     @id @default(autoincrement())
+  fullName String
+  email    String  @unique
+  phone    String?
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relation
+  leads Lead[]
+
+  @@index([isActive])
 }

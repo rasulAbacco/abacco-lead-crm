@@ -26,6 +26,7 @@ import ShareLinkAccessWrapper from "./components/ShareLinkAccessWrapper";
 import IncentiveManagement from "./pages/IncentiveManagement";
 import NewYearOverlay from "./components/NewYearOverlay";
 import Maintenance from "./pages/Maintenance";
+import SalesEmployee from "./pages/SalesEmployee";
 
 const MAINTENANCE_MODE = false;
 
@@ -95,6 +96,16 @@ function App() {
             <Layout>
               <ProtectedRoute role="admin">
                 <SetTarget />
+              </ProtectedRoute>
+            </Layout>
+          }
+        />
+        <Route
+          path="/sales-employee"
+          element={
+            <Layout>
+              <ProtectedRoute role="admin">
+                <SalesEmployee />
               </ProtectedRoute>
             </Layout>
           }

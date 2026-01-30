@@ -13,6 +13,7 @@ import {
   MessageSquare,
   Send,
   MailPlus,
+  User,
   Globe,
   Phone,
   Edit,
@@ -50,7 +51,7 @@ const formatDateForInput = (dateString) => {
   if (isNaN(date)) return "";
   // Convert to USA timezone (America/New_York)
   const usaDate = new Date(
-    date.toLocaleString("en-US", { timeZone: "America/New_York" })
+    date.toLocaleString("en-US", { timeZone: "America/New_York" }),
   );
   const year = usaDate.getFullYear();
   const month = String(usaDate.getMonth() + 1).padStart(2, "0");
@@ -85,7 +86,7 @@ export default function MyLeadsTable() {
     setLoading(true);
     try {
       const res = await fetch(
-        `${API_BASE_URL}/api/employees/leads/${employeeId}`
+        `${API_BASE_URL}/api/employees/leads/${employeeId}`,
       );
       const data = await res.json();
       if (data) setLeads(Array.isArray(data) ? data : data.leads);
@@ -124,8 +125,8 @@ export default function MyLeadsTable() {
         lead.qualified === true
           ? "true"
           : lead.qualified === false
-          ? "false"
-          : "null", // Convert to string for select
+            ? "false"
+            : "null", // Convert to string for select
       date: formatDateForInput(lead.date),
       link: lead.link || "",
       emailPitch: lead.emailPitch || "",
@@ -229,15 +230,15 @@ export default function MyLeadsTable() {
             lead.qualified
               ? "qualified"
               : lead.qualified === false
-              ? "disqualified"
-              : "pending",
+                ? "disqualified"
+                : "pending",
             lead.country,
             lead.phone,
           ].some((field) =>
             (field || "")
               .toString()
               .toLowerCase()
-              .includes(filters.search.toLowerCase())
+              .includes(filters.search.toLowerCase()),
           );
 
         const leadEmailMatch =
@@ -368,7 +369,7 @@ export default function MyLeadsTable() {
       .map((row) =>
         row
           .map((val) => `"${(val || "").toString().replace(/"/g, '""')}"`)
-          .join(",")
+          .join(","),
       )
       .join("\n");
 
@@ -533,7 +534,7 @@ export default function MyLeadsTable() {
                 <div
                   key={lead.id}
                   className={`bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden ${getCardBorderColor(
-                    lead.qualified
+                    lead.qualified,
                   )}`}
                 >
                   {/* Card Header */}
@@ -570,12 +571,13 @@ export default function MyLeadsTable() {
                           ) : (
                             <span
                               className={`inline-flex px-2.5 py-0.5 text-xs font-semibold rounded-full border ${getLeadTypeBadge(
-                                lead.leadType
+                                lead.leadType,
                               )}`}
                             >
                               {getLeadTypeLabel(lead.leadType)}
                             </span>
                           )}
+
                           {/* Add qualified badge */}
                           {isEditing ? (
                             <select
@@ -595,10 +597,24 @@ export default function MyLeadsTable() {
                           ) : (
                             <span
                               className={`inline-flex px-2.5 py-0.5 text-xs font-semibold rounded-full border ${getQualifiedBadge(
-                                lead.qualified
+                                lead.qualified,
                               )}`}
                             >
                               {getQualifiedLabel(lead.qualified)}
+                            </span>
+                          )}
+                          {lead.salesEmployeeName && lead.salesEmployeeEmail ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200">
+                              <User className="h-4" />
+                              {lead.salesEmployeeName.trim()}
+                              <span className="text-indigo-500">
+                                ({lead.salesEmployeeEmail})
+                              </span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-600 border border-gray-200">
+                              <User className="h-4" />
+                              Sales: Not Assigned
                             </span>
                           )}
                         </div>

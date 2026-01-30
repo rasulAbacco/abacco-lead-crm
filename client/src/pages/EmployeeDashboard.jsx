@@ -300,57 +300,32 @@ const EmployeeDashboard = () => {
   /* ---------------------------
      Fetch Today's Achieved Incentive
   ----------------------------- */
-  // useEffect(() => {
-  //   const fetchIncentiveProgress = async () => {
-  //     try {
-  //       const employeeId = localStorage.getItem("employeeId");
-  //       const res = await axios.get(
-  //         `${API_BASE_URL}/api/incentives/progress/${employeeId}`
-  //       );
-  //       setAchievedIncentive(res.data.achieved || null);
-  //     } catch (err) {
-  //       console.error("Incentive progress error:", err);
-  //     }
-  //   };
-
-  //   fetchIncentiveProgress();
-  // }, [leads]);
   useEffect(() => {
     const fetchIncentiveProgress = async () => {
       try {
         const employeeId = localStorage.getItem("employeeId");
-        const token = localStorage.getItem("token");
-
-        // Defensive guards (important for empty / fresh DB)
-        if (!employeeId || !token) {
-          setAchievedIncentive(null);
-          return;
-        }
-
         const res = await axios.get(
-          `${API_BASE_URL}/api/incentives/progress/${employeeId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
+          `${API_BASE_URL}/api/incentives/progress/${employeeId}`
         );
-
-        setAchievedIncentive(res.data?.achieved ?? null);
+        setAchievedIncentive(res.data.achieved || null);
       } catch (err) {
-        // 401 / empty DB / no plans → NOT an app error
-        if (err.response?.status === 401) {
-          console.warn("Incentive progress: unauthorized");
-        } else {
-          console.error("Incentive progress error:", err);
-        }
-
-        setAchievedIncentive(null);
+        console.error("Incentive progress error:", err);
       }
     };
 
     fetchIncentiveProgress();
-  }, [leads, API_BASE_URL]);
+  }, [leads]);
+  // useEffect(() => {
+  //   const fetchIncentiveProgress = async () => {
+  //     try {
+  //       const employeeId = localStorage.getItem("employeeId");
+  //       const token = localStorage.getItem("token");
+
+  //       // Defensive guards (important for empty / fresh DB)
+  //       if (!employeeId || !token) {
+  //         setAchievedIncentive(null);
+  //         return;
+  //       }
 
   if (loading) return <Loader />;
 
