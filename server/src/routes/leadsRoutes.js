@@ -29,8 +29,8 @@ router.get("/today", async (req, res) => {
     const formatted = leads.map((lead) => ({
       ...lead,
       createdAt: toUSAZone(lead.createdAt),
-      phones: lead.phone ? lead.phone.split(',') : [], // Use existing field name
-      ccEmails: lead.ccEmail ? lead.ccEmail.split(',') : [], // Use existing field name
+      phones: lead.phone ? lead.phone.split(",") : [], // Use existing field name
+      ccEmails: lead.ccEmail ? lead.ccEmail.split(",") : [], // Use existing field name
       attendeesCount: lead.attendeesCount,
     }));
 
@@ -69,8 +69,8 @@ router.get("/all", async (req, res) => {
       leadType: lead.leadType,
       date: toUSAZone(lead.date),
       link: lead.link,
-      phones: lead.phone ? lead.phone.split(',') : [], // Use existing field name
-      ccEmails: lead.ccEmail ? lead.ccEmail.split(',') : [], // Use existing field name
+      phones: lead.phone ? lead.phone.split(",") : [], // Use existing field name
+      ccEmails: lead.ccEmail ? lead.ccEmail.split(",") : [], // Use existing field name
       attendeesCount: lead.attendeesCount,
       employee: lead.employee,
     }));
@@ -89,7 +89,9 @@ router.get("/", async (req, res) => {
     const { employeeId } = req.query;
 
     if (!employeeId) {
-      return res.status(400).json({ success: false, message: "Employee ID is required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Employee ID is required" });
     }
 
     const leads = await prisma.lead.findMany({
@@ -98,10 +100,10 @@ router.get("/", async (req, res) => {
     });
 
     // Process phone numbers and CC emails for frontend
-    const processedLeads = leads.map(lead => ({
+    const processedLeads = leads.map((lead) => ({
       ...lead,
-      phones: lead.phone ? lead.phone.split(',') : [], // Use existing field name
-      ccEmails: lead.ccEmail ? lead.ccEmail.split(',') : [] // Use existing field name
+      phones: lead.phone ? lead.phone.split(",") : [], // Use existing field name
+      ccEmails: lead.ccEmail ? lead.ccEmail.split(",") : [], // Use existing field name
     }));
 
     res.json({ success: true, leads: processedLeads });
@@ -121,14 +123,16 @@ router.get("/:id", async (req, res) => {
     });
 
     if (!lead) {
-      return res.status(404).json({ success: false, message: "Lead not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Lead not found" });
     }
 
     // Process phone numbers and CC emails for frontend
     const processedLead = {
       ...lead,
-      phones: lead.phone ? lead.phone.split(',') : [], // Use existing field name
-      ccEmails: lead.ccEmail ? lead.ccEmail.split(',') : [] // Use existing field name
+      phones: lead.phone ? lead.phone.split(",") : [], // Use existing field name
+      ccEmails: lead.ccEmail ? lead.ccEmail.split(",") : [], // Use existing field name
     };
 
     res.json({ success: true, lead: processedLead });
@@ -145,11 +149,23 @@ router.post("/", async (req, res) => {
     const { leads } = req.body;
 
     if (!Array.isArray(leads) || leads.length === 0) {
-      return res.status(400).json({ success: false, message: "No leads provided" });
+      return res
+        .status(400)
+        .json({ success: false, message: "No leads provided" });
     }
 
     const lead = leads[0];
-    const { id, clientEmail, link, subjectLine, date, phones, ccEmails, attendeesCount, ...rest } = lead;
+    const {
+      id,
+      clientEmail,
+      link,
+      subjectLine,
+      date,
+      phones,
+      ccEmails,
+      attendeesCount,
+      ...rest
+    } = lead;
 
     if (!clientEmail || !link || !subjectLine) {
       return res.status(400).json({
@@ -172,7 +188,9 @@ router.post("/", async (req, res) => {
             u.searchParams.delete(k);
         });
         u.pathname = u.pathname.replace(/\/+$/, "");
-        return `${u.protocol}//${u.hostname}${u.pathname}${u.search || ""}`.toLowerCase();
+        return `${u.protocol}//${u.hostname}${u.pathname}${
+          u.search || ""
+        }`.toLowerCase();
       } catch {
         return s.replace(/\/+$/, "").toLowerCase();
       }
@@ -202,7 +220,9 @@ router.post("/", async (req, res) => {
     if (existingLead) {
       const retryAfter = new Date(existingLead.createdAt);
       retryAfter.setMonth(retryAfter.getMonth() + 3);
-      const remainingDays = Math.ceil((retryAfter - new Date()) / (1000 * 60 * 60 * 24));
+      const remainingDays = Math.ceil(
+        (retryAfter - new Date()) / (1000 * 60 * 60 * 24)
+      );
 
       return res.status(400).json({
         success: false,
@@ -220,13 +240,15 @@ router.post("/", async (req, res) => {
     const utcDate = fromZonedTime(usaDate, "America/Chicago");
 
     // Process phone numbers and CC emails
-    const processedPhones = phones && phones.length > 0
-      ? phones.filter(p => p.trim()).join(',')
-      : '';
+    const processedPhones =
+      phones && phones.length > 0
+        ? phones.filter((p) => p.trim()).join(",")
+        : "";
 
-    const processedCcEmails = ccEmails && ccEmails.length > 0
-      ? ccEmails.filter(e => e.trim()).join(',')
-      : '';
+    const processedCcEmails =
+      ccEmails && ccEmails.length > 0
+        ? ccEmails.filter((e) => e.trim()).join(",")
+        : "";
 
     // Create the data object without the array fields
     const dataToSave = {
@@ -261,7 +283,6 @@ router.post("/", async (req, res) => {
   }
 });
 
-
 // ==========================================================
 // ✅ Update lead (maintaining Central USA Time)
 // ==========================================================
@@ -281,15 +302,17 @@ router.put("/:id", async (req, res) => {
 
     // Process phone numbers and CC emails
     if (phones) {
-      data.phone = Array.isArray(phones) && phones.length > 0
-        ? phones.filter(p => p.trim()).join(',')
-        : '';
+      data.phone =
+        Array.isArray(phones) && phones.length > 0
+          ? phones.filter((p) => p.trim()).join(",")
+          : "";
     }
 
     if (ccEmails) {
-      data.ccEmail = Array.isArray(ccEmails) && ccEmails.length > 0
-        ? ccEmails.filter(e => e.trim()).join(',')
-        : '';
+      data.ccEmail =
+        Array.isArray(ccEmails) && ccEmails.length > 0
+          ? ccEmails.filter((e) => e.trim()).join(",")
+          : "";
     }
 
     if (attendeesCount !== undefined) {
@@ -304,8 +327,8 @@ router.put("/:id", async (req, res) => {
     // Process phone numbers and CC emails for response
     const processedLead = {
       ...updatedLead,
-      phones: updatedLead.phone ? updatedLead.phone.split(',') : [], // Use existing field name
-      ccEmails: updatedLead.ccEmail ? updatedLead.ccEmail.split(',') : [] // Use existing field name
+      phones: updatedLead.phone ? updatedLead.phone.split(",") : [], // Use existing field name
+      ccEmails: updatedLead.ccEmail ? updatedLead.ccEmail.split(",") : [], // Use existing field name
     };
 
     res.json({ success: true, lead: processedLead });
@@ -314,7 +337,5 @@ router.put("/:id", async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 });
-
-
 
 export default router;
