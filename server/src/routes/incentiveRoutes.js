@@ -247,7 +247,7 @@ router.post(
       console.error("Error activating plan:", err);
       return res.status(500).json({ message: "Failed to activate plan" });
     }
-  }
+  },
 );
 
 /**
@@ -278,7 +278,7 @@ router.post(
       console.error("Error deactivating plan:", err);
       return res.status(500).json({ message: "Failed to deactivate plan" });
     }
-  }
+  },
 );
 
 /**
@@ -309,7 +309,7 @@ router.delete(
       console.error("Error deleting (deactivating) plan:", err);
       return res.status(500).json({ message: "Failed to deactivate plan" });
     }
-  }
+  },
 );
 
 /**
@@ -351,7 +351,7 @@ router.post(
       console.error("Error creating rules:", err);
       return res.status(500).json({ message: "Failed to create rules" });
     }
-  }
+  },
 );
 
 /**
@@ -404,7 +404,7 @@ router.put(
       console.error("Error updating rule:", err);
       return res.status(500).json({ message: "Failed to update rule" });
     }
-  }
+  },
 );
 
 /**
@@ -436,7 +436,7 @@ router.delete(
       console.error("Error deactivating rule:", err);
       return res.status(500).json({ message: "Failed to deactivate rule" });
     }
-  }
+  },
 );
 
 /* ================================

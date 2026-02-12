@@ -150,7 +150,43 @@ router.get("/", async (req, res) => {
    =========================================================== */
 router.get("/full", async (req, res) => {
   try {
+    const { year, month } = req.query; //
+    let whereClause = {};
+
+    // Build the date filter
+    if (year && year !== "all") {
+      const selectedYear = parseInt(year);
+
+      if (month && month !== "all") {
+        const selectedMonth = parseInt(month) - 1; // JS months are 0-11
+        const startDate = new Date(selectedYear, selectedMonth, 1);
+        const endDate = new Date(
+          selectedYear,
+          selectedMonth + 1,
+          0,
+          23,
+          59,
+          59,
+        ); // Last day of month
+
+        whereClause.date = {
+          gte: startDate,
+          lte: endDate,
+        };
+      } else {
+        // Filter for the entire year
+        const startDate = new Date(selectedYear, 0, 1);
+        const endDate = new Date(selectedYear, 11, 31, 23, 59, 59);
+
+        whereClause.date = {
+          gte: startDate,
+          lte: endDate,
+        };
+      }
+    }
+
     const leads = await prisma.lead.findMany({
+      where: whereClause, // Apply the built filters
       include: {
         employee: {
           select: {
@@ -167,7 +203,7 @@ router.get("/full", async (req, res) => {
           },
         },
       },
-      orderBy: { id: "asc" },
+      orderBy: { id: "desc" }, // Changed to desc for newest leads first
     });
 
     const formattedLeads = leads.map((lead) => ({
@@ -190,11 +226,7 @@ router.get("/full", async (req, res) => {
       isEdited: lead.isEdited,
       forwarded: lead.forwarded,
       qualified: lead.qualified,
-
-      // ✅ EMPLOYEE
       employee: lead.employee,
-
-      // ✅ SALES (THIS WAS MISSING)
       salesEmployeeId: lead.salesEmployee?.id ?? null,
       salesEmployeeName: lead.salesEmployee?.fullName ?? null,
       salesEmployeeEmail: lead.salesEmployee?.email ?? null,

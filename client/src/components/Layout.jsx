@@ -15,6 +15,8 @@ import {
   CloudDownload,
   ServerCrash,
   HandCoins,
+  AtSign,
+  Database,
 } from "lucide-react";
 
 const getRole = () => localStorage.getItem("role")?.toLowerCase();
@@ -133,6 +135,12 @@ function Layout({ children }) {
                 <NavLink to="/leadform" icon={FileText} label="Upload Leads" />
                 <NavLink to="/myleads" icon={FolderOpen} label="My Leads" />
                 <NavLink to="/myreport" icon={ServerCrash} label="My Report" />
+                <NavLink
+                  to="/email-domains"
+                  icon={AtSign}
+                  label="Email Domains"
+                />
+
                 {/* Special Access: Only for Employee ID AT014 */}
                 {employeeId?.trim().toUpperCase() === "AT014" && (
                   <NavLink
@@ -167,6 +175,11 @@ function Layout({ children }) {
                   to="/set-targets"
                   icon={Sparkles}
                   label="Set Targets"
+                />
+                <NavLink
+                  to="/admin-email-domains"
+                  icon={Database}
+                  label="Email Domains"
                 />
                 <NavLink
                   to="/share-links"

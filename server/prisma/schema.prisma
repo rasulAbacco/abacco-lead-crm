@@ -57,6 +57,7 @@ model Employee {
   joiningDate       DateTime
   isActive          Boolean            @default(true)
   leads             Lead[]
+  mailDomains       EmailDomain[]
   sharedLinks       SharedLink[]       @relation("CreatedLinks") // Links created by admin
   receivedLinks     ReceivedLink[]     @relation("ReceivedByEmployee") // Links received by employee
   Notification      Notification[]
@@ -241,5 +242,20 @@ model SalesEmployee {
   // Relation
   leads Lead[]
 
+  @@index([isActive])
+}
+
+model EmailDomain {
+  id         Int      @id @default(autoincrement())
+  employeeId String
+  email      String
+  domain     String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+
+  @@index([employeeId])
   @@index([isActive])
 }

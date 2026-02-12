@@ -21,17 +21,6 @@ import {
 import Loader from "./Loader";
 import AssignSalesModal from "./AssignSalesModal";
 
-const defaultFilters = {
-  leadType: "all",
-  employee: "all",
-  qualified: "all", // Add qualified filter
-  fromDate: "",
-  toDate: "",
-  search: "",
-  sortBy: "id-desc",
-  leadEmail: "all",
-};
-
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 // ✅ Format date as dd/mm/yy
@@ -46,11 +35,43 @@ const formatDate = (dateString) => {
 };
 
 export default function AllLeadsTable() {
-  const [leads, setLeads] = useState([]);
-  const [filters, setFilters] = useState(defaultFilters);
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(true);
   const [expandedCards, setExpandedCards] = useState(new Set());
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth() + 1; // 1-12
+  // Add this near your other constants
+  const monthsList = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
+
+  const defaultFilters = {
+    leadType: "all",
+    employee: "all",
+    qualified: "all",
+    fromDate: "",
+    toDate: "",
+    search: "",
+    sortBy: "id-desc",
+    leadEmail: "all",
+    // --- New Filter State ---
+    year: currentYear.toString(),
+    month: currentMonth.toString(),
+  };
+
+  const [leads, setLeads] = useState([]);
+  const [filters, setFilters] = useState(defaultFilters);
 
   const [assignModal, setAssignModal] = useState({
     open: false,
@@ -63,7 +84,15 @@ export default function AllLeadsTable() {
   const fetchLeads = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/employees/full`);
+      // Attach Year and Month to the URL
+      const queryParams = new URLSearchParams({
+        year: filters.year,
+        month: filters.month,
+      }).toString();
+
+      const res = await fetch(
+        `${API_BASE_URL}/api/employees/full?${queryParams}`,
+      );
       const data = await res.json();
       if (data) setLeads(Array.isArray(data) ? data : data.leads);
     } catch (err) {
@@ -73,6 +102,11 @@ export default function AllLeadsTable() {
       setLoading(false);
     }
   };
+
+  // Trigger fetch whenever Year or Month changes
+  useEffect(() => {
+    fetchLeads();
+  }, [filters.year, filters.month]);
 
   useEffect(() => {
     fetchLeads();
@@ -417,6 +451,40 @@ export default function AllLeadsTable() {
                 <option value="date-desc">Date (Recent)</option>
                 <option value="date-asc">Date (Oldest)</option>
               </select>
+            </div>
+            {/* ✅ Add Year & Month Dropdowns in the grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+              {/* Year Selector */}
+              <select
+                value={filters.year}
+                onChange={(e) =>
+                  setFilters({ ...filters, year: e.target.value })
+                }
+                className="px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 bg-white"
+              >
+                <option value="all">All Years</option>
+                <option value="2024">2024</option>
+                <option value="2025">2025</option>
+                <option value="2026">2026</option>
+              </select>
+
+              {/* Month Selector */}
+              <select
+                value={filters.month}
+                onChange={(e) =>
+                  setFilters({ ...filters, month: e.target.value })
+                }
+                className="px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 bg-white"
+              >
+                <option value="all">Whole Year</option>
+                {monthsList.map((m, idx) => (
+                  <option key={idx} value={idx + 1}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+
+              {/* Existing filters (Lead Type, Employee, etc.) stay here... */}
             </div>
           </div>
         )}

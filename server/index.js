@@ -18,6 +18,8 @@ import leaderboardRoutes from "./src/routes/leaderboardRoutes.js";
 import quoteRoutes from "./src/routes/quoteRoutes.js";
 import notificationRoutes from "./src/routes/notificationRoutes.js";
 import adminRoutes from "./src/routes/admin.routes.js";
+import Domain from "./src/routes/Domain.js";
+import adminEmailDomains from "./src/routes/adminEmailDomains.js";
 
 console.log("🕐 Server time (UTC):", new Date().toISOString());
 console.log("🇺🇸 US (New York) time:", getUSADateTime());
@@ -57,6 +59,8 @@ app.use("/api/employee", leaderboardRoutes);
 app.use("/api/quotes", quoteRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/email-domains", Domain);
+app.use("/api/admin", adminEmailDomains);
 
 // Add JWT secret to environment
 process.env.JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";

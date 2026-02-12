@@ -16,6 +16,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 import IndustryType from "./pages/IndustryType";
 import IndustryTypeEmployee from "./pages/IndustryTypeEmployee";
+import EmailDomains from "./pages/EmailDomains";
 import AllEmployees from "./pages/AllEmployees";
 import MyLeads from "./pages/MyLeads";
 import ShareLink from "./pages/ShareLink";
@@ -27,6 +28,7 @@ import IncentiveManagement from "./pages/IncentiveManagement";
 import NewYearOverlay from "./components/NewYearOverlay";
 import Maintenance from "./pages/Maintenance";
 import SalesEmployee from "./pages/SalesEmployee";
+import AdminEmailDomains from "./pages/AdminEmailDomains";
 
 const MAINTENANCE_MODE = false;
 
@@ -150,6 +152,16 @@ function App() {
             </Layout>
           }
         />
+        <Route
+          path="/admin-email-domains"
+          element={
+            <Layout>
+              <ProtectedRoute role="admin">
+                <AdminEmailDomains />
+              </ProtectedRoute>
+            </Layout>
+          }
+        />
 
         {/* Employee Routes */}
         <Route
@@ -208,6 +220,16 @@ function App() {
             <Layout>
               <ProtectedRoute role="employee">
                 <IndustryTypeEmployee />
+              </ProtectedRoute>
+            </Layout>
+          }
+        />
+        <Route
+          path="/email-domains"
+          element={
+            <Layout>
+              <ProtectedRoute role="employee">
+                <EmailDomains />
               </ProtectedRoute>
             </Layout>
           }
