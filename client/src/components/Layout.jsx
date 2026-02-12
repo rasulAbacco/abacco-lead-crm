@@ -17,6 +17,7 @@ import {
   HandCoins,
   AtSign,
   Database,
+  UserStar,
 } from "lucide-react";
 
 const getRole = () => localStorage.getItem("role")?.toLowerCase();
@@ -191,7 +192,7 @@ function Layout({ children }) {
                 <NavLink to="/employees" icon={Users} label="All Employees" />
                 <NavLink
                   to="/sales-employee"
-                  icon={Users}
+                  icon={UserStar}
                   label="Sales Employees"
                 />
                 {/* <NavLink to="/industry-types" icon={Briefcase} label="Industry Types" /> */}

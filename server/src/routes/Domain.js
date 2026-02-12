@@ -3,6 +3,21 @@ import { PrismaClient } from "@prisma/client";
 const router = express.Router();
 const prisma = new PrismaClient();
 // Get all domains for an employee
+// router.get("/:employeeId", async (req, res) => {
+//   try {
+//     const { employeeId } = req.params;
+
+//     const domains = await prisma.emailDomain.findMany({
+//       where: { employeeId },
+//       orderBy: { createdAt: "desc" },
+//     });
+
+//     res.json({ domains });
+//   } catch (error) {
+//     console.error("Error fetching domains:", error);
+//     res.status(500).json({ error: "Failed to fetch domains" });
+//   }
+// });
 router.get("/:employeeId", async (req, res) => {
   try {
     const { employeeId } = req.params;
@@ -12,7 +27,39 @@ router.get("/:employeeId", async (req, res) => {
       orderBy: { createdAt: "desc" },
     });
 
-    res.json({ domains });
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+    const domainsWithCounts = await Promise.all(
+      domains.map(async (domain) => {
+        // Total Leads
+        const totalCount = await prisma.lead.count({
+          where: {
+            leadEmail: domain.email,
+          },
+        });
+
+        // Current Month Leads
+        const currentMonthCount = await prisma.lead.count({
+          where: {
+            leadEmail: domain.email,
+            date: {
+              gte: startOfMonth,
+              lt: endOfMonth,
+            },
+          },
+        });
+
+        return {
+          ...domain,
+          totalCount: totalCount || 0,
+          currentMonthCount: currentMonthCount || 0,
+        };
+      }),
+    );
+
+    res.json({ domains: domainsWithCounts });
   } catch (error) {
     console.error("Error fetching domains:", error);
     res.status(500).json({ error: "Failed to fetch domains" });

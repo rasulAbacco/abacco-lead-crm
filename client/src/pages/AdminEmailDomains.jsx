@@ -149,7 +149,10 @@ function AdminEmailDomains() {
   const totalLeads = employees.reduce(
     (sum, emp) =>
       sum +
-      emp.mailDomains.reduce((domSum, domain) => domSum + domain.leadCount, 0),
+      emp.mailDomains.reduce(
+        (domSum, domain) => domSum + (domain.totalCount || 0),
+        0,
+      ),
     0,
   );
 
@@ -212,7 +215,7 @@ function AdminEmailDomains() {
                 <Globe className="w-6 h-6 text-purple-600" />
               </div>
               <div>
-                <p className="text-sm text-gray-600">Total Domains</p>
+                <p className="text-sm text-gray-600">Total Emails</p>
                 <p className="text-2xl font-bold text-gray-900">
                   {totalDomains}
                 </p>
@@ -260,188 +263,238 @@ function AdminEmailDomains() {
           </div>
         ) : (
           <div className="space-y-4">
-            {filteredEmployees.map((employee) => (
-              <div
-                key={employee.id}
-                className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden"
-              >
-                {/* Employee Header */}
-                <div
-                  className="p-6 bg-gradient-to-r from-indigo-50 to-purple-50 cursor-pointer hover:from-indigo-100 hover:to-purple-100 transition-all"
-                  onClick={() => toggleEmployeeExpansion(employee.id)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                        {employee.fullName.charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-bold text-gray-900">
-                          {employee.fullName}
-                        </h3>
-                        <p className="text-sm text-gray-600">
-                          {employee.employeeId} • {employee.email}
-                        </p>
-                      </div>
-                    </div>
+            {filteredEmployees.map((employee) => {
+              // ✅ Provider Summary Per Employee
+              const providerSummary = employee.mailDomains.reduce(
+                (acc, domain) => {
+                  const provider = (domain.domain || "Other").toUpperCase();
 
-                    <div className="flex items-center gap-6">
-                      <div className="text-right">
-                        <p className="text-sm text-gray-600">Domains</p>
-                        <p className="text-2xl font-bold text-indigo-600">
-                          {employee.mailDomains.length}
-                        </p>
+                  if (!acc[provider]) {
+                    acc[provider] = {
+                      totalMails: 0,
+                      totalLeads: 0,
+                      currentMonth: 0,
+                    };
+                  }
+
+                  acc[provider].totalMails += 1;
+                  acc[provider].totalLeads += domain.totalCount || 0;
+                  acc[provider].currentMonth += domain.currentMonthCount || 0;
+
+                  return acc;
+                },
+                {},
+              );
+
+              return (
+                <div
+                  key={employee.id}
+                  className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden"
+                >
+                  {/* Employee Header */}
+                  <div
+                    className="p-6 bg-gradient-to-r from-indigo-50 to-purple-50 cursor-pointer hover:from-indigo-100 hover:to-purple-100 transition-all"
+                    onClick={() => toggleEmployeeExpansion(employee.id)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                          {employee.fullName.charAt(0).toUpperCase()}
+                        </div>
+
+                        <div>
+                          <h3 className="text-lg font-bold text-gray-900">
+                            {employee.fullName}
+                          </h3>
+
+                          <p className="text-sm text-gray-600">
+                            {employee.employeeId} • {employee.email}
+                          </p>
+
+                          {/* ✅ Provider Summary Display */}
+                          <div className="flex flex-wrap gap-3 mt-2">
+                            {Object.entries(providerSummary).map(
+                              ([provider, stats]) => (
+                                <span
+                                  key={provider}
+                                  className="px-3 py-1 bg-indigo-100 text-indigo-700 text-xs rounded-full font-semibold"
+                                >
+                                  {provider} ({stats.totalMails}) • Leads:{" "}
+                                  {stats.totalLeads} • Month:{" "}
+                                  {stats.currentMonth}
+                                </span>
+                              ),
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm text-gray-600">Total Leads</p>
-                        <p className="text-2xl font-bold text-green-600">
-                          {employee.mailDomains.reduce(
-                            (sum, domain) => sum + domain.leadCount,
-                            0,
-                          )}
-                        </p>
+
+                      <div className="flex items-center gap-6">
+                        <div className="text-right">
+                          <p className="text-sm text-gray-600">Total Emails</p>
+                          <p className="text-2xl font-bold text-indigo-600">
+                            {employee.mailDomains.length}
+                          </p>
+                        </div>
+
+                        <div className="text-right">
+                          <p className="text-sm text-gray-600">Total Leads</p>
+                          <p className="text-2xl font-bold text-green-600">
+                            {employee.mailDomains.reduce(
+                              (sum, domain) => sum + (domain.totalCount || 0),
+                              0,
+                            )}
+                          </p>
+                        </div>
+
+                        {expandedEmployees.has(employee.id) ? (
+                          <ChevronUp className="w-6 h-6 text-gray-400" />
+                        ) : (
+                          <ChevronDown className="w-6 h-6 text-gray-400" />
+                        )}
                       </div>
-                      {expandedEmployees.has(employee.id) ? (
-                        <ChevronUp className="w-6 h-6 text-gray-400" />
-                      ) : (
-                        <ChevronDown className="w-6 h-6 text-gray-400" />
-                      )}
                     </div>
                   </div>
-                </div>
 
-                {/* Domains Table - Expanded */}
-                {expandedEmployees.has(employee.id) && (
-                  <div className="p-6">
-                    {employee.mailDomains.length === 0 ? (
-                      <div className="text-center py-8">
-                        <Globe className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                        <p className="text-gray-500">No domains added yet</p>
-                      </div>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full">
-                          <thead className="bg-gray-50 border-b-2 border-gray-200">
-                            <tr>
-                              <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase w-16">
-                                #
-                              </th>
-                              <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">
-                                Email
-                              </th>
-                              <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">
-                                Domain
-                              </th>
-                              <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">
-                                Status
-                              </th>
-                              <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">
-                                Lead Count
-                              </th>
-                              <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">
-                                Created
-                              </th>
-                              <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">
-                                Actions
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-200">
-                            {employee.mailDomains.map((domain, index) => (
-                              <tr
-                                key={domain.id}
-                                className="hover:bg-gray-50 transition-colors"
-                              >
-                                <td className="px-4 py-4">
-                                  <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
-                                    <span className="text-white font-bold text-xs">
-                                      {index + 1}
-                                    </span>
-                                  </div>
-                                </td>
-                                <td className="px-4 py-4">
-                                  <div className="flex items-center gap-2">
-                                    <Mail className="w-4 h-4 text-indigo-600" />
-                                    <span className="text-sm font-medium text-gray-900">
-                                      {domain.email}
-                                    </span>
-                                  </div>
-                                </td>
-                                <td className="px-4 py-4">
-                                  <div className="flex items-center gap-2">
-                                    <Globe className="w-4 h-4 text-purple-600" />
-                                    <span className="text-sm text-gray-700">
-                                      {domain.domain}
-                                    </span>
-                                  </div>
-                                </td>
-                                <td className="px-4 py-4">
-                                  <button
-                                    onClick={() =>
-                                      handleToggleStatus(
-                                        domain.id,
-                                        domain.isActive,
-                                        employee.fullName,
-                                      )
-                                    }
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                                      domain.isActive
-                                        ? "bg-green-100 text-green-700 hover:bg-green-200"
-                                        : "bg-red-100 text-red-700 hover:bg-red-200"
-                                    }`}
-                                  >
-                                    {domain.isActive
-                                      ? "✓ Active"
-                                      : "✗ Inactive"}
-                                  </button>
-                                </td>
-                                <td className="px-4 py-4">
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                                      <span className="text-green-700 font-bold text-xs">
-                                        {domain.leadCount}
+                  {/* Domains Table - Expanded */}
+                  {expandedEmployees.has(employee.id) && (
+                    <div className="p-6">
+                      {employee.mailDomains.length === 0 ? (
+                        <div className="text-center py-8">
+                          <Globe className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                          <p className="text-gray-500">No domains added yet</p>
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full">
+                            <thead className="bg-gray-50 border-b-2 border-gray-200">
+                              <tr>
+                                <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase w-16">
+                                  #
+                                </th>
+                                <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">
+                                  Email
+                                </th>
+                                <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">
+                                  Domain
+                                </th>
+                                <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">
+                                  Status
+                                </th>
+                                <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">
+                                  Lead Count
+                                </th>
+                                <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">
+                                  Current Month
+                                </th>
+                                <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">
+                                  Created
+                                </th>
+                                <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">
+                                  Actions
+                                </th>
+                              </tr>
+                            </thead>
+
+                            <tbody className="divide-y divide-gray-200">
+                              {employee.mailDomains.map((domain, index) => (
+                                <tr
+                                  key={domain.id}
+                                  className="hover:bg-gray-50 transition-colors"
+                                >
+                                  <td className="px-4 py-4 text-center">
+                                    <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
+                                      <span className="text-white font-bold text-xs">
+                                        {index + 1}
                                       </span>
                                     </div>
-                                    <span className="text-sm text-gray-600">
-                                      leads
-                                    </span>
-                                  </div>
-                                </td>
-                                <td className="px-4 py-4">
-                                  <span className="text-xs text-gray-600">
+                                  </td>
+
+                                  <td className="px-4 py-4">
+                                    <div className="flex items-center  gap-2">
+                                      <Mail className="w-4 h-4 text-indigo-600" />
+                                      <span className="text-sm font-medium text-gray-900">
+                                        {domain.email}
+                                      </span>
+                                    </div>
+                                  </td>
+
+                                  <td className="px-4 py-4 text-center">
+                                    <div className="flex items-center justify-center gap-2">
+                                      <Globe className="w-4 h-4 text-purple-600" />
+                                      <span className="text-sm text-gray-700">
+                                        {domain.domain}
+                                      </span>
+                                    </div>
+                                  </td>
+
+                                  <td className="px-4 py-4 text-center">
+                                    <button
+                                      onClick={() =>
+                                        handleToggleStatus(
+                                          domain.id,
+                                          domain.isActive,
+                                          employee.fullName,
+                                        )
+                                      }
+                                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                        domain.isActive
+                                          ? "bg-green-100 text-green-700 hover:bg-green-200"
+                                          : "bg-red-100 text-red-700 hover:bg-red-200"
+                                      }`}
+                                    >
+                                      {domain.isActive
+                                        ? "✓ Active"
+                                        : "✗ Inactive"}
+                                    </button>
+                                  </td>
+
+                                  <td className="px-4 py-4 text-center">
+                                    <div className="w-8 h-8 mx-auto bg-green-100 rounded-lg flex items-center justify-center">
+                                      <span className="text-green-700 font-bold text-xs">
+                                        {domain.totalCount || 0}
+                                      </span>
+                                    </div>
+                                  </td>
+
+                                  <td className="px-4 py-4 text-center">
+                                    <div className="w-8 h-8 mx-auto bg-blue-100 rounded-lg flex items-center justify-center">
+                                      <span className="text-blue-700 font-bold text-xs">
+                                        {domain.currentMonthCount || 0}
+                                      </span>
+                                    </div>
+                                  </td>
+
+                                  <td className="px-4 py-4 text-xs text-center text-gray-600">
                                     {new Date(
                                       domain.createdAt,
-                                    ).toLocaleDateString("en-US", {
-                                      year: "numeric",
-                                      month: "short",
-                                      day: "numeric",
-                                    })}
-                                  </span>
-                                </td>
-                                <td className="px-4 py-4 text-right">
-                                  <button
-                                    onClick={() =>
-                                      handleDeleteDomain(
-                                        domain.id,
-                                        employee.fullName,
-                                      )
-                                    }
-                                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                    title="Delete domain"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
+                                    ).toLocaleDateString()}
+                                  </td>
+
+                                  <td className="px-4 py-4 text-right">
+                                    <button
+                                      onClick={() =>
+                                        handleDeleteDomain(
+                                          domain.id,
+                                          employee.fullName,
+                                        )
+                                      }
+                                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 

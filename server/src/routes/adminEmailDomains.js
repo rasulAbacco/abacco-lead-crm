@@ -4,6 +4,69 @@ const router = express.Router();
 const prisma = new PrismaClient();
 
 // Get all employees with their domains and lead counts
+// router.get("/email-domains-all", async (req, res) => {
+//   try {
+//     const employees = await prisma.employee.findMany({
+//       where: {
+//         role: "EMPLOYEE",
+//         isActive: true,
+//       },
+//       select: {
+//         id: true,
+//         employeeId: true,
+//         fullName: true,
+//         email: true,
+//         mailDomains: {
+//           select: {
+//             id: true,
+//             email: true,
+//             domain: true,
+//             isActive: true,
+//             createdAt: true,
+//           },
+//           orderBy: {
+//             createdAt: "desc",
+//           },
+//         },
+//       },
+//     });
+
+//     // Add leadCount to each domain safely
+//     const employeesWithLeadCounts = await Promise.all(
+//       employees.map(async (employee) => {
+//         // 🛡️ Always ensure array
+//         const domains = Array.isArray(employee.mailDomains)
+//           ? employee.mailDomains
+//           : [];
+
+//         const domainsWithCounts = await Promise.all(
+//           domains.map(async (domain) => {
+//             const leadCount = await prisma.lead.count({
+//               where: {
+//                 leadEmail: domain.email,
+//               },
+//             });
+
+//             return {
+//               ...domain,
+//               leadCount: Number(leadCount) || 0, // prevents NaN
+//             };
+//           }),
+//         );
+
+//         return {
+//           ...employee,
+//           mailDomains: domainsWithCounts, // ⚠️ must stay mailDomains
+//         };
+//       }),
+//     );
+
+//     res.json({ employees: employeesWithLeadCounts });
+//   } catch (error) {
+//     console.error("Error fetching admin email domains:", error);
+//     res.status(500).json({ error: "Failed to fetch email domains" });
+//   }
+// });
 router.get("/email-domains-all", async (req, res) => {
   try {
     const employees = await prisma.employee.findMany({
@@ -31,32 +94,48 @@ router.get("/email-domains-all", async (req, res) => {
       },
     });
 
-    // Add leadCount to each domain safely
+    // 📅 Current Month Date Range
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
     const employeesWithLeadCounts = await Promise.all(
       employees.map(async (employee) => {
-        // 🛡️ Always ensure array
         const domains = Array.isArray(employee.mailDomains)
           ? employee.mailDomains
           : [];
 
         const domainsWithCounts = await Promise.all(
           domains.map(async (domain) => {
-            const leadCount = await prisma.lead.count({
+            // 🔢 Total Leads
+            const totalCount = await prisma.lead.count({
               where: {
                 leadEmail: domain.email,
               },
             });
 
+            // 📆 Current Month Leads
+            const currentMonthCount = await prisma.lead.count({
+              where: {
+                leadEmail: domain.email,
+                createdAt: {
+                  gte: startOfMonth,
+                  lt: endOfMonth,
+                },
+              },
+            });
+
             return {
               ...domain,
-              leadCount: Number(leadCount) || 0, // prevents NaN
+              totalCount: totalCount || 0,
+              currentMonthCount: currentMonthCount || 0,
             };
           }),
         );
 
         return {
           ...employee,
-          mailDomains: domainsWithCounts, // ⚠️ must stay mailDomains
+          mailDomains: domainsWithCounts,
         };
       }),
     );
