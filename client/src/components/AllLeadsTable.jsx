@@ -34,7 +34,7 @@ const formatDate = (dateString) => {
   return `${day}/${month}/${year}`;
 };
 
-export default function AllLeadsTable() {
+export default function AllLeadsTable({ leadStatuses }) {
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(true);
   const [expandedCards, setExpandedCards] = useState(new Set());
@@ -509,7 +509,7 @@ export default function AllLeadsTable() {
               return (
                 <div
                   key={lead.id}
-                  className={`bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden ${getCardBorderColor(lead.qualified)}`}
+                  className={`bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden border-2 ${getCardBorderColor(lead.qualified)}`}
                 >
                   {/* Header */}
                   <div className="p-4 sm:p-5 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
@@ -529,6 +529,7 @@ export default function AllLeadsTable() {
                             {lead.leadType || "Lead"}
                           </span>
                           {/* Add qualified badge */}
+                          {/* Qualified Badge */}
                           <span
                             className={`inline-flex px-2.5 py-0.5 text-xs font-semibold rounded-full border ${getQualifiedBadge(
                               lead.qualified,
@@ -536,14 +537,45 @@ export default function AllLeadsTable() {
                           >
                             {getQualifiedLabel(lead.qualified)}
                           </span>
+
+                          {/* Lead Status Badge - NOW CLICKABLE */}
+                          <button
+                            onClick={() =>
+                              setAssignModal({
+                                open: true,
+                                lead: {
+                                  id: lead.id,
+                                  salesEmployeeId: lead.salesEmployeeId ?? null,
+                                  statusId: lead.statusId ?? null,
+                                },
+                              })
+                            }
+                            className="inline-flex px-2.5 py-0.5 text-xs font-semibold rounded-full border bg-indigo-100 text-indigo-700 border-indigo-200 hover:bg-indigo-200 transition cursor-pointer"
+                          >
+                            {lead.status?.name || "Set Status"}
+                          </button>
+
                           {lead.salesEmployeeName && lead.salesEmployeeEmail ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200">
-                              <User className="h-4" />
+                            <button
+                              onClick={() =>
+                                setAssignModal({
+                                  open: true,
+                                  lead: {
+                                    id: lead.id,
+                                    salesEmployeeId:
+                                      lead.salesEmployeeId ?? null,
+                                    statusId: lead.statusId ?? null,
+                                  },
+                                })
+                              }
+                              className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-purple-100 text-purple-700 border border-purple-200 hover:bg-purple-200 transition cursor-pointer"
+                            >
+                              <User className="h-3 w-3" />
                               {lead.salesEmployeeName.trim()}
-                              <span className="text-indigo-500">
+                              <span className="text-purple-500">
                                 ({lead.salesEmployeeEmail})
                               </span>
-                            </span>
+                            </button>
                           ) : (
                             <button
                               onClick={() =>
@@ -553,25 +585,16 @@ export default function AllLeadsTable() {
                                     id: lead.id,
                                     salesEmployeeId:
                                       lead.salesEmployeeId ?? null,
+                                    statusId: lead.statusId ?? null,
                                   },
                                 })
                               }
                               className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full
-             bg-gray-100 text-gray-700 border border-gray-200
-             hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-300
-             transition cursor-pointer"
+  bg-orange-100 text-orange-700 border border-orange-200
+  hover:bg-orange-200 transition cursor-pointer"
                             >
                               <User className="h-4 w-4" />
-                              {lead.salesEmployeeName ? (
-                                <>
-                                  {lead.salesEmployeeName}
-                                  <span className="text-indigo-500">
-                                    ({lead.salesEmployeeEmail})
-                                  </span>
-                                </>
-                              ) : (
-                                "Sales: Not Assigned"
-                              )}
+                              Sales: Not Assigned
                             </button>
                           )}
                         </div>
@@ -731,6 +754,7 @@ export default function AllLeadsTable() {
       <AssignSalesModal
         open={assignModal.open}
         lead={assignModal.lead}
+        leadStatuses={leadStatuses}
         onClose={() => setAssignModal({ open: false, lead: null })}
         onSuccess={fetchLeads}
       />

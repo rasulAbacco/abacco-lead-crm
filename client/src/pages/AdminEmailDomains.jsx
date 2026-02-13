@@ -29,7 +29,7 @@ function AdminEmailDomains() {
     setLoading(true);
     try {
       const response = await fetch(
-        `${API_BASE_URL}/api/admin/email-domains-all`,
+        `${API_BASE_URL}/api/admin-mail/email-domains-all`,
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -73,7 +73,7 @@ function AdminEmailDomains() {
 
     try {
       const response = await fetch(
-        `${API_BASE_URL}/api/admin/email-domains/${domainId}`,
+        `${API_BASE_URL}/api/admin-mail/email-domains/${domainId}`,
         {
           method: "DELETE",
           headers: {
@@ -98,7 +98,7 @@ function AdminEmailDomains() {
   const handleToggleStatus = async (domainId, currentStatus, employeeName) => {
     try {
       const response = await fetch(
-        `${API_BASE_URL}/api/admin/email-domains/${domainId}/toggle`,
+        `${API_BASE_URL}/api/admin-mail/email-domains/${domainId}/toggle`,
         {
           method: "PATCH",
           headers: {

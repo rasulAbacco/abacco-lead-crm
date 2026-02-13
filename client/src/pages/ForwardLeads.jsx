@@ -32,6 +32,7 @@ const USA_TZ = "America/Chicago";
 const ForwardLeads = () => {
   const [employees, setEmployees] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [selectedStatus, setSelectedStatus] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [loading, setLoading] = useState(true);
@@ -50,6 +51,7 @@ const ForwardLeads = () => {
     isOldLead: false,
   });
   const [selectedSalesEmployee, setSelectedSalesEmployee] = useState("");
+  const [leadStatuses, setLeadStatuses] = useState([]);
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -70,6 +72,11 @@ const ForwardLeads = () => {
       console.error("Failed to fetch sales employees", err);
     }
   };
+  useEffect(() => {
+    if (salesAssignModal.open) {
+      fetchLeadStatuses();
+    }
+  }, [salesAssignModal.open]);
 
   // Fetch employees with leads
   useEffect(() => {
@@ -343,6 +350,7 @@ const ForwardLeads = () => {
           },
           body: JSON.stringify({
             salesEmployeeId: Number(selectedSalesEmployee),
+            statusId: selectedStatus ? Number(selectedStatus) : undefined,
           }),
         },
       );
@@ -380,8 +388,14 @@ const ForwardLeads = () => {
       alert(error.message || "Failed to assign sales employee");
     } finally {
       setActionLoading((prev) => ({ ...prev, [leadId]: null }));
-      setSalesAssignModal({ open: false });
+      setSalesAssignModal({
+        open: false,
+        leadId: null,
+        empId: null,
+        isOldLead: false,
+      });
       setSelectedSalesEmployee("");
+      setSelectedStatus("");
     }
   };
 
@@ -398,6 +412,23 @@ const ForwardLeads = () => {
         ? null
         : { ...emp, isOldLead },
     );
+  };
+  const fetchLeadStatuses = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_BASE_URL}/api/admin/lead-status`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) throw new Error("Failed to load statuses");
+
+      const data = await res.json();
+      setLeadStatuses(data);
+    } catch (err) {
+      console.error("Failed to fetch lead statuses", err);
+    }
   };
 
   if (loading) {
@@ -917,6 +948,7 @@ const ForwardLeads = () => {
                                         setSalesAssignModal={
                                           setSalesAssignModal
                                         }
+                                        setSelectedStatus={setSelectedStatus}
                                       />
                                     ))}
                                   </div>
@@ -1125,6 +1157,69 @@ const ForwardLeads = () => {
                   <ChevronDown className="w-5 h-5" />
                 </div>
               </div>
+              {/* Status Dropdown */}
+              <div className="mt-6">
+                <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">
+                  Lead Status
+                </label>
+
+                <div className="relative group">
+                  <select
+                    value={selectedStatus}
+                    onChange={async (e) => {
+                      const value = e.target.value;
+
+                      if (value === "ADD_NEW") {
+                        const name = prompt("Enter new status name");
+
+                        if (!name || !name.trim()) return;
+
+                        try {
+                          const token = localStorage.getItem("token");
+
+                          const res = await fetch(
+                            `${API_BASE_URL}/api/admin/lead-status`,
+                            {
+                              method: "POST",
+                              headers: {
+                                "Content-Type": "application/json",
+                                Authorization: `Bearer ${token}`,
+                              },
+                              body: JSON.stringify({ name }),
+                            },
+                          );
+
+                          const data = await res.json();
+
+                          if (!res.ok) throw new Error(data.message);
+
+                          await fetchLeadStatuses();
+                          setSelectedStatus(String(data.id));
+                        } catch (err) {
+                          alert(err.message || "Failed to create status");
+                        }
+                      } else {
+                        setSelectedStatus(value);
+                      }
+                    }}
+                    className="w-full appearance-none bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-slate-700 font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all cursor-pointer"
+                  >
+                    <option value="">Select status (optional)</option>
+
+                    {leadStatuses.map((status) => (
+                      <option key={status.id} value={status.id}>
+                        {status.name}
+                      </option>
+                    ))}
+
+                    <option value="ADD_NEW">➕ Add New Status</option>
+                  </select>
+
+                  <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 group-focus-within:text-indigo-500">
+                    <ChevronDown className="w-5 h-5" />
+                  </div>
+                </div>
+              </div>
 
               {/* Lead Preview */}
               <div className="mt-6 p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100/50">
@@ -1171,6 +1266,7 @@ const LeadCard = ({
   actionLoading,
   isOldLead,
   setSalesAssignModal,
+  setSelectedStatus, // ✅ add this
 }) => (
   <div
     className={`bg-white rounded-xl shadow-lg border-2 overflow-hidden transition-all duration-300 hover:shadow-xl ${
@@ -1435,6 +1531,7 @@ const LeadCard = ({
               empId,
               isOldLead,
             });
+            setSelectedStatus("");
           }
         }}
         disabled={

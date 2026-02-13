@@ -60,7 +60,7 @@ app.use("/api/quotes", quoteRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/email-domains", Domain);
-app.use("/api/admin", adminEmailDomains);
+app.use("/api/admin-mail", adminEmailDomains);
 
 // Add JWT secret to environment
 process.env.JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";

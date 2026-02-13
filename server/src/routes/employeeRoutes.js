@@ -202,6 +202,7 @@ router.get("/full", async (req, res) => {
             email: true,
           },
         },
+        status: true, // 👈 ADD THIS LINE
       },
       orderBy: { id: "desc" }, // Changed to desc for newest leads first
     });
@@ -230,6 +231,8 @@ router.get("/full", async (req, res) => {
       salesEmployeeId: lead.salesEmployee?.id ?? null,
       salesEmployeeName: lead.salesEmployee?.fullName ?? null,
       salesEmployeeEmail: lead.salesEmployee?.email ?? null,
+      statusId: lead.statusId ?? null,
+      status: lead.status ?? null,
     }));
 
     res.json(formattedLeads);
@@ -565,6 +568,7 @@ router.get("/leads/stats", async (req, res) => {
         forwarded: true,
         qualified: true,
       },
+      status: true, // 🔥 ADD THIS LINE
     });
 
     const stats = {
@@ -956,6 +960,7 @@ router.get("/leads/:employeeId", async (req, res) => {
             email: true,
           },
         },
+        status: true,
       },
     });
 

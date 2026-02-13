@@ -603,6 +603,13 @@ export default function MyLeadsTable() {
                               {getQualifiedLabel(lead.qualified)}
                             </span>
                           )}
+                          {/* LeadStatus badge — NEW */}
+                          {lead.status?.name && (
+                            <span className="inline-flex px-2.5 py-0.5 text-xs font-semibold rounded-full border bg-indigo-100 text-indigo-700 border-indigo-200">
+                              {lead.status.name}
+                            </span>
+                          )}
+
                           {lead.salesEmployeeName && lead.salesEmployeeEmail ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200">
                               <User className="h-4" />

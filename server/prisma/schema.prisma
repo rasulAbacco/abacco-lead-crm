@@ -37,11 +37,12 @@ model Lead {
   salesEmployeeId    Int?
   salesEmployeeName  String?
   salesEmployeeEmail String?
+  statusId           Int?
 
-  forwardedToSales Boolean   @default(false)
+  forwardedToSales Boolean        @default(false)
   forwardedAt      DateTime?
-
-  salesEmployee SalesEmployee? @relation(fields: [salesEmployeeId], references: [id], onDelete: SetNull)
+  status           LeadStatus?    @relation(fields: [statusId], references: [id], onDelete: SetNull)
+  salesEmployee    SalesEmployee? @relation(fields: [salesEmployeeId], references: [id], onDelete: SetNull)
 }
 
 model Employee {
@@ -258,4 +259,13 @@ model EmailDomain {
 
   @@index([employeeId])
   @@index([isActive])
+}
+
+model LeadStatus {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  leads Lead[]
 }

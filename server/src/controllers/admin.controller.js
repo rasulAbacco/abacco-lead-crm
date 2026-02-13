@@ -123,14 +123,66 @@ export const toggleSalesEmployeeStatus = async (req, res) => {
    LEAD → SALES ASSIGNMENT
    ============================ */
 
+// export const assignSalesAndForwardLead = async (req, res) => {
+//   try {
+//     const { leadId } = req.params;
+//     const { salesEmployeeId } = req.body;
+
+//     if (!salesEmployeeId) {
+//       return res.status(400).json({
+//         message: "salesEmployeeId is required",
+//       });
+//     }
+
+//     const lead = await prisma.lead.findUnique({
+//       where: { id: Number(leadId) },
+//     });
+
+//     if (!lead) {
+//       return res.status(404).json({
+//         message: "Lead not found",
+//       });
+//     }
+
+//     const salesEmployee = await prisma.salesEmployee.findUnique({
+//       where: { id: Number(salesEmployeeId) },
+//     });
+
+//     if (!salesEmployee || !salesEmployee.isActive) {
+//       return res.status(400).json({
+//         message: "Invalid or inactive sales employee",
+//       });
+//     }
+
+//     // ✅ ONLY ASSIGN SALES (NO FORWARDING HERE)
+//     const updatedLead = await prisma.lead.update({
+//       where: { id: Number(leadId) },
+//       data: {
+//         salesEmployeeId: salesEmployee.id,
+//         salesEmployeeName: salesEmployee.fullName,
+//         salesEmployeeEmail: salesEmployee.email,
+//       },
+//     });
+
+//     return res.json({
+//       message: "Sales employee assigned successfully",
+//       lead: updatedLead,
+//     });
+//   } catch (error) {
+//     console.error("Assign sales error:", error);
+//     return res.status(500).json({
+//       message: "Failed to assign sales employee",
+//     });
+//   }
+// };
 export const assignSalesAndForwardLead = async (req, res) => {
   try {
     const { leadId } = req.params;
-    const { salesEmployeeId } = req.body;
+    const { salesEmployeeId, statusId } = req.body;
 
-    if (!salesEmployeeId) {
+    if (!salesEmployeeId && statusId === undefined) {
       return res.status(400).json({
-        message: "salesEmployeeId is required",
+        message: "Nothing to update",
       });
     }
 
@@ -144,34 +196,104 @@ export const assignSalesAndForwardLead = async (req, res) => {
       });
     }
 
-    const salesEmployee = await prisma.salesEmployee.findUnique({
-      where: { id: Number(salesEmployeeId) },
-    });
+    const updateData = {};
 
-    if (!salesEmployee || !salesEmployee.isActive) {
-      return res.status(400).json({
-        message: "Invalid or inactive sales employee",
+    // 🔹 Update sales only if provided
+    if (salesEmployeeId) {
+      const salesEmployee = await prisma.salesEmployee.findUnique({
+        where: { id: Number(salesEmployeeId) },
       });
+
+      if (!salesEmployee || !salesEmployee.isActive) {
+        return res.status(400).json({
+          message: "Invalid or inactive sales employee",
+        });
+      }
+
+      updateData.salesEmployeeId = salesEmployee.id;
+      updateData.salesEmployeeName = salesEmployee.fullName;
+      updateData.salesEmployeeEmail = salesEmployee.email;
     }
 
-    // ✅ ONLY ASSIGN SALES (NO FORWARDING HERE)
+    // 🔹 Update status only if provided
+    if (statusId !== undefined) {
+      if (statusId) {
+        const statusExists = await prisma.leadStatus.findUnique({
+          where: { id: Number(statusId) },
+        });
+
+        if (!statusExists) {
+          return res.status(400).json({
+            message: "Invalid status selected",
+          });
+        }
+
+        updateData.statusId = Number(statusId);
+      } else {
+        updateData.statusId = null;
+      }
+    }
+
     const updatedLead = await prisma.lead.update({
       where: { id: Number(leadId) },
-      data: {
-        salesEmployeeId: salesEmployee.id,
-        salesEmployeeName: salesEmployee.fullName,
-        salesEmployeeEmail: salesEmployee.email,
-      },
+      data: updateData,
     });
 
     return res.json({
-      message: "Sales employee assigned successfully",
+      message: "Lead updated successfully",
       lead: updatedLead,
     });
   } catch (error) {
-    console.error("Assign sales error:", error);
+    console.error("Update lead error:", error);
     return res.status(500).json({
-      message: "Failed to assign sales employee",
+      message: "Failed to update lead",
     });
+  }
+};
+
+export const createLeadStatus = async (req, res) => {
+  try {
+    const { name } = req.body;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({
+        message: "Status name is required",
+      });
+    }
+
+    // prevent duplicate
+    const exists = await prisma.leadStatus.findUnique({
+      where: { name: name.trim() },
+    });
+
+    if (exists) {
+      return res.status(409).json({
+        message: "Status already exists",
+      });
+    }
+
+    const status = await prisma.leadStatus.create({
+      data: {
+        name: name.trim(),
+      },
+    });
+
+    return res.status(201).json(status);
+  } catch (error) {
+    console.error("Create status error:", error);
+    return res.status(500).json({
+      message: "Failed to create status",
+    });
+  }
+};
+export const getLeadStatuses = async (req, res) => {
+  try {
+    const statuses = await prisma.leadStatus.findMany({
+      orderBy: { createdAt: "desc" },
+    });
+
+    res.json(statuses);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch statuses" });
   }
 };

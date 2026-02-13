@@ -5,6 +5,8 @@ import {
   updateSalesEmployee,
   toggleSalesEmployeeStatus,
   assignSalesAndForwardLead,
+  createLeadStatus,
+  getLeadStatuses,
 } from "../controllers/admin.controller.js";
 import { authenticate } from "../middlewares/auth.js";
 
@@ -23,5 +25,8 @@ router.patch("/sales-employees/:id/status", toggleSalesEmployeeStatus);
 router.post("/leads/:leadId/assign-sales", assignSalesAndForwardLead);
 /* LEAD ASSIGNMENT */
 router.put("/leads/:leadId/assign-sales", assignSalesAndForwardLead);
+/* LEAD STATUS */
+router.post("/lead-status", createLeadStatus);
+router.get("/lead-status", getLeadStatuses);
 
 export default router;
