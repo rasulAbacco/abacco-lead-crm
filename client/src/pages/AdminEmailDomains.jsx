@@ -136,12 +136,25 @@ function AdminEmailDomains() {
     });
   };
 
-  const filteredEmployees = employees.filter(
-    (emp) =>
-      emp.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      emp.employeeId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      emp.email.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
+  // const filteredEmployees = employees.filter(
+  //   (emp) =>
+  //     emp.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //     emp.employeeId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //     emp.email.toLowerCase().includes(searchTerm.toLowerCase()),
+  // );
+  const filteredEmployees = employees.filter((emp) => {
+    const search = searchTerm.toLowerCase().trim();
+
+    return (
+      emp.fullName.toLowerCase().includes(search) ||
+      emp.employeeId.toLowerCase().includes(search) ||
+      emp.email.toLowerCase().includes(search) ||
+      // 🔥 NEW: check inside EmailDomain table emails
+      emp.mailDomains?.some((domain) =>
+        domain.email.toLowerCase().includes(search),
+      )
+    );
+  });
 
   const totalDomains = employees.reduce(
     (sum, emp) => sum + (emp.mailDomains?.length || 0),
