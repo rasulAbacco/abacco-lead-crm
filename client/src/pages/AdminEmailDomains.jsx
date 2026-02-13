@@ -47,6 +47,7 @@ function AdminEmailDomains() {
 
       const data = await response.json();
       if (response.ok) {
+        console.log("Fetched employees data:", data.employees); // Debug log
         setEmployees(data.employees || []);
       } else {
         toast.error(data.error || "Failed to fetch data");
@@ -143,16 +144,17 @@ function AdminEmailDomains() {
   );
 
   const totalDomains = employees.reduce(
-    (sum, emp) => sum + emp.mailDomains.length,
+    (sum, emp) => sum + (emp.mailDomains?.length || 0),
     0,
   );
+
   const totalLeads = employees.reduce(
     (sum, emp) =>
       sum +
-      emp.mailDomains.reduce(
+      (emp.mailDomains?.reduce(
         (domSum, domain) => domSum + (domain.totalCount || 0),
         0,
-      ),
+      ) || 0),
     0,
   );
 
@@ -265,7 +267,7 @@ function AdminEmailDomains() {
           <div className="space-y-4">
             {filteredEmployees.map((employee) => {
               // ✅ Provider Summary Per Employee
-              const providerSummary = employee.mailDomains.reduce(
+              const providerSummary = (employee.mailDomains || []).reduce(
                 (acc, domain) => {
                   const provider = (domain.domain || "Other").toUpperCase();
 
@@ -284,6 +286,11 @@ function AdminEmailDomains() {
                   return acc;
                 },
                 {},
+              );
+
+              const employeeTotalLeads = (employee.mailDomains || []).reduce(
+                (sum, domain) => sum + (domain.totalCount || 0),
+                0,
               );
 
               return (
@@ -333,17 +340,14 @@ function AdminEmailDomains() {
                         <div className="text-right">
                           <p className="text-sm text-gray-600">Total Emails</p>
                           <p className="text-2xl font-bold text-indigo-600">
-                            {employee.mailDomains.length}
+                            {employee.mailDomains?.length || 0}
                           </p>
                         </div>
 
                         <div className="text-right">
                           <p className="text-sm text-gray-600">Total Leads</p>
                           <p className="text-2xl font-bold text-green-600">
-                            {employee.mailDomains.reduce(
-                              (sum, domain) => sum + (domain.totalCount || 0),
-                              0,
-                            )}
+                            {employeeTotalLeads}
                           </p>
                         </div>
 
@@ -359,7 +363,8 @@ function AdminEmailDomains() {
                   {/* Domains Table - Expanded */}
                   {expandedEmployees.has(employee.id) && (
                     <div className="p-6">
-                      {employee.mailDomains.length === 0 ? (
+                      {!employee.mailDomains ||
+                      employee.mailDomains.length === 0 ? (
                         <div className="text-center py-8">
                           <Globe className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                           <p className="text-gray-500">No domains added yet</p>
@@ -372,7 +377,7 @@ function AdminEmailDomains() {
                                 <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase w-16">
                                   #
                                 </th>
-                                <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">
+                                <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">
                                   Email
                                 </th>
                                 <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">
@@ -382,10 +387,10 @@ function AdminEmailDomains() {
                                   Status
                                 </th>
                                 <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">
-                                  Lead Count
+                                  Total Leads
                                 </th>
                                 <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">
-                                  Current Month
+                                  This Month
                                 </th>
                                 <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">
                                   Created
@@ -403,7 +408,7 @@ function AdminEmailDomains() {
                                   className="hover:bg-gray-50 transition-colors"
                                 >
                                   <td className="px-4 py-4 text-center">
-                                    <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
+                                    <div className="w-8 h-8 mx-auto bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
                                       <span className="text-white font-bold text-xs">
                                         {index + 1}
                                       </span>
@@ -411,10 +416,10 @@ function AdminEmailDomains() {
                                   </td>
 
                                   <td className="px-4 py-4">
-                                    <div className="flex items-center  gap-2">
-                                      <Mail className="w-4 h-4 text-indigo-600" />
+                                    <div className="flex items-center gap-2">
+                                      <Mail className="w-4 h-4 text-indigo-600 flex-shrink-0" />
                                       <span className="text-sm font-medium text-gray-900">
-                                        {domain.email}
+                                        {domain.email || "N/A"}
                                       </span>
                                     </div>
                                   </td>
@@ -422,8 +427,8 @@ function AdminEmailDomains() {
                                   <td className="px-4 py-4 text-center">
                                     <div className="flex items-center justify-center gap-2">
                                       <Globe className="w-4 h-4 text-purple-600" />
-                                      <span className="text-sm text-gray-700">
-                                        {domain.domain}
+                                      <span className="text-sm text-gray-700 uppercase">
+                                        {domain.domain || "N/A"}
                                       </span>
                                     </div>
                                   </td>
@@ -450,28 +455,30 @@ function AdminEmailDomains() {
                                   </td>
 
                                   <td className="px-4 py-4 text-center">
-                                    <div className="w-8 h-8 mx-auto bg-green-100 rounded-lg flex items-center justify-center">
-                                      <span className="text-green-700 font-bold text-xs">
+                                    <div className="inline-flex items-center justify-center w-12 h-12 bg-green-100 rounded-lg">
+                                      <span className="text-green-700 font-bold text-sm">
                                         {domain.totalCount || 0}
                                       </span>
                                     </div>
                                   </td>
 
                                   <td className="px-4 py-4 text-center">
-                                    <div className="w-8 h-8 mx-auto bg-blue-100 rounded-lg flex items-center justify-center">
-                                      <span className="text-blue-700 font-bold text-xs">
+                                    <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-100 rounded-lg">
+                                      <span className="text-blue-700 font-bold text-sm">
                                         {domain.currentMonthCount || 0}
                                       </span>
                                     </div>
                                   </td>
 
                                   <td className="px-4 py-4 text-xs text-center text-gray-600">
-                                    {new Date(
-                                      domain.createdAt,
-                                    ).toLocaleDateString()}
+                                    {domain.createdAt
+                                      ? new Date(
+                                          domain.createdAt,
+                                        ).toLocaleDateString()
+                                      : "N/A"}
                                   </td>
 
-                                  <td className="px-4 py-4 text-right">
+                                  <td className="px-4 py-4 text-center">
                                     <button
                                       onClick={() =>
                                         handleDeleteDomain(
@@ -513,7 +520,8 @@ function AdminEmailDomains() {
                   • Click on employee rows to expand and view their domains
                 </li>
                 <li>
-                  • Lead Count shows how many leads use that email address
+                  • Lead Count shows how many times that email appears as
+                  clientEmail in leads
                 </li>
                 <li>• Toggle status to activate/deactivate domains</li>
                 <li>

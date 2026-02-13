@@ -1,74 +1,14 @@
 import express from "express";
 import { PrismaClient } from "@prisma/client";
+import NodeCache from "node-cache";
 const router = express.Router();
 const prisma = new PrismaClient();
+const cache = new NodeCache({ stdTTL: 300 });
 
 // Get all employees with their domains and lead counts
-// router.get("/email-domains-all", async (req, res) => {
-//   try {
-//     const employees = await prisma.employee.findMany({
-//       where: {
-//         role: "EMPLOYEE",
-//         isActive: true,
-//       },
-//       select: {
-//         id: true,
-//         employeeId: true,
-//         fullName: true,
-//         email: true,
-//         mailDomains: {
-//           select: {
-//             id: true,
-//             email: true,
-//             domain: true,
-//             isActive: true,
-//             createdAt: true,
-//           },
-//           orderBy: {
-//             createdAt: "desc",
-//           },
-//         },
-//       },
-//     });
-
-//     // Add leadCount to each domain safely
-//     const employeesWithLeadCounts = await Promise.all(
-//       employees.map(async (employee) => {
-//         // 🛡️ Always ensure array
-//         const domains = Array.isArray(employee.mailDomains)
-//           ? employee.mailDomains
-//           : [];
-
-//         const domainsWithCounts = await Promise.all(
-//           domains.map(async (domain) => {
-//             const leadCount = await prisma.lead.count({
-//               where: {
-//                 leadEmail: domain.email,
-//               },
-//             });
-
-//             return {
-//               ...domain,
-//               leadCount: Number(leadCount) || 0, // prevents NaN
-//             };
-//           }),
-//         );
-
-//         return {
-//           ...employee,
-//           mailDomains: domainsWithCounts, // ⚠️ must stay mailDomains
-//         };
-//       }),
-//     );
-
-//     res.json({ employees: employeesWithLeadCounts });
-//   } catch (error) {
-//     console.error("Error fetching admin email domains:", error);
-//     res.status(500).json({ error: "Failed to fetch email domains" });
-//   }
-// });
 router.get("/email-domains-all", async (req, res) => {
   try {
+    // 1️⃣ Fetch employees with domains
     const employees = await prisma.employee.findMany({
       where: {
         role: "EMPLOYEE",
@@ -87,60 +27,70 @@ router.get("/email-domains-all", async (req, res) => {
             isActive: true,
             createdAt: true,
           },
-          orderBy: {
-            createdAt: "desc",
-          },
         },
       },
     });
 
-    // 📅 Current Month Date Range
+    // 2️⃣ Fetch all leads once
+    const leads = await prisma.lead.findMany({
+      select: {
+        employeeId: true,
+        leadEmail: true,
+        date: true,
+      },
+    });
+
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
-    const employeesWithLeadCounts = await Promise.all(
-      employees.map(async (employee) => {
-        const domains = Array.isArray(employee.mailDomains)
-          ? employee.mailDomains
-          : [];
+    // 3️⃣ Build email-based stats map
+    // Key format: "employeeId_clientEmail"
+    const stats = {};
 
-        const domainsWithCounts = await Promise.all(
-          domains.map(async (domain) => {
-            // 🔢 Total Leads
-            const totalCount = await prisma.lead.count({
-              where: {
-                leadEmail: domain.email,
-              },
-            });
+    leads.forEach((lead) => {
+      if (!lead.employeeId || !lead.leadEmail) return;
 
-            // 📆 Current Month Leads
-            const currentMonthCount = await prisma.lead.count({
-              where: {
-                leadEmail: domain.email,
-                createdAt: {
-                  gte: startOfMonth,
-                  lt: endOfMonth,
-                },
-              },
-            });
+      const empId = String(lead.employeeId).trim();
+      const leadEmail = lead.leadEmail.toLowerCase().trim();
 
-            return {
-              ...domain,
-              totalCount: totalCount || 0,
-              currentMonthCount: currentMonthCount || 0,
-            };
-          }),
-        );
+      const key = `${empId}_${leadEmail}`;
+
+      if (!stats[key]) {
+        stats[key] = { total: 0, currentMonth: 0 };
+      }
+
+      stats[key].total++;
+
+      if (lead.date >= startOfMonth && lead.date < endOfMonth) {
+        stats[key].currentMonth++;
+      }
+    });
+
+    // 4️⃣ Attach correct counts per employee and domain email
+    const result = employees.map((employee) => {
+      const updatedDomains = employee.mailDomains.map((domain) => {
+        const domainEmail = domain.email.toLowerCase().trim();
+        const key = `${employee.employeeId}_${domainEmail}`;
+        const domainStats = stats[key] || {
+          total: 0,
+          currentMonth: 0,
+        };
 
         return {
-          ...employee,
-          mailDomains: domainsWithCounts,
+          ...domain,
+          totalCount: domainStats.total,
+          currentMonthCount: domainStats.currentMonth,
         };
-      }),
-    );
+      });
 
-    res.json({ employees: employeesWithLeadCounts });
+      return {
+        ...employee,
+        mailDomains: updatedDomains,
+      };
+    });
+
+    res.json({ employees: result });
   } catch (error) {
     console.error("Error fetching admin email domains:", error);
     res.status(500).json({ error: "Failed to fetch email domains" });

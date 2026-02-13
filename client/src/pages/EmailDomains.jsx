@@ -241,6 +241,7 @@ function EmailDomains() {
               <table className="w-full text-left min-w-[1000px]">
                 <thead>
                   <tr className="text-[11px] font-black text-slate-400 uppercase tracking-widest bg-slate-50/30">
+                    <th className="px-8 py-4">No.</th> {/* 👈 Add this */}
                     <th className="px-8 py-4">Identity</th>
                     <th className="px-8 py-4">Provider</th>
                     <th className="px-8 py-4">
@@ -251,11 +252,15 @@ function EmailDomains() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {domains.map((domain) => (
+                  {domains.map((domain, index) => (
                     <tr
                       key={domain.id}
                       className="hover:bg-slate-50/80 transition-colors group"
                     >
+                      <td className="px-8 py-5 text-sm font-bold text-slate-500">
+                        {index + 1}
+                      </td>
+
                       <td className="px-8 py-5">
                         <div className="flex items-center gap-4">
                           <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-black">

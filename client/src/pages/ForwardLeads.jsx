@@ -1116,7 +1116,7 @@ const ForwardLeads = () => {
 
                   {salesEmployees.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.fullName} — {s.email.split("@")[0]}
+                      {s.fullName} — {s.email}
                     </option>
                   ))}
                 </select>

@@ -33,17 +33,27 @@ router.get("/:employeeId", async (req, res) => {
 
     const domainsWithCounts = await Promise.all(
       domains.map(async (domain) => {
-        // Total Leads
+        const normalizedEmail = domain.email?.trim().toLowerCase();
+
+        // ✅ Total Leads (match employeeId also)
         const totalCount = await prisma.lead.count({
           where: {
-            leadEmail: domain.email,
+            employeeId: employeeId,
+            leadEmail: {
+              equals: normalizedEmail,
+              mode: "insensitive", // 🔥 important
+            },
           },
         });
 
-        // Current Month Leads
+        // ✅ Current Month Leads
         const currentMonthCount = await prisma.lead.count({
           where: {
-            leadEmail: domain.email,
+            employeeId: employeeId,
+            leadEmail: {
+              equals: normalizedEmail,
+              mode: "insensitive",
+            },
             date: {
               gte: startOfMonth,
               lt: endOfMonth,
@@ -53,8 +63,8 @@ router.get("/:employeeId", async (req, res) => {
 
         return {
           ...domain,
-          totalCount: totalCount || 0,
-          currentMonthCount: currentMonthCount || 0,
+          totalCount,
+          currentMonthCount,
         };
       }),
     );
