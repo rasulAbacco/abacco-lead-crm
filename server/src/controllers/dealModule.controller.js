@@ -169,15 +169,52 @@ export const createMaster = async (req, res) => {
     const { name } = req.body;
 
     const table = masterMap[type];
-    if (!table) return res.status(400).json({ message: "Invalid type" });
 
-    const data = await table.create({
-      data: { name },
+    // 🔹 Validate master type
+    if (!table) {
+      return res.status(400).json({
+        message: "Invalid master type",
+      });
+    }
+
+    // 🔹 Validate name
+    if (!name || !name.trim()) {
+      return res.status(400).json({
+        message: "Name is required",
+      });
+    }
+
+    const cleanedName = name.trim();
+
+    // 🔥 Case-insensitive duplicate check
+    const existing = await table.findFirst({
+      where: {
+        name: {
+          equals: cleanedName,
+          mode: "insensitive", // prevents REAL ESTATE vs real estate
+        },
+      },
     });
 
-    res.status(201).json(data);
+    if (existing) {
+      return res.status(409).json({
+        message: "This entry already exists",
+      });
+    }
+
+    // 🔹 Create master record (always save trimmed value)
+    const data = await table.create({
+      data: {
+        name: cleanedName,
+      },
+    });
+
+    return res.status(201).json(data);
   } catch (error) {
-    res.status(500).json({ message: "Failed to create master data" });
+    console.error("Create master error:", error);
+    return res.status(500).json({
+      message: "Failed to create master data",
+    });
   }
 };
 
