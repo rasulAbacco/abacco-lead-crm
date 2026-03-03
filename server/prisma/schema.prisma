@@ -63,6 +63,7 @@ model Employee {
   receivedLinks     ReceivedLink[]     @relation("ReceivedByEmployee") // Links received by employee
   Notification      Notification[]
   pushSubscriptions PushSubscription[]
+  dealInfos         DealInfo[]
 
   @@index([role])
   @@index([isActive])
@@ -268,4 +269,56 @@ model LeadStatus {
   updatedAt DateTime @updatedAt
 
   leads Lead[]
+}
+
+model DealInfo {
+  id Int @id @default(autoincrement())
+
+  clientEmail String
+  industry    String
+  leadType    String
+  dealStatus  String
+
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientEmail])
+  @@index([employeeId])
+  @@index([createdAt])
+}
+
+model IndustryMaster {
+  id       Int     @id @default(autoincrement())
+  name     String  @unique
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+}
+
+model LeadTypeMaster {
+  id       Int     @id @default(autoincrement())
+  name     String  @unique
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+}
+
+model DealStatusMaster {
+  id       Int     @id @default(autoincrement())
+  name     String  @unique
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
 }

@@ -29,6 +29,8 @@ import NewYearOverlay from "./components/NewYearOverlay";
 import Maintenance from "./pages/Maintenance";
 import SalesEmployee from "./pages/SalesEmployee";
 import AdminEmailDomains from "./pages/AdminEmailDomains";
+import DealUpdates from "./pages/DealUpdates";
+import EmpDealReport from "./pages/EmpDealReport";
 
 const MAINTENANCE_MODE = false;
 
@@ -88,6 +90,16 @@ function App() {
             <Layout>
               <ProtectedRoute role="admin">
                 <AllLeads />
+              </ProtectedRoute>
+            </Layout>
+          }
+        />
+        <Route
+          path="/deal-updates"
+          element={
+            <Layout>
+              <ProtectedRoute role="admin">
+                <DealUpdates />
               </ProtectedRoute>
             </Layout>
           }
@@ -200,6 +212,16 @@ function App() {
             <Layout>
               <ProtectedRoute role="employee">
                 <MyReport />
+              </ProtectedRoute>
+            </Layout>
+          }
+        />
+        <Route
+          path="/employee-deal-updates"
+          element={
+            <Layout>
+              <ProtectedRoute role="employee">
+                <EmpDealReport />
               </ProtectedRoute>
             </Layout>
           }

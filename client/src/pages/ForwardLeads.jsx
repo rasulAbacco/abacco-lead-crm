@@ -431,6 +431,35 @@ const ForwardLeads = () => {
     }
   };
 
+  const deleteLeadStatus = async (statusId) => {
+    try {
+      const token = localStorage.getItem("token");
+
+      const res = await fetch(
+        `${API_BASE_URL}/api/admin/lead-status/${statusId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+
+      // Refresh list
+      await fetchLeadStatuses();
+
+      // If deleted status was selected → reset it
+      if (String(statusId) === selectedStatus) {
+        setSelectedStatus("");
+      }
+    } catch (err) {
+      alert(err.message || "Failed to delete status");
+    }
+  };
+
   if (loading) {
     return <Loader />;
   }
@@ -1102,7 +1131,14 @@ const ForwardLeads = () => {
           {/* Overlay */}
           <div
             className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
-            onClick={() => setSalesAssignModal({ open: false })}
+            onClick={() =>
+              setSalesAssignModal({
+                open: false,
+                leadId: null,
+                empId: null,
+                isOldLead: false,
+              })
+            }
           />
 
           {/* Modal */}
@@ -1119,13 +1155,20 @@ const ForwardLeads = () => {
                     Assign Sales
                   </h2>
                   <p className="text-sm font-medium text-slate-500">
-                    Select a team member for this lead
+                    Select a team member and status for this lead
                   </p>
                 </div>
               </div>
 
               <button
-                onClick={() => setSalesAssignModal({ open: false })}
+                onClick={() =>
+                  setSalesAssignModal({
+                    open: false,
+                    leadId: null,
+                    empId: null,
+                    isOldLead: false,
+                  })
+                }
                 className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400"
               >
                 <XCircle className="w-5 h-5" />
@@ -1134,6 +1177,7 @@ const ForwardLeads = () => {
 
             {/* Body */}
             <div className="px-8 py-6">
+              {/* Sales Employee */}
               <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">
                 Sales Personnel
               </label>
@@ -1153,10 +1197,11 @@ const ForwardLeads = () => {
                   ))}
                 </select>
 
-                <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 group-focus-within:text-indigo-500">
+                <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
                   <ChevronDown className="w-5 h-5" />
                 </div>
               </div>
+
               {/* Status Dropdown */}
               <div className="mt-6">
                 <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">
@@ -1171,7 +1216,6 @@ const ForwardLeads = () => {
 
                       if (value === "ADD_NEW") {
                         const name = prompt("Enter new status name");
-
                         if (!name || !name.trim()) return;
 
                         try {
@@ -1190,7 +1234,6 @@ const ForwardLeads = () => {
                           );
 
                           const data = await res.json();
-
                           if (!res.ok) throw new Error(data.message);
 
                           await fetchLeadStatuses();
@@ -1215,9 +1258,33 @@ const ForwardLeads = () => {
                     <option value="ADD_NEW">➕ Add New Status</option>
                   </select>
 
-                  <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 group-focus-within:text-indigo-500">
+                  <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
                     <ChevronDown className="w-5 h-5" />
                   </div>
+                </div>
+
+                {/* Status Delete List */}
+                <div className="mt-4 space-y-2 max-h-32 overflow-y-auto">
+                  {leadStatuses.map((status) => (
+                    <div
+                      key={status.id}
+                      className="flex items-center justify-between bg-slate-50 px-4 py-2 rounded-xl border border-slate-200"
+                    >
+                      <span className="text-sm font-medium text-slate-700">
+                        {status.name}
+                      </span>
+
+                      <button
+                        onClick={() => {
+                          if (!confirm("Delete this status?")) return;
+                          deleteLeadStatus(status.id);
+                        }}
+                        className="text-red-500 hover:text-red-700 text-xs font-bold"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -1236,7 +1303,14 @@ const ForwardLeads = () => {
             {/* Footer */}
             <div className="px-8 pb-8 pt-2 flex gap-3">
               <button
-                onClick={() => setSalesAssignModal({ open: false })}
+                onClick={() =>
+                  setSalesAssignModal({
+                    open: false,
+                    leadId: null,
+                    empId: null,
+                    isOldLead: false,
+                  })
+                }
                 className="flex-1 px-6 py-4 rounded-2xl font-bold text-slate-500 hover:bg-slate-50 transition-all active:scale-95"
               >
                 Cancel

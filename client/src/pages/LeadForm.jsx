@@ -38,6 +38,7 @@ const LeadForm = () => {
   const [showSuccess, setShowSuccess] = useState(false);
   const [errors, setErrors] = useState({});
   const [toast, setToast] = React.useState({ message: "", type: "" });
+  const [duplicateInfo, setDuplicateInfo] = useState(null);
 
   // Toast helper
   const showToast = (message, type = "info") => {
@@ -73,12 +74,12 @@ const LeadForm = () => {
       newErrors.link = "Association/Expo link is required";
 
     // Validate at least one phone number
-    if (!formData.phones.some(phone => phone.trim())) {
+    if (!formData.phones.some((phone) => phone.trim())) {
       newErrors.phones = "At least one phone number is required";
     }
 
     // Validate CC emails if provided
-    const ccEmails = formData.ccEmails.filter(email => email.trim());
+    const ccEmails = formData.ccEmails.filter((email) => email.trim());
     for (const email of ccEmails) {
       if (!validateEmail(email)) {
         newErrors.ccEmails = `Invalid CC email: ${email}`;
@@ -99,38 +100,38 @@ const LeadForm = () => {
   const handlePhoneChange = (index, value) => {
     const newPhones = [...formData.phones];
     newPhones[index] = value;
-    setFormData(prev => ({ ...prev, phones: newPhones }));
-    if (errors.phones) setErrors(prev => ({ ...prev, phones: null }));
+    setFormData((prev) => ({ ...prev, phones: newPhones }));
+    if (errors.phones) setErrors((prev) => ({ ...prev, phones: null }));
   };
 
   const handleCcEmailChange = (index, value) => {
     const newCcEmails = [...formData.ccEmails];
     newCcEmails[index] = value;
-    setFormData(prev => ({ ...prev, ccEmails: newCcEmails }));
-    if (errors.ccEmails) setErrors(prev => ({ ...prev, ccEmails: null }));
+    setFormData((prev) => ({ ...prev, ccEmails: newCcEmails }));
+    if (errors.ccEmails) setErrors((prev) => ({ ...prev, ccEmails: null }));
   };
 
   const addPhoneField = () => {
-    setFormData(prev => ({ ...prev, phones: [...prev.phones, ""] }));
+    setFormData((prev) => ({ ...prev, phones: [...prev.phones, ""] }));
   };
 
   const removePhoneField = (index) => {
     if (formData.phones.length > 1) {
       const newPhones = [...formData.phones];
       newPhones.splice(index, 1);
-      setFormData(prev => ({ ...prev, phones: newPhones }));
+      setFormData((prev) => ({ ...prev, phones: newPhones }));
     }
   };
 
   const addCcEmailField = () => {
-    setFormData(prev => ({ ...prev, ccEmails: [...prev.ccEmails, ""] }));
+    setFormData((prev) => ({ ...prev, ccEmails: [...prev.ccEmails, ""] }));
   };
 
   const removeCcEmailField = (index) => {
     if (formData.ccEmails.length > 1) {
       const newCcEmails = [...formData.ccEmails];
       newCcEmails.splice(index, 1);
-      setFormData(prev => ({ ...prev, ccEmails: newCcEmails }));
+      setFormData((prev) => ({ ...prev, ccEmails: newCcEmails }));
     }
   };
 
@@ -167,8 +168,8 @@ const LeadForm = () => {
     // Prepare data for submission - filter out empty phones and CC emails
     const submissionData = {
       ...formData,
-      phones: formData.phones.filter(phone => phone.trim()),
-      ccEmails: formData.ccEmails.filter(email => email.trim()),
+      phones: formData.phones.filter((phone) => phone.trim()),
+      ccEmails: formData.ccEmails.filter((email) => email.trim()),
     };
 
     try {
@@ -186,7 +187,7 @@ const LeadForm = () => {
         handleClear();
         showToast("Lead submitted successfully!", "success");
       } else if (data.duplicate) {
-        showToast(data.message, "error");
+        setDuplicateInfo(data.duplicateLead);
       } else {
         showToast(data.message || "Submission failed", "error");
       }
@@ -212,10 +213,9 @@ const LeadForm = () => {
       {/* Toast Notification */}
       {toast.message && (
         <div
-          className={`fixed top-6 right-6 z-50 px-6 py-4 rounded-xl shadow-lg text-white font-medium transform transition-all duration-300 ${toast.type === "error"
-            ? "bg-red-500 animate-pulse"
-            : "bg-green-500"
-            }`}
+          className={`fixed top-6 right-6 z-50 px-6 py-4 rounded-xl shadow-lg text-white font-medium transform transition-all duration-300 ${
+            toast.type === "error" ? "bg-red-500 animate-pulse" : "bg-green-500"
+          }`}
         >
           {toast.message}
         </div>
@@ -241,11 +241,15 @@ const LeadForm = () => {
                 <h1 className="text-3xl font-bold text-gray-900">
                   Drop Your Lead Here
                 </h1>
-                <p className="text-gray-600 mt-1">Employee Lead Submission Portal</p>
+                <p className="text-gray-600 mt-1">
+                  Employee Lead Submission Portal
+                </p>
               </div>
             </div>
             <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-              <div className="text-sm text-gray-500 font-medium">Employee ID</div>
+              <div className="text-sm text-gray-500 font-medium">
+                Employee ID
+              </div>
               <div className="font-mono text-lg font-semibold bg-white px-4 py-2 rounded-lg mt-1 shadow-sm">
                 {employeeId}
               </div>
@@ -270,7 +274,9 @@ const LeadForm = () => {
             </div>
             <div className="flex items-center gap-2 bg-purple-50 px-4 py-2 rounded-lg">
               <FileText className="w-5 h-5 text-purple-500" />
-              <span className="font-medium">Form ID: LF-{Date.now().toString().slice(-6)}</span>
+              <span className="font-medium">
+                Form ID: LF-{Date.now().toString().slice(-6)}
+              </span>
             </div>
           </div>
         </div>
@@ -293,13 +299,18 @@ const LeadForm = () => {
                   name="agentName"
                   value={formData.agentName}
                   onChange={handleChange}
-                  className={`w-full pl-12 pr-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.agentName ? "border-red-500 bg-red-50" : "border-gray-300"
-                    }`}
+                  className={`w-full pl-12 pr-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${
+                    errors.agentName
+                      ? "border-red-500 bg-red-50"
+                      : "border-gray-300"
+                  }`}
                   placeholder="Enter agent full name"
                 />
               </div>
               {errors.agentName && (
-                <p className="text-red-500 text-sm font-medium mt-1">{errors.agentName}</p>
+                <p className="text-red-500 text-sm font-medium mt-1">
+                  {errors.agentName}
+                </p>
               )}
             </div>
 
@@ -321,8 +332,18 @@ const LeadForm = () => {
                   <option value="Industry Lead">Industry Lead</option>
                 </select>
                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M19 9l-7 7-7-7"
+                    ></path>
                   </svg>
                 </div>
               </div>
@@ -338,12 +359,17 @@ const LeadForm = () => {
                 name="clientEmail"
                 value={formData.clientEmail}
                 onChange={handleChange}
-                className={`w-full px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.clientEmail ? "border-red-500 bg-red-50" : "border-gray-300"
-                  }`}
+                className={`w-full px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${
+                  errors.clientEmail
+                    ? "border-red-500 bg-red-50"
+                    : "border-gray-300"
+                }`}
                 placeholder="client@company.com"
               />
               {errors.clientEmail && (
-                <p className="text-red-500 text-sm font-medium mt-1">{errors.clientEmail}</p>
+                <p className="text-red-500 text-sm font-medium mt-1">
+                  {errors.clientEmail}
+                </p>
               )}
             </div>
 
@@ -357,12 +383,17 @@ const LeadForm = () => {
                 name="leadEmail"
                 value={formData.leadEmail}
                 onChange={handleChange}
-                className={`w-full px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.leadEmail ? "border-red-500 bg-red-50" : "border-gray-300"
-                  }`}
+                className={`w-full px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${
+                  errors.leadEmail
+                    ? "border-red-500 bg-red-50"
+                    : "border-gray-300"
+                }`}
                 placeholder="lead@company.com"
               />
               {errors.leadEmail && (
-                <p className="text-red-500 text-sm font-medium mt-1">{errors.leadEmail}</p>
+                <p className="text-red-500 text-sm font-medium mt-1">
+                  {errors.leadEmail}
+                </p>
               )}
             </div>
 
@@ -377,8 +408,11 @@ const LeadForm = () => {
                     type="email"
                     value={email}
                     onChange={(e) => handleCcEmailChange(index, e.target.value)}
-                    className={`flex-1 px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.ccEmails ? "border-red-500 bg-red-50" : "border-gray-300"
-                      }`}
+                    className={`flex-1 px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${
+                      errors.ccEmails
+                        ? "border-red-500 bg-red-50"
+                        : "border-gray-300"
+                    }`}
                     placeholder="cc@example.com"
                   />
                   {formData.ccEmails.length > 1 && (
@@ -402,7 +436,9 @@ const LeadForm = () => {
                 </div>
               ))}
               {errors.ccEmails && (
-                <p className="text-red-500 text-sm font-medium mt-1">{errors.ccEmails}</p>
+                <p className="text-red-500 text-sm font-medium mt-1">
+                  {errors.ccEmails}
+                </p>
               )}
             </div>
 
@@ -416,12 +452,17 @@ const LeadForm = () => {
                 name="website"
                 value={formData.website}
                 onChange={handleChange}
-                className={`w-full px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.website ? "border-red-500 bg-red-50" : "border-gray-300"
-                  }`}
+                className={`w-full px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${
+                  errors.website
+                    ? "border-red-500 bg-red-50"
+                    : "border-gray-300"
+                }`}
                 placeholder="https://website.com"
               />
               {errors.website && (
-                <p className="text-red-500 text-sm font-medium mt-1">{errors.website}</p>
+                <p className="text-red-500 text-sm font-medium mt-1">
+                  {errors.website}
+                </p>
               )}
             </div>
 
@@ -435,12 +476,15 @@ const LeadForm = () => {
                 name="link"
                 value={formData.link}
                 onChange={handleChange}
-                className={`w-full px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.link ? "border-red-500 bg-red-50" : "border-gray-300"
-                  }`}
+                className={`w-full px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${
+                  errors.link ? "border-red-500 bg-red-50" : "border-gray-300"
+                }`}
                 placeholder="https://link.com"
               />
               {errors.link && (
-                <p className="text-red-500 text-sm font-medium mt-1">{errors.link}</p>
+                <p className="text-red-500 text-sm font-medium mt-1">
+                  {errors.link}
+                </p>
               )}
             </div>
 
@@ -455,8 +499,11 @@ const LeadForm = () => {
                     type="tel"
                     value={phone}
                     onChange={(e) => handlePhoneChange(index, e.target.value)}
-                    className={`flex-1 px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.phones ? "border-red-500 bg-red-50" : "border-gray-300"
-                      }`}
+                    className={`flex-1 px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${
+                      errors.phones
+                        ? "border-red-500 bg-red-50"
+                        : "border-gray-300"
+                    }`}
                     placeholder="+1 (555) 123-4567"
                   />
                   {formData.phones.length > 1 && (
@@ -480,7 +527,9 @@ const LeadForm = () => {
                 </div>
               ))}
               {errors.phones && (
-                <p className="text-red-500 text-sm font-medium mt-1">{errors.phones}</p>
+                <p className="text-red-500 text-sm font-medium mt-1">
+                  {errors.phones}
+                </p>
               )}
             </div>
 
@@ -542,12 +591,17 @@ const LeadForm = () => {
                 name="subjectLine"
                 value={formData.subjectLine}
                 onChange={handleChange}
-                className={`w-full px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.subjectLine ? "border-red-500 bg-red-50" : "border-gray-300"
-                  }`}
+                className={`w-full px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${
+                  errors.subjectLine
+                    ? "border-red-500 bg-red-50"
+                    : "border-gray-300"
+                }`}
                 placeholder="Partnership Opportunity"
               />
               {errors.subjectLine && (
-                <p className="text-red-500 text-sm font-medium mt-1">{errors.subjectLine}</p>
+                <p className="text-red-500 text-sm font-medium mt-1">
+                  {errors.subjectLine}
+                </p>
               )}
             </div>
 
@@ -560,13 +614,18 @@ const LeadForm = () => {
                 name="emailPitch"
                 value={formData.emailPitch}
                 onChange={handleChange}
-                className={`w-full px-4 py-3.5 border rounded-xl resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${errors.emailPitch ? "border-red-500 bg-red-50" : "border-gray-300"
-                  }`}
+                className={`w-full px-4 py-3.5 border rounded-xl resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${
+                  errors.emailPitch
+                    ? "border-red-500 bg-red-50"
+                    : "border-gray-300"
+                }`}
                 rows="5"
                 placeholder="Enter your professional email pitch here..."
               />
               {errors.emailPitch && (
-                <p className="text-red-500 text-sm font-medium mt-1">{errors.emailPitch}</p>
+                <p className="text-red-500 text-sm font-medium mt-1">
+                  {errors.emailPitch}
+                </p>
               )}
             </div>
 
@@ -575,10 +634,11 @@ const LeadForm = () => {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className={`flex-1 flex items-center justify-center gap-3 px-6 py-4 font-semibold rounded-xl transition-all ${isSubmitting
-                  ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white opacity-80 cursor-not-allowed"
-                  : "bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                  }`}
+                className={`flex-1 flex items-center justify-center gap-3 px-6 py-4 font-semibold rounded-xl transition-all ${
+                  isSubmitting
+                    ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white opacity-80 cursor-not-allowed"
+                    : "bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                }`}
               >
                 {isSubmitting ? (
                   <>
@@ -607,6 +667,88 @@ const LeadForm = () => {
           </form>
         </div>
       </div>
+      {duplicateInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md">
+          <div className="relative bg-white/90 backdrop-blur-xl w-full max-w-lg rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.25)] p-8 border border-white/30 animate-in fade-in zoom-in duration-200">
+            {/* Gradient Top Bar */}
+            {/* <div className="absolute top-0 left-0 right-0 h-6 rounded-t-[5rem] bg-gradient-to-r from-blue-500 via-purple-400 to-purple-400"></div> */}
+
+            {/* Header */}
+            <div className="mt-4">
+              <h2 className="text-2xl font-extrabold bg-gradient-to-r from-red-600 to-orange-500 bg-clip-text text-transparent">
+                Duplicate Lead 🚫
+              </h2>
+
+              <p className="text-sm text-gray-600 mt-2">
+                Oops... someone was faster than you Buddy 😅 This lead is locked
+                for 2 months. Try again after the cooldown below.
+              </p>
+            </div>
+
+            {/* Info Section */}
+            <div className="mt-6 space-y-3 text-sm text-gray-700">
+              <div className="flex justify-between">
+                <span className="font-medium text-gray-500">Client Email</span>
+                <span className="font-semibold">
+                  {duplicateInfo.clientEmail}
+                </span>
+              </div>
+
+              <div className="flex justify-between">
+                <span className="font-medium text-gray-500">Subject</span>
+                <span className="font-semibold">
+                  {duplicateInfo.subjectLine}
+                </span>
+              </div>
+
+              <div className="flex justify-between">
+                <span className="font-medium text-gray-500">Uploaded By</span>
+                <span className="font-semibold">
+                  {duplicateInfo.uploadedBy?.fullName} (
+                  {duplicateInfo.uploadedBy?.employeeId})
+                </span>
+              </div>
+
+              <div className="flex justify-between">
+                <span className="font-medium text-gray-500">Uploaded On</span>
+                <span className="font-semibold">
+                  {new Date(duplicateInfo.createdAt).toLocaleDateString(
+                    "en-IN",
+                  )}
+                </span>
+              </div>
+            </div>
+
+            {/* Cooldown Card */}
+            <div className="mt-6 p-5 rounded-2xl bg-gradient-to-br from-yellow-50 to-orange-50 border border-yellow-200 shadow-inner">
+              <div className="text-sm font-semibold text-orange-600 mb-2">
+                ⏳ Re-upload Available After
+              </div>
+
+              <div className="text-lg font-bold text-gray-800">
+                {new Date(duplicateInfo.retryAfter).toLocaleDateString("en-IN")}
+              </div>
+
+              <div className="text-sm text-gray-600 mt-2">
+                Remaining:{" "}
+                <span className="font-semibold text-red-500">
+                  {duplicateInfo.remainingDays} day(s)
+                </span>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="mt-8 text-right">
+              <button
+                onClick={() => setDuplicateInfo(null)}
+                className="px-6 py-3 rounded-xl bg-gradient-to-r from-gray-800 to-gray-600 text-white font-semibold hover:scale-105 transition-transform shadow-lg"
+              >
+                Got It 👍
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

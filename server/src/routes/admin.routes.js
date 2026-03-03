@@ -7,6 +7,7 @@ import {
   assignSalesAndForwardLead,
   createLeadStatus,
   getLeadStatuses,
+  deleteLeadStatus,
 } from "../controllers/admin.controller.js";
 import { authenticate } from "../middlewares/auth.js";
 
@@ -28,5 +29,6 @@ router.put("/leads/:leadId/assign-sales", assignSalesAndForwardLead);
 /* LEAD STATUS */
 router.post("/lead-status", createLeadStatus);
 router.get("/lead-status", getLeadStatuses);
+router.delete("/lead-status/:id", deleteLeadStatus);
 
 export default router;

@@ -119,62 +119,7 @@ export const toggleSalesEmployeeStatus = async (req, res) => {
   }
 };
 
-/* ============================
-   LEAD → SALES ASSIGNMENT
-   ============================ */
 
-// export const assignSalesAndForwardLead = async (req, res) => {
-//   try {
-//     const { leadId } = req.params;
-//     const { salesEmployeeId } = req.body;
-
-//     if (!salesEmployeeId) {
-//       return res.status(400).json({
-//         message: "salesEmployeeId is required",
-//       });
-//     }
-
-//     const lead = await prisma.lead.findUnique({
-//       where: { id: Number(leadId) },
-//     });
-
-//     if (!lead) {
-//       return res.status(404).json({
-//         message: "Lead not found",
-//       });
-//     }
-
-//     const salesEmployee = await prisma.salesEmployee.findUnique({
-//       where: { id: Number(salesEmployeeId) },
-//     });
-
-//     if (!salesEmployee || !salesEmployee.isActive) {
-//       return res.status(400).json({
-//         message: "Invalid or inactive sales employee",
-//       });
-//     }
-
-//     // ✅ ONLY ASSIGN SALES (NO FORWARDING HERE)
-//     const updatedLead = await prisma.lead.update({
-//       where: { id: Number(leadId) },
-//       data: {
-//         salesEmployeeId: salesEmployee.id,
-//         salesEmployeeName: salesEmployee.fullName,
-//         salesEmployeeEmail: salesEmployee.email,
-//       },
-//     });
-
-//     return res.json({
-//       message: "Sales employee assigned successfully",
-//       lead: updatedLead,
-//     });
-//   } catch (error) {
-//     console.error("Assign sales error:", error);
-//     return res.status(500).json({
-//       message: "Failed to assign sales employee",
-//     });
-//   }
-// };
 export const assignSalesAndForwardLead = async (req, res) => {
   try {
     const { leadId } = req.params;
@@ -286,6 +231,7 @@ export const createLeadStatus = async (req, res) => {
     });
   }
 };
+
 export const getLeadStatuses = async (req, res) => {
   try {
     const statuses = await prisma.leadStatus.findMany({
@@ -295,5 +241,47 @@ export const getLeadStatuses = async (req, res) => {
     res.json(statuses);
   } catch (error) {
     res.status(500).json({ message: "Failed to fetch statuses" });
+  }
+};
+
+// DELETE lead status
+export const deleteLeadStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if status exists
+    const status = await prisma.leadStatus.findUnique({
+      where: { id: Number(id) },
+    });
+
+    if (!status) {
+      return res.status(404).json({
+        message: "Status not found",
+      });
+    }
+
+    // Check if any leads are using this status
+    const usedInLead = await prisma.lead.findFirst({
+      where: { statusId: Number(id) },
+    });
+
+    if (usedInLead) {
+      return res.status(400).json({
+        message: "Cannot delete status. It is assigned to one or more leads.",
+      });
+    }
+
+    await prisma.leadStatus.delete({
+      where: { id: Number(id) },
+    });
+
+    return res.json({
+      message: "Status deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete status error:", error);
+    return res.status(500).json({
+      message: "Failed to delete status",
+    });
   }
 };

@@ -258,11 +258,13 @@ const SummaryPanel = ({ rule }) => {
 /* -------------------------
    Main component
    ------------------------- */
-export default function Leaderboard({ apiBase = "http://localhost:5000" }) {
+export default function Leaderboard({
+  apiBase = `${import.meta.env.VITE_API_BASE_URL}||http://localhost:5000`,
+}) {
   // timeframe controls
   const [timeMode, setTimeMode] = useState("month");
   const [selectedMonth, setSelectedMonth] = useState(
-    new Date().toISOString().slice(0, 7)
+    new Date().toISOString().slice(0, 7),
   );
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [rangeFrom, setRangeFrom] = useState("");
@@ -337,7 +339,7 @@ export default function Leaderboard({ apiBase = "http://localhost:5000" }) {
       setColumns(finalColumns);
 
       const resultsWithIncentives = (json.results || []).filter(
-        (emp) => (emp.totalAmount || 0) > 0
+        (emp) => (emp.totalAmount || 0) > 0,
       );
       setData(resultsWithIncentives);
     } catch (err) {
@@ -356,7 +358,7 @@ export default function Leaderboard({ apiBase = "http://localhost:5000" }) {
     try {
       const month = selectedMonth;
       const url = `${apiBase}/api/employee/incentive-summary?month=${encodeURIComponent(
-        month
+        month,
       )}`;
       const headers = {};
       if (token) headers.Authorization = `Bearer ${token}`;

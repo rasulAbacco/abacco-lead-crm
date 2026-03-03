@@ -52,7 +52,7 @@ router.post("/login", async (req, res) => {
 
 export default router;
 
-// import express from "express";
+
 // import { PrismaClient } from "@prisma/client";
 // import jwt from "jsonwebtoken"; // Added JWT
 

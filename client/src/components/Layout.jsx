@@ -18,6 +18,7 @@ import {
   AtSign,
   Database,
   UserStar,
+  Handshake,
 } from "lucide-react";
 
 const getRole = () => localStorage.getItem("role")?.toLowerCase();
@@ -137,6 +138,11 @@ function Layout({ children }) {
                 <NavLink to="/myleads" icon={FolderOpen} label="My Leads" />
                 <NavLink to="/myreport" icon={ServerCrash} label="My Report" />
                 <NavLink
+                  to="/employee-deal-updates"
+                  icon={Handshake}
+                  label="Deal Updates"
+                />
+                <NavLink
                   to="/email-domains"
                   icon={AtSign}
                   label="Email Domains"
@@ -172,6 +178,11 @@ function Layout({ children }) {
                   label="Add Employee"
                 />
                 <NavLink to="/all-leads" icon={FileText} label="All Leads" />
+                <NavLink
+                  to="/deal-updates"
+                  icon={Handshake}
+                  label="Deal Updates"
+                />
                 <NavLink
                   to="/set-targets"
                   icon={Sparkles}

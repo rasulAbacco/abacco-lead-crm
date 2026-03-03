@@ -38,7 +38,7 @@ export function authenticate(req, res, next) {
           role: employee.role
         };
         
-        console.log("Fetched employeeId from DB:", employee.employeeId);
+        // console.log("Fetched employeeId from DB:", employee.employeeId);
       } catch (error) {
         console.error("Error fetching employee:", error);
         return res.status(500).json({ message: "Server error" });
@@ -53,7 +53,7 @@ export function authenticate(req, res, next) {
       };
     }
     
-    console.log("Final authenticated user:", req.user);
+    // console.log("Final authenticated user:", req.user);
     next();
   });
 }

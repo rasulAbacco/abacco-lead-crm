@@ -210,28 +210,45 @@ router.post("/", async (req, res) => {
     const threeMonthsAgo = new Date();
     threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 2);
 
+    // Check duplicate (last 3 months)
     const existingLead = await prisma.lead.findFirst({
       where: {
         clientEmail: normalizedClientEmail,
         createdAt: { gte: threeMonthsAgo },
       },
+      include: {
+        employee: {
+          select: {
+            employeeId: true,
+            fullName: true,
+            email: true,
+          },
+        },
+      },
     });
 
     if (existingLead) {
       const retryAfter = new Date(existingLead.createdAt);
-      retryAfter.setMonth(retryAfter.getMonth() + 3);
-      const remainingDays = Math.ceil(
-        (retryAfter - new Date()) / (1000 * 60 * 60 * 24)
+      retryAfter.setMonth(retryAfter.getMonth() + 2);
+
+      const remainingDays = Math.max(
+        0,
+        Math.ceil((retryAfter - new Date()) / (1000 * 60 * 60 * 24)),
       );
 
       return res.status(400).json({
         success: false,
         duplicate: true,
-        message: `Duplicate found (created on ${existingLead.createdAt.toLocaleDateString(
-          "en-IN"
-        )}). You can resubmit after ${remainingDays} day(s).`,
-        existingDate: existingLead.createdAt,
-        retryAfterDays: remainingDays,
+        duplicateLead: {
+          id: existingLead.id,
+          clientEmail: existingLead.clientEmail,
+          subjectLine: existingLead.subjectLine,
+          createdAt: existingLead.createdAt,
+          contactDate: existingLead.date,
+          uploadedBy: existingLead.employee,
+          retryAfter,
+          remainingDays,
+        },
       });
     }
 
