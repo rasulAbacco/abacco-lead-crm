@@ -38,11 +38,20 @@ const DealsTab = ({
   // Helper for status badge colors (Soft colors, Light mode only)
   const getStatusStyle = (status) => {
     const s = status?.toLowerCase();
-    if (s?.includes("win") || s?.includes("done"))
+
+    // ✅ Deal = Green
+    if (s?.includes("deal"))
       return "bg-emerald-50 text-emerald-700 border-emerald-100";
+
+    // ❌ Cancel / Lost = Red
     if (s?.includes("lost") || s?.includes("cancel"))
       return "bg-rose-50 text-rose-700 border-rose-100";
-    return "bg-amber-50 text-amber-700 border-amber-100";
+
+    // ⏳ Pending = Yellow
+    if (s?.includes("pending"))
+      return "bg-amber-50 text-amber-700 border-amber-100";
+
+    return "bg-slate-50 text-slate-700 border-slate-100";
   };
 
   return (
@@ -60,7 +69,7 @@ const DealsTab = ({
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
               <div className="flex flex-col gap-1.5">
                 <label className="text-[11px] font-bold text-slate-500 uppercase ml-1">
-                  Client Email
+                  Agent Email
                 </label>
                 <input
                   type="email"
@@ -258,7 +267,7 @@ const DealsTab = ({
             <thead>
               <tr className="bg-slate-50/50">
                 <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">
-                  Client
+                  Agent Mail
                 </th>
                 <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">
                   Industry
@@ -270,7 +279,7 @@ const DealsTab = ({
                   Status
                 </th>
                 <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">
-                  Agent
+                  Agent Name
                 </th>
                 <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100 text-right">
                   Actions

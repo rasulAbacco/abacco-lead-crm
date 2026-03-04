@@ -95,7 +95,7 @@ const EmpDealTab = ({ deals, filters, setFilters, loading }) => {
             <thead>
               <tr className="bg-slate-50/50">
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase">
-                  Client
+                  Agent Mail
                 </th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase">
                   Industry
