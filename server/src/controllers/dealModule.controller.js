@@ -73,8 +73,9 @@ export const createDeal = async (req, res) => {
       return res.status(400).json({ message: "Client email required" });
     }
 
-    const normalizedEmail = clientEmail.toLowerCase();
+    const normalizedEmail = clientEmail.toLowerCase().trim();
 
+    // 🔎 check email directly
     const emailRecord = await prisma.emailDomain.findFirst({
       where: {
         email: normalizedEmail,
@@ -84,7 +85,7 @@ export const createDeal = async (req, res) => {
 
     if (!emailRecord) {
       return res.status(400).json({
-        message: "Mail not available. Check mail before try again.",
+        message: "Email not registered in EmailDomain",
       });
     }
 
@@ -238,7 +239,7 @@ export const deleteMaster = async (req, res) => {
 
 export const getEmployeeDeals = async (req, res) => {
   try {
-      console.log("REQ.USER ===>", req.user); 
+    console.log("REQ.USER ===>", req.user);
     const { industry, leadType, dealStatus, month, year } = req.query;
 
     const where = {};

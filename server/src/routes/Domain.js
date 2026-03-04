@@ -2,22 +2,7 @@ import express from "express";
 import { PrismaClient } from "@prisma/client";
 const router = express.Router();
 const prisma = new PrismaClient();
-// Get all domains for an employee
-// router.get("/:employeeId", async (req, res) => {
-//   try {
-//     const { employeeId } = req.params;
 
-//     const domains = await prisma.emailDomain.findMany({
-//       where: { employeeId },
-//       orderBy: { createdAt: "desc" },
-//     });
-
-//     res.json({ domains });
-//   } catch (error) {
-//     console.error("Error fetching domains:", error);
-//     res.status(500).json({ error: "Failed to fetch domains" });
-//   }
-// });
 router.get("/:employeeId", async (req, res) => {
   try {
     const { employeeId } = req.params;
@@ -81,9 +66,11 @@ router.post("/", async (req, res) => {
   try {
     const { email, domain, isActive, employeeId } = req.body;
 
+    const normalizedEmail = email.trim().toLowerCase();
+
     const newDomain = await prisma.emailDomain.create({
       data: {
-        email,
+        email: normalizedEmail,
         domain,
         isActive,
         employeeId,
