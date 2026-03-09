@@ -36,10 +36,15 @@ const DealUpdates = () => {
     value: "",
   });
 
-  const getAuthHeaders = () => ({
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${localStorage.getItem("token")}`,
-  });
+  // ✅ FIXED AUTH HEADERS
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem("token");
+
+    return {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+  };
 
   useEffect(() => {
     fetchMasters();
@@ -51,9 +56,11 @@ const DealUpdates = () => {
     }
   }, [filters, activeTab]);
 
+  // ✅ FIXED FETCH DEALS
   const fetchDeals = async () => {
     try {
       setLoading(true);
+
       const queryParams = new URLSearchParams();
       Object.entries(filters).forEach(([key, value]) => {
         if (value) queryParams.append(key, value);
@@ -62,25 +69,49 @@ const DealUpdates = () => {
       const res = await fetch(`${API_BASE}/deals?${queryParams.toString()}`, {
         headers: getAuthHeaders(),
       });
+
+      if (!res.ok) {
+        if (res.status === 401) {
+          localStorage.removeItem("token");
+          window.location.href = "/login";
+          return;
+        }
+
+        setDeals([]);
+        return;
+      }
+
       const data = await res.json();
-      setDeals(data || []);
+      setDeals(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Fetch deals error:", err);
+      setDeals([]);
     } finally {
       setLoading(false);
     }
   };
 
+  // ✅ SAFE MASTER FETCH
   const fetchMasters = async () => {
+    const request = async (url) => {
+      try {
+        const res = await fetch(url, { headers: getAuthHeaders() });
+
+        if (!res.ok) return [];
+
+        const data = await res.json();
+        return Array.isArray(data) ? data : [];
+      } catch {
+        return [];
+      }
+    };
+
     const [i, l, s] = await Promise.all([
-      fetch(`${API_BASE}/industries`, { headers: getAuthHeaders() }).then((r) =>
-        r.json(),
-      ),
-      fetch(`${API_BASE}/lead-types`, { headers: getAuthHeaders() }).then((r) =>
-        r.json(),
-      ),
-      fetch(`${API_BASE}/deal-status`, { headers: getAuthHeaders() }).then(
-        (r) => r.json(),
-      ),
+      request(`${API_BASE}/industries`),
+      request(`${API_BASE}/lead-types`),
+      request(`${API_BASE}/deal-status`),
     ]);
+
     setIndustries(i);
     setLeadTypes(l);
     setDealStatuses(s);
@@ -88,6 +119,7 @@ const DealUpdates = () => {
 
   const handleSaveDeal = async (e) => {
     e.preventDefault();
+
     const method = editingId ? "PUT" : "POST";
     const url = editingId
       ? `${API_BASE}/deals/${editingId}`
@@ -99,66 +131,96 @@ const DealUpdates = () => {
       body: JSON.stringify(formData),
     });
 
+    if (res.status === 401) {
+      localStorage.removeItem("token");
+      window.location.href = "/login";
+      return;
+    }
+
     if (res.ok) {
       setEditingId(null);
       setShowForm(false);
+
       setFormData({
         clientEmail: "",
         industry: "",
         leadType: "",
         dealStatus: "",
       });
+
       fetchDeals();
     }
   };
 
   const handleDeleteDeal = async (id) => {
     if (!window.confirm("Delete this deal?")) return;
-    await fetch(`${API_BASE}/deals/${id}`, {
+
+    const res = await fetch(`${API_BASE}/deals/${id}`, {
       method: "DELETE",
       headers: getAuthHeaders(),
     });
+
+    if (res.status === 401) {
+      localStorage.removeItem("token");
+      window.location.href = "/login";
+      return;
+    }
+
     fetchDeals();
   };
 
   const handleAddMaster = async () => {
     if (!newMaster.value.trim()) return;
-    await fetch(`${API_BASE}/${newMaster.type}`, {
+
+    const res = await fetch(`${API_BASE}/${newMaster.type}`, {
       method: "POST",
       headers: getAuthHeaders(),
       body: JSON.stringify({ name: newMaster.value }),
     });
+
+    if (res.status === 401) {
+      localStorage.removeItem("token");
+      window.location.href = "/login";
+      return;
+    }
+
     setNewMaster({ ...newMaster, value: "" });
     fetchMasters();
   };
 
   const handleDeleteMaster = async (type, id) => {
     if (!window.confirm("Delete this item?")) return;
-    await fetch(`${API_BASE}/${type}/${id}`, {
+
+    const res = await fetch(`${API_BASE}/${type}/${id}`, {
       method: "DELETE",
       headers: getAuthHeaders(),
     });
+
+    if (res.status === 401) {
+      localStorage.removeItem("token");
+      window.location.href = "/login";
+      return;
+    }
+
     fetchMasters();
   };
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans antialiased">
-      {/* --- Sticky Header --- */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between gap-4">
-            {/* Logo & Brand */}
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-xs">DF</span>
               </div>
+
               <h1 className="text-lg font-bold tracking-tight text-slate-900 hidden sm:block">
                 DealFlow{" "}
                 <span className="text-indigo-600 font-medium text-sm">v2</span>
               </h1>
             </div>
 
-            {/* Desktop Navigation */}
             <nav className="flex items-center bg-slate-50 border border-slate-200 p-1 rounded-full">
               {[
                 { id: "analytics", label: "Analytics" },
@@ -179,7 +241,6 @@ const DealUpdates = () => {
               ))}
             </nav>
 
-            {/* Actions */}
             <div className="flex items-center">
               {activeTab === "deals" && (
                 <button
@@ -201,16 +262,13 @@ const DealUpdates = () => {
         </div>
       </header>
 
-      {/* --- Main Content Area --- */}
-      <main className=" mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
-        {/* Analytics Section */}
+      <main className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === "analytics" && (
           <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
             <DealAnalytics deals={deals} />
           </div>
         )}
 
-        {/* Deals Section */}
         {activeTab === "deals" && (
           <div className="space-y-6">
             <DealsTab
@@ -233,15 +291,15 @@ const DealUpdates = () => {
           </div>
         )}
 
-        {/* Settings Section */}
         {activeTab === "config" && (
-          <div className=" mx-auto">
+          <div className="mx-auto">
             <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
               <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
                 <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">
                   Master Data Management
                 </h2>
               </div>
+
               <div className="p-6">
                 <DealSettings
                   industries={industries}
@@ -258,10 +316,9 @@ const DealUpdates = () => {
         )}
       </main>
 
-      {/* --- Simple Footer --- */}
       <footer className="max-w-7xl mx-auto px-6 py-12 text-center">
         <p className="text-slate-400 text-xs uppercase tracking-[0.2em] font-medium">
-          Powered by AbaccoTech Systems &bull; 2026
+          Powered by AbaccoTech Systems • 2026
         </p>
       </footer>
     </div>
