@@ -28,7 +28,6 @@ const P = {
   pending: "#1a3a5c",
   pendingLight: "#e8eef5",
 };
-
 const STATUS_MAP = {
   Deal: { fg: P.positive, bg: P.positiveLight },
   "Deal Closed": { fg: P.positive, bg: P.positiveLight },
@@ -42,12 +41,11 @@ const LEAD_COLORS = [P.ink, P.accent, P.graphite, P.ash, "#3a5c3a", "#5c3a3a"];
 const sFg = (s) => STATUS_MAP[s]?.fg ?? P.graphite;
 const sBg = (s) => STATUS_MAP[s]?.bg ?? P.mist;
 
-// Scoped CSS — only affects .da-wrap and children, never leaks out
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Source+Sans+3:wght@400;600;700&display=swap');
   .da-wrap { font-family:'Source Sans 3',sans-serif; background:${P.paper}; color:${P.ink}; }
   .da-wrap * { box-sizing:border-box; }
-  .da-inner { max-width:1700px; margin:0 auto; padding:32px 16px 48px; }
+  .da-inner { max-width:1200px; margin:0 auto; padding:32px 16px 48px; }
   .da-header { display:flex; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; gap:16px; padding-bottom:24px; border-bottom:2px solid ${P.ink}; margin-bottom:28px; }
   .da-h1 { font-family:'Playfair Display',Georgia,serif; font-size:clamp(22px,4vw,32px); font-weight:700; color:${P.ink}; letter-spacing:-0.02em; line-height:1.1; }
   .da-eyebrow { font-size:9px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; color:${P.accent}; margin-bottom:5px; }
@@ -64,6 +62,7 @@ const STYLES = `
   .da-kpi-label { display:block; font-size:9px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; color:${P.silver}; }
   .da-kpi-val { display:block; font-family:'Playfair Display',Georgia,serif; font-size:32px; font-weight:700; line-height:1; margin-top:4px; }
   .da-kpi-sub { display:block; font-size:11px; color:${P.ash}; margin-top:2px; }
+  .da-scope-badge { display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:4px; font-size:11px; font-weight:600; margin-bottom:20px; }
   .da-sec-title { font-family:'Playfair Display',Georgia,serif; font-size:16px; font-weight:700; color:${P.ink}; }
   .da-sec-desc { font-size:12px; color:${P.ash}; margin-top:3px; margin-left:14px; }
   .da-sec-wrap { margin-bottom:18px; }
@@ -72,15 +71,15 @@ const STYLES = `
   .da-legend-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
   .da-heat-hdr { display:flex; align-items:center; gap:10px; padding:0 6px; margin-bottom:6px; }
   .da-heat-hdr span { font-size:9px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:${P.silver}; }
-  .da-heat-row { display:flex; align-items:center; gap:10px; padding:8px 6px; border-bottom:1px solid ${P.mist}; transition:background .1s; }
+  .da-heat-row { display:flex; align-items:center; gap:12px; padding:10px 6px; border-bottom:1px solid ${P.mist}; transition:background .1s; }
   .da-heat-row:last-child { border-bottom:none; }
   .da-heat-row:hover { background:${P.paper}; }
-  .da-heat-name { width:120px; flex-shrink:0; font-size:12px; font-weight:600; color:${P.charcoal}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .da-heat-bar { flex:1; height:20px; border-radius:2px; overflow:hidden; display:flex; gap:1px; }
-  .da-heat-seg { display:flex; align-items:center; justify-content:center; cursor:pointer; transition:opacity .1s; }
-  .da-heat-seg:hover { opacity:.72; }
-  .da-heat-seg span { color:white; font-size:9px; font-weight:700; pointer-events:none; user-select:none; }
-  .da-heat-total { width:28px; text-align:right; font-size:12px; font-weight:700; color:${P.ash}; flex-shrink:0; }
+  .da-heat-name { width:130px; flex-shrink:0; font-size:12px; font-weight:600; color:${P.charcoal}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .da-heat-track { flex:1; background:${P.mist}; border-radius:3px; height:24px; overflow:hidden; position:relative; }
+  .da-heat-fill { height:100%; border-radius:3px; display:flex; align-items:center; padding-left:8px; transition:width .5s ease; min-width:2px; }
+  .da-heat-fill span { color:white; font-size:10px; font-weight:700; pointer-events:none; user-select:none; white-space:nowrap; }
+  .da-heat-count { width:40px; flex-shrink:0; text-align:right; font-size:12px; font-weight:700; color:${P.ash}; }
+  .da-heat-pct { width:36px; flex-shrink:0; text-align:right; font-size:10px; color:${P.silver}; }
   .da-chart-lbl { font-size:9px; font-weight:700; letter-spacing:.16em; text-transform:uppercase; color:${P.silver}; margin:24px 0 12px; display:flex; align-items:center; gap:10px; }
   .da-chart-lbl::after { content:''; flex:1; height:1px; background:${P.mist}; }
   .da-prog-row { display:flex; align-items:center; gap:10px; margin-bottom:9px; }
@@ -217,31 +216,71 @@ const KpiCard = ({ label, value, sub, accent, borderColor }) => (
   </div>
 );
 
-const HeatRow = ({ name, data, cols, total }) => (
-  <div className="da-heat-row">
-    <div className="da-heat-name" title={name}>
-      {name}
+// NEW: Proportional bar — bar width scales to data, not % of container
+const HeatRow = ({ name, data, cols, maxTotal }) => {
+  const rowTotal = cols.reduce((s, c) => s + (data[c] || 0), 0);
+  // bar fills proportionally relative to the max total in the dataset
+  const barPct = maxTotal > 0 ? (rowTotal / maxTotal) * 100 : 0;
+
+  return (
+    <div className="da-heat-row">
+      <div className="da-heat-name" title={name}>
+        {name}
+      </div>
+      <div className="da-heat-track">
+        <div
+          className="da-heat-fill"
+          style={{
+            width: `${barPct}%`,
+            background: sFg(cols[0] || ""),
+            flexDirection: "row",
+            gap: 1,
+            padding: 0,
+            display: "flex",
+          }}
+        >
+          {cols.map((col) => {
+            const val = data[col] || 0;
+            if (!val) return null;
+            const segPct = rowTotal > 0 ? (val / rowTotal) * 100 : 0;
+            return (
+              <div
+                key={col}
+                title={`${col}: ${val}`}
+                style={{
+                  width: `${segPct}%`,
+                  background: sFg(col),
+                  height: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  minWidth: val > 0 ? 4 : 0,
+                  transition: "width .4s",
+                }}
+              >
+                {segPct > 12 && (
+                  <span
+                    style={{
+                      color: "white",
+                      fontSize: 10,
+                      fontWeight: 700,
+                      userSelect: "none",
+                      pointerEvents: "none",
+                    }}
+                  >
+                    {val}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <div className="da-heat-count">{rowTotal}</div>
+      <div className="da-heat-pct">{barPct.toFixed(0)}%</div>
     </div>
-    <div className="da-heat-bar">
-      {cols.map((col) => {
-        const val = data[col] || 0,
-          pct = total > 0 ? (val / total) * 100 : 0;
-        if (!pct) return null;
-        return (
-          <div
-            key={col}
-            className="da-heat-seg"
-            style={{ width: `${pct}%`, background: sFg(col) }}
-            title={`${col}: ${val} (${pct.toFixed(0)}%)`}
-          >
-            {pct > 9 && <span>{val}</span>}
-          </div>
-        );
-      })}
-    </div>
-    <div className="da-heat-total">{total}</div>
-  </div>
-);
+  );
+};
 
 const EmptyState = ({ message = "No data" }) => (
   <div className="da-empty">
@@ -282,28 +321,68 @@ const Skel = () => (
 );
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
-const DealAnalytics = ({ deals = [], loading = false, error = null }) => {
+/**
+ * Props:
+ *   deals      {Array}   — Employee's own deals (used for KPI cards when role=employee)
+ *   allDeals   {Array}   — All deals across all employees (used for analytics charts always)
+ *   role       {string}  — "admin" | "employee"  (default: "admin")
+ *   loading    {boolean}
+ *   error      {string}
+ */
+const DealAnalytics = ({
+  deals = [],
+  allDeals = null,
+  role = "admin",
+  loading = false,
+  error = null,
+}) => {
   const [activeStatus, setActiveStatus] = useState(null);
   const [activeLead, setActiveLead] = useState(null);
 
+  // Analytics always use allDeals if provided (so employees see full picture),
+  // otherwise fall back to deals (admin case where allDeals isn't passed separately)
+  const analyticsSource = allDeals ?? deals;
+
   const statuses = useMemo(
-    () => [...new Set(deals.map((d) => d.dealStatus).filter(Boolean))].sort(),
-    [deals],
+    () =>
+      [
+        ...new Set(analyticsSource.map((d) => d.dealStatus).filter(Boolean)),
+      ].sort(),
+    [analyticsSource],
   );
   const leadTypes = useMemo(
-    () => [...new Set(deals.map((d) => d.leadType).filter(Boolean))].sort(),
-    [deals],
+    () =>
+      [
+        ...new Set(analyticsSource.map((d) => d.leadType).filter(Boolean)),
+      ].sort(),
+    [analyticsSource],
   );
 
+  // Filters apply to the analytics source
   const filtered = useMemo(
     () =>
-      deals.filter((d) => {
+      analyticsSource.filter((d) => {
         if (activeStatus && d.dealStatus !== activeStatus) return false;
         if (activeLead && d.leadType !== activeLead) return false;
         return true;
       }),
-    [deals, activeStatus, activeLead],
+    [analyticsSource, activeStatus, activeLead],
   );
+
+  // KPI cards: employees see their own numbers, admins see filtered analytics
+  const kpiSource = role === "employee" ? deals : filtered;
+  const kpiTotal = kpiSource.length;
+  const kpiClosed = kpiSource.filter(
+    (d) => d.dealStatus === "Deal Closed" || d.dealStatus === "Deal",
+  ).length;
+  const kpiPending = kpiSource.filter(
+    (d) => d.dealStatus === "Invoice Pending",
+  ).length;
+  const kpiCancel = kpiSource.filter(
+    (d) => d.dealStatus === "Invoice Cancelled",
+  ).length;
+  const kpiConv =
+    kpiTotal > 0 ? ((kpiClosed / kpiTotal) * 100).toFixed(1) : "0.0";
 
   const statusData = useMemo(() => groupBy(filtered, "dealStatus"), [filtered]);
   const industryData = useMemo(() => groupBy(filtered, "industry"), [filtered]);
@@ -317,26 +396,17 @@ const DealAnalytics = ({ deals = [], loading = false, error = null }) => {
     [filtered],
   );
 
-  const total = filtered.length;
-  const closed = filtered.filter(
-    (d) => d.dealStatus === "Deal Closed" || d.dealStatus === "Deal",
-  ).length;
-  const pending = filtered.filter(
-    (d) => d.dealStatus === "Invoice Pending",
-  ).length;
-  const cancel = filtered.filter(
-    (d) => d.dealStatus === "Invoice Cancelled",
-  ).length;
-  const conv = total > 0 ? ((closed / total) * 100).toFixed(1) : "0.0";
+  // For proportional bars: find max total across all industries
+  const indStatusRows = useMemo(() => {
+    const rows = indStatus.data.map((row) => ({
+      ...row,
+      _total: indStatus.cols.reduce((s, c) => s + (row[c] || 0), 0),
+    }));
+    const maxT = Math.max(...rows.map((r) => r._total), 1);
+    return { rows, maxTotal: maxT };
+  }, [indStatus]);
 
-  const indStatusRows = useMemo(
-    () =>
-      indStatus.data.map((row) => ({
-        ...row,
-        _total: indStatus.cols.reduce((s, c) => s + (row[c] || 0), 0),
-      })),
-    [indStatus],
-  );
+  const isEmployee = role === "employee";
 
   return (
     <div className="da-wrap">
@@ -352,8 +422,10 @@ const DealAnalytics = ({ deals = [], loading = false, error = null }) => {
             </p>
           </div>
           <div>
-            <p className="da-total-label">Total Records</p>
-            <p className="da-total-val">{loading ? "—" : deals.length}</p>
+            <p className="da-total-label">
+              {isEmployee ? "Your Deals" : "Total Records"}
+            </p>
+            <p className="da-total-val">{loading ? "—" : kpiTotal}</p>
             {(activeStatus || activeLead) && (
               <p
                 style={{
@@ -364,16 +436,46 @@ const DealAnalytics = ({ deals = [], loading = false, error = null }) => {
                   marginTop: 2,
                 }}
               >
-                Showing {filtered.length} filtered
+                Showing {filtered.length} of {analyticsSource.length}
               </p>
             )}
           </div>
         </div>
 
+        {/* SCOPE BADGE — tells employee they're seeing full analytics */}
+        {isEmployee && (
+          <div
+            className="da-scope-badge"
+            style={{
+              background: P.pendingLight,
+              color: P.pending,
+              border: `1px solid ${P.pending}22`,
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <circle
+                cx="12"
+                cy="12"
+                r="9"
+                stroke={P.pending}
+                strokeWidth="2"
+              />
+              <path
+                d="M12 8v4l3 3"
+                stroke={P.pending}
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            </svg>
+            Your KPI cards show your own deals. Charts below show overall team
+            analytics.
+          </div>
+        )}
+
         {error && <div className="da-error">⚠ {error}</div>}
 
         {/* FILTER BAR */}
-        {!loading && deals.length > 0 && (
+        {!loading && analyticsSource.length > 0 && (
           <div className="da-filter-bar">
             <span className="da-filter-lbl">Filter by</span>
             {statuses.map((s) => (
@@ -432,44 +534,44 @@ const DealAnalytics = ({ deals = [], loading = false, error = null }) => {
           </div>
         )}
 
-        {/* KPI */}
+        {/* KPI — always shows personal deals for employee, overall for admin */}
         <div className="da-kpi">
           <KpiCard
-            label="Total Deals"
-            value={loading ? "—" : total}
+            label={isEmployee ? "My Deals" : "Total Deals"}
+            value={loading ? "—" : kpiTotal}
             accent={P.ink}
             borderColor={P.ink}
           />
           <KpiCard
-            label="Deals Closed"
-            value={loading ? "—" : closed}
+            label={isEmployee ? "My Closed" : "Deals Closed"}
+            value={loading ? "—" : kpiClosed}
             accent={P.positive}
             borderColor={P.positive}
-            sub={`${conv}% conversion`}
+            sub={`${kpiConv}% conversion`}
           />
           <KpiCard
             label="Invoice Pending"
-            value={loading ? "—" : pending}
+            value={loading ? "—" : kpiPending}
             accent={P.pending}
             borderColor={P.pending}
           />
           <KpiCard
             label="Invoice Cancelled"
-            value={loading ? "—" : cancel}
+            value={loading ? "—" : kpiCancel}
             accent={P.danger}
             borderColor={P.danger}
           />
         </div>
 
-        {/* INDUSTRY × STATUS */}
+        {/* INDUSTRY × STATUS — proportional bars */}
         <div className="da-card">
           <SectionTitle
             title="Industry × Deal Status"
-            desc="Which industries have the most closed deals, pending invoices, or cancellations"
+            desc="Bar width reflects actual volume — longer bar means more deals"
           />
           {loading ? (
             <Skel />
-          ) : indStatusRows.length === 0 ? (
+          ) : indStatusRows.rows.length === 0 ? (
             <EmptyState message="No industry/status data" />
           ) : (
             <>
@@ -488,20 +590,26 @@ const DealAnalytics = ({ deals = [], loading = false, error = null }) => {
                   </span>
                 ))}
               </div>
+
+              {/* Header */}
               <div className="da-heat-hdr">
-                <span style={{ width: 120 }}>Industry</span>
-                <span style={{ flex: 1 }}>Distribution</span>
-                <span style={{ width: 28, textAlign: "right" }}>N</span>
+                <span style={{ width: 130 }}>Industry</span>
+                <span style={{ flex: 1 }}>Volume (proportional)</span>
+                <span style={{ width: 40, textAlign: "right" }}>Count</span>
+                <span style={{ width: 36, textAlign: "right" }}>Share</span>
               </div>
-              {indStatusRows.map((row) => (
+
+              {indStatusRows.rows.map((row) => (
                 <HeatRow
                   key={row.name}
                   name={row.name}
                   data={row}
                   cols={indStatus.cols}
-                  total={row._total}
+                  maxTotal={indStatusRows.maxTotal}
                 />
               ))}
+
+              {/* Stacked bar chart breakdown */}
               <p className="da-chart-lbl">Detailed Comparison</p>
               <div style={{ height: 260 }}>
                 <ResponsiveContainer width="100%" height="100%">
@@ -618,7 +726,10 @@ const DealAnalytics = ({ deals = [], loading = false, error = null }) => {
             ) : (
               <>
                 {statusData.map((item) => {
-                  const pct = total > 0 ? (item.count / total) * 100 : 0;
+                  const pct =
+                    filtered.length > 0
+                      ? (item.count / filtered.length) * 100
+                      : 0;
                   return (
                     <div key={item.name} className="da-prog-row">
                       <div
@@ -652,7 +763,10 @@ const DealAnalytics = ({ deals = [], loading = false, error = null }) => {
                 <hr className="da-divider" />
                 <span className="da-sub-lbl">Lead Type Split</span>
                 {leadTypeData.map((item, i) => {
-                  const pct = total > 0 ? (item.count / total) * 100 : 0;
+                  const pct =
+                    filtered.length > 0
+                      ? (item.count / filtered.length) * 100
+                      : 0;
                   return (
                     <div key={item.name} className="da-lead-row">
                       <div className="da-lead-name">{item.name}</div>

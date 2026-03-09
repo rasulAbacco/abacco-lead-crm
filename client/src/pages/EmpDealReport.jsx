@@ -17,39 +17,58 @@ const EmpDealReport = () => {
     year: "",
   });
 
-  const getAuthHeaders = () => ({
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${localStorage.getItem("token")}`,
-  });
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem("token");
+
+    return {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+  };
 
   useEffect(() => {
-    fetchDeals();
-  }, [filters, activeTab]);
+    const controller = new AbortController();
 
-  const fetchDeals = async () => {
-    try {
-      setLoading(true);
+    const loadDeals = async () => {
+      try {
+        setLoading(true);
+        setDeals([]); // clear previous data immediately
 
-      const queryParams = new URLSearchParams();
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value) queryParams.append(key, value);
-      });
+        const queryParams = new URLSearchParams();
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value) queryParams.append(key, value);
+        });
 
-      const res = await fetch(
-        `${API_BASE}/emp-deals?${queryParams.toString()}`,
-        {
+        const endpoint =
+          activeTab === "analytics"
+            ? `${API_BASE}/deals`
+            : `${API_BASE}/emp-deals`;
+
+        const res = await fetch(`${endpoint}?${queryParams.toString()}`, {
           headers: getAuthHeaders(),
-        },
-      );
+          signal: controller.signal,
+        });
 
-      const data = await res.json();
-      setDeals(data || []);
-    } catch (err) {
-      console.error("Employee deals fetch error:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+        const data = await res.json();
+
+        if (!controller.signal.aborted) {
+          setDeals(Array.isArray(data) ? data : []);
+        }
+      } catch (err) {
+        if (err.name !== "AbortError") {
+          console.error("Employee deals fetch error:", err);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadDeals();
+
+    return () => controller.abort(); // cancel previous request
+  }, [filters, activeTab]);
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans">
@@ -91,14 +110,19 @@ const EmpDealReport = () => {
           </div>
         )}
 
-        {activeTab === "deals" && (
-          <EmpDealTab
-            deals={deals}
-            filters={filters}
-            setFilters={setFilters}
-            loading={loading}
-          />
-        )}
+        {activeTab === "deals" &&
+          (loading ? (
+            <div className="text-center py-10 text-slate-500">
+              Loading deals...
+            </div>
+          ) : (
+            <EmpDealTab
+              deals={deals}
+              filters={filters}
+              setFilters={setFilters}
+              loading={loading}
+            />
+          ))}
       </main>
     </div>
   );

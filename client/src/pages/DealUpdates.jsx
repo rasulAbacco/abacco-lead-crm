@@ -217,7 +217,7 @@ const DealUpdates = () => {
 
               <h1 className="text-lg font-bold tracking-tight text-slate-900 hidden sm:block">
                 DealFlow{" "}
-                <span className="text-indigo-600 font-medium text-sm">v2</span>
+                <span className="text-indigo-600 font-medium text-sm">v1</span>
               </h1>
             </div>
 
