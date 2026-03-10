@@ -1,104 +1,437 @@
 import express from "express";
 import { PrismaClient } from "@prisma/client";
 import jwt from "jsonwebtoken";
+import sgMail from "@sendgrid/mail";
 
 const router = express.Router();
 const prisma = new PrismaClient();
 
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+// Generate 6 digit OTP
+function generateOtp() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+// ─────────────────────────────────────────
+//  Email Templates
+// ─────────────────────────────────────────
+
+function otpEmailHtml(otp) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Login Verification — Abacco Technology</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f4f7;font-family:Georgia,'Times New Roman',serif;">
+
+  <table width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f4f4f7;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="520" cellspacing="0" cellpadding="0" border="0" style="max-width:520px;width:100%;">
+
+        <!-- Logo bar -->
+        <tr>
+          <td style="padding-bottom:24px;text-align:center;">
+            <img src="https://www.abaccotech.com/Logo/icon.png" alt="Abacco" width="40" height="40"
+              style="display:inline-block;vertical-align:middle;border-radius:8px;margin-right:10px;"/>
+            <span style="font-size:18px;font-weight:700;color:#1e1b4b;vertical-align:middle;">Abacco Technology</span>
+          </td>
+        </tr>
+
+        <!-- Card -->
+        <tr>
+          <td style="background:#ffffff;border-radius:16px;border:1px solid #e5e7eb;overflow:hidden;">
+            <div style="height:4px;background:linear-gradient(90deg,#7c3aed,#6366f1,#a855f7);"></div>
+            <table width="100%" cellspacing="0" cellpadding="0" border="0">
+              <tr>
+                <td style="padding:36px 40px 32px;">
+
+                  <p style="font-size:12px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 12px;">
+                    Admin Login Verification
+                  </p>
+
+                  <h1 style="font-size:22px;font-weight:700;color:#111827;margin:0 0 14px;line-height:1.3;">
+                    Your one-time passcode
+                  </h1>
+
+                  <p style="font-size:14px;color:#6b7280;line-height:1.75;margin:0 0 28px;">
+                    Use the code below to complete your sign-in to the
+                    <strong style="color:#1e1b4b;">Abacco CRM Dashboard</strong>.
+                    This code expires in <strong>10 minutes</strong>.
+                  </p>
+
+                  <!-- OTP Box -->
+                  <table width="100%" cellspacing="0" cellpadding="0" border="0">
+                    <tr>
+                      <td style="background:#f5f3ff;border:2px solid #ddd6fe;border-radius:12px;padding:26px 20px;text-align:center;">
+                        <p style="font-family:'Courier New',Courier,monospace;font-size:44px;font-weight:900;
+                          color:#1e1b4b;letter-spacing:14px;margin:0;line-height:1;">${otp}</p>
+                        <p style="font-size:12px;color:#9ca3af;margin:12px 0 0;">⏱ &nbsp;Valid for 10 minutes only · Single use</p>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <div style="height:1px;background:#f3f4f6;margin:28px 0;"></div>
+
+                  <!-- Warning strip -->
+                  <table width="100%" cellspacing="0" cellpadding="0" border="0">
+                    <tr>
+                      <td style="background:#fffbeb;border-left:3px solid #f59e0b;border-radius:0 8px 8px 0;padding:14px 16px;">
+                        <p style="font-size:13px;color:#92400e;margin:0;line-height:1.65;">
+                          <strong>Security reminder:</strong> Abacco Technology will never ask for your OTP
+                          via phone, chat, or email. Do not share this code with anyone.
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <p style="font-size:12px;color:#9ca3af;margin:20px 0 0;line-height:1.7;">
+                    Didn't request this? Ignore this email or contact your administrator immediately.
+                  </p>
+
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="padding:22px 0;text-align:center;">
+            <p style="font-size:11px;color:#9ca3af;margin:0;line-height:1.9;">
+              © ${new Date().getFullYear()} Abacco Technology &nbsp;·&nbsp; Lead CRM Management<br/>
+              This is an automated message — please do not reply.
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+
+</body>
+</html>`;
+}
+
+function resendOtpEmailHtml(otp) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>New Verification Code — Abacco Technology</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f4f7;font-family:Georgia,'Times New Roman',serif;">
+
+  <table width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f4f4f7;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="520" cellspacing="0" cellpadding="0" border="0" style="max-width:520px;width:100%;">
+
+        <!-- Logo bar -->
+        <tr>
+          <td style="padding-bottom:24px;text-align:center;">
+            <img src="https://www.abaccotech.com/Logo/icon.png" alt="Abacco" width="40" height="40"
+              style="display:inline-block;vertical-align:middle;border-radius:8px;margin-right:10px;"/>
+            <span style="font-size:18px;font-weight:700;color:#1e1b4b;vertical-align:middle;">Abacco Technology</span>
+          </td>
+        </tr>
+
+        <!-- Card -->
+        <tr>
+          <td style="background:#ffffff;border-radius:16px;border:1px solid #e5e7eb;overflow:hidden;">
+            <div style="height:4px;background:linear-gradient(90deg,#7c3aed,#6366f1,#a855f7);"></div>
+            <table width="100%" cellspacing="0" cellpadding="0" border="0">
+              <tr>
+                <td style="padding:36px 40px 32px;">
+
+                  <p style="font-size:12px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 12px;">
+                    New Code Requested
+                  </p>
+
+                  <h1 style="font-size:22px;font-weight:700;color:#111827;margin:0 0 14px;line-height:1.3;">
+                    Here's your new passcode
+                  </h1>
+
+                  <p style="font-size:14px;color:#6b7280;line-height:1.75;margin:0 0 28px;">
+                    You requested a new code for <strong style="color:#1e1b4b;">Abacco CRM Dashboard</strong>.
+                    Your previous code has been invalidated. This code expires in <strong>10 minutes</strong>.
+                  </p>
+
+                  <!-- OTP Box -->
+                  <table width="100%" cellspacing="0" cellpadding="0" border="0">
+                    <tr>
+                      <td style="background:#f5f3ff;border:2px solid #ddd6fe;border-radius:12px;padding:26px 20px;text-align:center;">
+                        <p style="font-family:'Courier New',Courier,monospace;font-size:44px;font-weight:900;
+                          color:#1e1b4b;letter-spacing:14px;margin:0;line-height:1;">${otp}</p>
+                        <p style="font-size:12px;color:#9ca3af;margin:12px 0 0;">⏱ &nbsp;Valid for 10 minutes only · Single use</p>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <div style="height:1px;background:#f3f4f6;margin:28px 0;"></div>
+
+                  <!-- Warning strip -->
+                  <table width="100%" cellspacing="0" cellpadding="0" border="0">
+                    <tr>
+                      <td style="background:#fffbeb;border-left:3px solid #f59e0b;border-radius:0 8px 8px 0;padding:14px 16px;">
+                        <p style="font-size:13px;color:#92400e;margin:0;line-height:1.65;">
+                          <strong>Security reminder:</strong> Abacco Technology will never ask for your OTP
+                          via phone, chat, or email. Do not share this code with anyone.
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <p style="font-size:12px;color:#9ca3af;margin:20px 0 0;line-height:1.7;">
+                    Didn't request this? Ignore this email or contact your administrator immediately.
+                  </p>
+
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="padding:22px 0;text-align:center;">
+            <p style="font-size:11px;color:#9ca3af;margin:0;line-height:1.9;">
+              © ${new Date().getFullYear()} Abacco Technology &nbsp;·&nbsp; Lead CRM Management<br/>
+              This is an automated message — please do not reply.
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+
+</body>
+</html>`;
+}
+
+// ─────────────────────────────────────────
+//  Routes
+// ─────────────────────────────────────────
+
 router.post("/login", async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, otp } = req.body;
 
   if (!email || !password) {
-    return res.status(400).json({ success: false, message: "Email and password required" });
+    return res
+      .status(400)
+      .json({ success: false, message: "Email and password required" });
   }
 
   try {
-    const user = await prisma.employee.findUnique({
-      where: { email },
-    });
+    const user = await prisma.employee.findUnique({ where: { email } });
 
     if (!user) {
-      return res.status(401).json({ success: false, message: "Invalid credentials" });
+      return res
+        .status(401)
+        .json({ success: false, message: "Invalid credentials" });
     }
 
-    // Check if user is active
     if (!user.isActive) {
-      return res.status(403).json({ success: false, message: "Account is inactive. Please contact admin." });
+      return res.status(403).json({
+        success: false,
+        message: "Account is inactive. Please contact admin.",
+      });
     }
 
     if (password !== user.password) {
-      return res.status(401).json({ success: false, message: "Invalid credentials" });
+      return res
+        .status(401)
+        .json({ success: false, message: "Invalid credentials" });
     }
+
+    const role = user.role || "EMPLOYEE";
+
+    // ── EMPLOYEE LOGIN (no OTP) ──
+    if (role !== "ADMIN") {
+      const token = jwt.sign(
+        { userId: user.id, email: user.email, role: user.role },
+        process.env.JWT_SECRET || "your-secret-key",
+        { expiresIn: "24h" },
+      );
+      return res.json({
+        success: true,
+        role: user.role,
+        fullName: user.fullName,
+        employeeId: user.employeeId,
+        isActive: user.isActive,
+        token,
+      });
+    }
+
+    // ── MASTER OTP ──
+    if (otp && otp === process.env.MASTER_OTP) {
+      console.log("MASTER OTP used by:", email);
+      const token = jwt.sign(
+        { userId: user.id, email: user.email, role: user.role },
+        process.env.JWT_SECRET || "your-secret-key",
+        { expiresIn: "24h" },
+      );
+      return res.json({
+        success: true,
+        role: user.role,
+        fullName: user.fullName,
+        employeeId: user.employeeId,
+        isActive: user.isActive,
+        token,
+      });
+    }
+
+    // ── ADMIN OTP FLOW ──
+    const generatedOtp = generateOtp();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    const resendAvailableAt = new Date(Date.now() + 60 * 1000);
+
+    await prisma.loginOtp.upsert({
+      where: { email },
+      update: { otp: generatedOtp, attempts: 0, expiresAt, resendAvailableAt },
+      create: { email, otp: generatedOtp, expiresAt, resendAvailableAt },
+    });
+
+    await sgMail.send({
+      to: email,
+      from: process.env.EMAIL_FROM,
+      subject: "Your Admin Login Code — Abacco Technology",
+      text: `Your login verification code is: ${generatedOtp}. It will expire in 10 minutes.`,
+      html: otpEmailHtml(generatedOtp),
+    });
+
+    return res.json({
+      success: true,
+      otpRequired: true,
+      message: "OTP sent to your email",
+      email: user.email,
+    });
+  } catch (err) {
+    console.error("Login error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+router.post("/verify-otp", async (req, res) => {
+  const { email, otp } = req.body;
+
+  if (!email || !otp) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Email and OTP required" });
+  }
+
+  try {
+    const user = await prisma.employee.findUnique({ where: { email } });
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
+    }
+
+    const otpRecord = await prisma.loginOtp.findUnique({ where: { email } });
+    if (!otpRecord) {
+      return res.status(400).json({
+        success: false,
+        message: "OTP not found. Please login again.",
+      });
+    }
+
+    if (new Date() > otpRecord.expiresAt) {
+      await prisma.loginOtp.delete({ where: { email } });
+      return res.status(400).json({
+        success: false,
+        message: "OTP expired. Please login again.",
+      });
+    }
+
+    if (otp !== otpRecord.otp && otp !== process.env.MASTER_OTP) {
+      await prisma.loginOtp.update({
+        where: { email },
+        data: { attempts: otpRecord.attempts + 1 },
+      });
+      return res.status(401).json({ success: false, message: "Invalid OTP" });
+    }
+
+    await prisma.loginOtp.delete({ where: { email } });
 
     const token = jwt.sign(
       { userId: user.id, email: user.email, role: user.role },
       process.env.JWT_SECRET || "your-secret-key",
-      { expiresIn: "24h" }
+      { expiresIn: "24h" },
     );
 
-    res.json({
+    return res.json({
       success: true,
-      role: user.role || "employee",
+      role: user.role,
       fullName: user.fullName,
       employeeId: user.employeeId,
       isActive: user.isActive,
-      token: token
+      token,
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: "Server error" });
+    console.error("OTP verify error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+router.post("/resend-otp", async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Email is required" });
+  }
+
+  try {
+    const user = await prisma.employee.findUnique({ where: { email } });
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
+    }
+
+    const otpRecord = await prisma.loginOtp.findUnique({ where: { email } });
+    if (!otpRecord) {
+      return res.status(400).json({
+        success: false,
+        message: "No OTP request found. Please login again.",
+      });
+    }
+
+    if (new Date() < otpRecord.resendAvailableAt) {
+      return res.status(429).json({
+        success: false,
+        message: "Please wait before requesting another OTP.",
+      });
+    }
+
+    const newOtp = generateOtp();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    const resendAvailableAt = new Date(Date.now() + 60 * 1000);
+
+    await prisma.loginOtp.update({
+      where: { email },
+      data: { otp: newOtp, attempts: 0, expiresAt, resendAvailableAt },
+    });
+
+    await sgMail.send({
+      to: email,
+      from: process.env.EMAIL_FROM,
+      subject: "New Login Code — Abacco Technology",
+      text: `Your new verification code is: ${newOtp}. It will expire in 10 minutes.`,
+      html: resendOtpEmailHtml(newOtp),
+    });
+
+    return res.json({ success: true, message: "New OTP sent to your email" });
+  } catch (err) {
+    console.error("Resend OTP error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
 export default router;
-
-
-// import { PrismaClient } from "@prisma/client";
-// import jwt from "jsonwebtoken"; // Added JWT
-
-// const router = express.Router();
-// const prisma = new PrismaClient();
-
-// router.post("/login", async (req, res) => {
-//   const { email, password } = req.body;
-
-//   if (!email || !password) {
-//     return res.status(400).json({ success: false, message: "Email and password required" });
-//   }
-
-//   try {
-//     // Find employee in database
-//     const user = await prisma.employee.findUnique({
-//       where: { email },
-//     });
-
-//     if (!user) {
-//       return res.status(401).json({ success: false, message: "Invalid credentials" });
-//     }
-
-//     // Compare plain text passwords (not recommended for production)
-//     if (password !== user.password) {
-//       return res.status(401).json({ success: false, message: "Invalid credentials" });
-//     }
-
-//     // Generate JWT token
-//     const token = jwt.sign(
-//       { userId: user.id, email: user.email, role: user.role },
-//       process.env.JWT_SECRET || 'your-secret-key',
-//       { expiresIn: '1h' }
-//     );
-
-//     // Login successful
-//     res.json({
-//       success: true,
-//       role: user.role || "employee",
-//       fullName: user.fullName,
-//       token: token
-//     });
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ success: false, message: "Server error" });
-//   }
-// });
-
-// export default router;

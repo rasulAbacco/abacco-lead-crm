@@ -322,3 +322,20 @@ model DealStatusMaster {
 
   @@index([isActive])
 }
+
+model LoginOtp {
+  id Int @id @default(autoincrement())
+
+  email String @unique
+  otp   String
+
+  attempts Int @default(0)
+
+  expiresAt         DateTime
+  resendAvailableAt DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([expiresAt])
+}
