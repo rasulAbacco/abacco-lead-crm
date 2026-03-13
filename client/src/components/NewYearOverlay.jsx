@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const LOGO_URL = "https://www.abaccotech.com/Logo/icon.png";
-const DISPLAY_DURATION = 9000;
+const DISPLAY_DURATION = 4000;
 const FADE_OUT_DURATION = 1200;
 
 const seededRand = (seed) => {

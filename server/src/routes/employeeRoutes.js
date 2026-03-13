@@ -63,6 +63,13 @@ router.get("/", async (req, res) => {
         email: true,
         target: true,
         isActive: true,
+        leadTarget: {
+          select: {
+            associationPercent: true,
+            attendeesPercent: true,
+            industryPercent: true,
+          },
+        },
       },
     });
 
@@ -71,15 +78,19 @@ router.get("/", async (req, res) => {
 
     const employeesWithLeads = await Promise.all(
       employees.map(async (emp) => {
-        // Monthly leads count
-        const monthlyLeads = await prisma.lead.count({
+        // 🔹 Fetch leads for distribution calculation
+        const leads = await prisma.lead.findMany({
           where: {
             employeeId: emp.employeeId,
             date: { gte: startOfMonth, lte: endOfMonth },
           },
+          select: {
+            leadType: true,
+          },
         });
 
-        // Daily leads count
+        const monthlyLeads = leads.length;
+
         const dailyLeads = await prisma.lead.count({
           where: {
             employeeId: emp.employeeId,
@@ -87,7 +98,6 @@ router.get("/", async (req, res) => {
           },
         });
 
-        // ✅ Qualified leads count (monthly)
         const qualifiedLeads = await prisma.lead.count({
           where: {
             employeeId: emp.employeeId,
@@ -96,7 +106,6 @@ router.get("/", async (req, res) => {
           },
         });
 
-        // ✅ Disqualified leads count (monthly)
         const disqualifiedLeads = await prisma.lead.count({
           where: {
             employeeId: emp.employeeId,
@@ -105,7 +114,6 @@ router.get("/", async (req, res) => {
           },
         });
 
-        // ✅ Pending leads count (monthly - where qualified is null)
         const pendingLeads = await prisma.lead.count({
           where: {
             employeeId: emp.employeeId,
@@ -121,14 +129,22 @@ router.get("/", async (req, res) => {
           fullName: emp.fullName,
           email: emp.email,
           isActive: emp.isActive,
+
           dailyLeads,
           monthlyLeads,
-          leads: monthlyLeads,
+          leads,
+
           qualifiedLeads,
           disqualifiedLeads,
           pendingLeads,
+
           target: emp.target || 0,
-          // <-- NEW: double target achieved (monthly)
+
+          // 🔹 Distribution percentages from DB
+          associationPercent: emp.leadTarget?.associationPercent ?? 0,
+          attendeesPercent: emp.leadTarget?.attendeesPercent ?? 0,
+          industryPercent: emp.leadTarget?.industryPercent ?? 0,
+
           doubleTargetAchieved:
             emp.target && emp.target > 0
               ? qualifiedLeads >= emp.target * 2

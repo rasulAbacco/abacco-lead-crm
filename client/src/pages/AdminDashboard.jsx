@@ -25,7 +25,7 @@ export default function AdminDashboard() {
         const res = await fetch(`${API_BASE_URL}/api/employees`);
         if (!res.ok) throw new Error("Network response was not ok");
         const data = await res.json();
-        console.log("Fetched employees:", data);
+        // console.log("Fetched employees:", data);
         setEmployees(data);
       } catch (err) {
         console.error("Failed to fetch employees:", err);
@@ -42,17 +42,17 @@ export default function AdminDashboard() {
 
   const totalMonthlyLeads = employees.reduce(
     (sum, emp) => sum + emp.monthlyLeads,
-    0
+    0,
   );
   const avgLeads = employees.length
     ? Math.round(totalMonthlyLeads / employees.length)
     : 0;
   const achievedCount = employees.filter(
-    (emp) => emp.monthlyLeads >= emp.target
+    (emp) => emp.monthlyLeads >= emp.target,
   ).length;
   const topPerformer = employees.reduce(
     (max, emp) => (emp.monthlyLeads > max.monthlyLeads ? emp : max),
-    employees[0] || { name: "-", monthlyLeads: 0 }
+    employees[0] || { name: "-", monthlyLeads: 0 },
   );
 
   const getFilteredEmployees = () => {
@@ -81,7 +81,7 @@ export default function AdminDashboard() {
     dailyLeads: emp.dailyLeads || 0,
   }));
 
-  console.log("✅ Prepared Performance Data:", performanceData);
+  // console.log("✅ Prepared Performance Data:", performanceData);
 
   const pieData = [
     { name: "Achieved", value: achievedCount },

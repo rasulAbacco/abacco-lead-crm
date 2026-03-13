@@ -11,7 +11,7 @@ export function authenticate(req, res, next) {
   jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
     if (err) return res.status(403).json({ message: "Invalid token" });
     
-    console.log("Decoded token:", decoded);
+    // console.log("Decoded token:", decoded);
     
     // If employeeId is not in the token, fetch it from database
     if (!decoded.employeeId) {

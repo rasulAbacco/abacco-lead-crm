@@ -214,7 +214,7 @@ export const deleteMaster = async (req, res) => {
 
 export const getEmployeeDeals = async (req, res) => {
   try {
-    console.log("REQ.USER ===>", req.user);
+    // console.log("REQ.USER ===>", req.user);
     const { industry, leadType, dealStatus, month, year } = req.query;
 
     const where = {};

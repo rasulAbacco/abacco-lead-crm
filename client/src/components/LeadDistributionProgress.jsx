@@ -273,41 +273,72 @@ const LeadDistributionProgress = ({ leads, employeeTarget, apiBase }) => {
   );
 
   const totalLeads = associationLeads + attendeesLeads + industryLeads;
-  const overallPct =
-    employeeTarget > 0
-      ? Math.min(100, Math.round((totalLeads / employeeTarget) * 100))
+
+  const assocPct =
+    associationTarget > 0
+      ? Math.min(100, (associationLeads / associationTarget) * 100)
       : 0;
+
+  const attendeesPct =
+    attendeesTarget > 0
+      ? Math.min(100, (attendeesLeads / attendeesTarget) * 100)
+      : 0;
+
+  const industryPct =
+    industryTarget > 0
+      ? Math.min(100, (industryLeads / industryTarget) * 100)
+      : 0;
+
+  const achieved =
+    Math.min(associationLeads, associationTarget) +
+    Math.min(attendeesLeads, attendeesTarget) +
+    Math.min(industryLeads, industryTarget);
+
+  const totalTarget = associationTarget + attendeesTarget + industryTarget;
+
+  const overallPct =
+    totalTarget > 0 ? Math.round((achieved / totalTarget) * 100) : 0;
+
+  const remainingAssociation = Math.max(
+    0,
+    associationTarget - associationLeads,
+  );
+  const remainingAttendees = Math.max(0, attendeesTarget - attendeesLeads);
+  const remainingIndustry = Math.max(0, industryTarget - industryLeads);
+
+  const remaining =
+    remainingAssociation + remainingAttendees + remainingIndustry;
 
   /* Small donut segments (header pill) */
   const smallDonutSegments = [
-    { v: associationLeads, color: "#3B82F6" },
-    { v: attendeesLeads, color: "#22C55E" },
-    { v: industryLeads, color: "#7C3AED" },
-    { v: Math.max(0, employeeTarget - totalLeads), color: "#EEF2FF" },
+    { v: Math.min(associationLeads, associationTarget), color: "#3B82F6" },
+    { v: Math.min(attendeesLeads, attendeesTarget), color: "#22C55E" },
+    { v: Math.min(industryLeads, industryTarget), color: "#7C3AED" },
+    { v: remaining, color: "#EEF2FF" },
   ];
 
   /* Big donut segments */
   const bigDonutSegments = [
     {
-      v: associationLeads,
+      v: Math.min(associationLeads, associationTarget),
       color: "#3B82F6",
       label: "Association",
       target: associationTarget,
     },
     {
-      v: attendeesLeads,
+      v: Math.min(attendeesLeads, attendeesTarget),
       color: "#22C55E",
       label: "Attendees",
       target: attendeesTarget,
     },
     {
-      v: industryLeads,
+      v: Math.min(industryLeads, industryTarget),
       color: "#7C3AED",
       label: "Industry",
       target: industryTarget,
     },
     {
-      v: Math.max(0, employeeTarget - totalLeads),
+      v: remaining,
       color: "#F1F5F9",
       label: "Remaining",
       target: null,
@@ -336,10 +367,30 @@ const LeadDistributionProgress = ({ leads, employeeTarget, apiBase }) => {
     {
       color: "#E2E8F0",
       label: "Remaining",
-      value: Math.max(0, employeeTarget - totalLeads),
+      value: remaining,
       target: null,
     },
   ];
+
+  let alertMessage = null;
+
+  if (associationLeads > associationTarget && industryLeads < industryTarget) {
+    alertMessage =
+      "You have uploaded extra Association leads. To complete your monthly target, focus on Industry leads.";
+  }
+
+  if (attendeesLeads > attendeesTarget && industryLeads < industryTarget) {
+    alertMessage =
+      "Great work on Attendees leads! To finish your target, add more Industry leads.";
+  }
+
+  if (
+    associationLeads > associationTarget &&
+    attendeesLeads < attendeesTarget
+  ) {
+    alertMessage =
+      "You already exceeded Association leads. Focus on Attendees leads to complete the distribution.";
+  }
 
   return (
     <div
@@ -481,6 +532,22 @@ const LeadDistributionProgress = ({ leads, employeeTarget, apiBase }) => {
           </div>
         </div>
       </div>
+      {alertMessage && (
+        <div
+          style={{
+            background: "#FEF3C7",
+            border: "1px solid #FDE68A",
+            padding: "10px 14px",
+            borderRadius: "10px",
+            marginBottom: "14px",
+            fontSize: "13px",
+            color: "#92400E",
+            fontWeight: 500,
+          }}
+        >
+          ⚠ {alertMessage}
+        </div>
+      )}
 
       {/* Divider */}
       <div style={{ borderTop: "0.5px solid #F3F4F6", marginBottom: "14px" }} />
