@@ -12,38 +12,13 @@ export const getDeals = async (req, res) => {
 
     const where = {};
 
-    // ----------- Basic Filters -----------
-    if (industry) {
-      where.industry = industry;
-    }
+    if (industry) where.industry = industry;
+    if (leadType) where.leadType = leadType;
+    if (dealStatus) where.dealStatus = dealStatus;
 
-    if (leadType) {
-      where.leadType = leadType;
-    }
-
-    if (dealStatus) {
-      where.dealStatus = dealStatus;
-    }
-
-    // ----------- Month & Year Filter -----------
-    if (month && year) {
-      const startDate = new Date(year, month - 1, 1);
-      const endDate = new Date(year, month, 1);
-
-      where.createdAt = {
-        gte: startDate,
-        lt: endDate,
-      };
-    } else if (year) {
-      // Year only filter
-      const startDate = new Date(year, 0, 1);
-      const endDate = new Date(Number(year) + 1, 0, 1);
-
-      where.createdAt = {
-        gte: startDate,
-        lt: endDate,
-      };
-    }
+    // ✅ Filter by stored integer month/year fields directly
+    if (month) where.month = Number(month);
+    if (year) where.year = Number(year);
 
     const deals = await prisma.dealInfo.findMany({
       where,
@@ -67,7 +42,9 @@ export const getDeals = async (req, res) => {
 
 export const createDeal = async (req, res) => {
   try {
-    const { clientEmail, industry, leadType, dealStatus } = req.body;
+    // ✅ month and year extracted from body
+    const { clientEmail, industry, leadType, dealStatus, month, year } =
+      req.body;
 
     if (!clientEmail) {
       return res.status(400).json({ message: "Client email required" });
@@ -75,7 +52,6 @@ export const createDeal = async (req, res) => {
 
     const normalizedEmail = clientEmail.toLowerCase().trim();
 
-    // 🔎 check email directly
     const emailRecord = await prisma.emailDomain.findFirst({
       where: {
         email: normalizedEmail,
@@ -95,6 +71,9 @@ export const createDeal = async (req, res) => {
         industry,
         leadType,
         dealStatus,
+        // ✅ Store as integers, null if not provided
+        month: month ? Number(month) : null,
+        year: year ? Number(year) : null,
         employeeId: emailRecord.employeeId,
       },
     });
@@ -109,11 +88,21 @@ export const createDeal = async (req, res) => {
 export const updateDeal = async (req, res) => {
   try {
     const { id } = req.params;
-    const { clientEmail, industry, leadType, dealStatus } = req.body;
+    // ✅ month and year extracted from body
+    const { clientEmail, industry, leadType, dealStatus, month, year } =
+      req.body;
 
     const deal = await prisma.dealInfo.update({
       where: { id: Number(id) },
-      data: { clientEmail, industry, leadType, dealStatus },
+      data: {
+        clientEmail,
+        industry,
+        leadType,
+        dealStatus,
+        // ✅ Store as integers, null if not provided
+        month: month ? Number(month) : null,
+        year: year ? Number(year) : null,
+      },
     });
 
     res.json(deal);
@@ -171,51 +160,37 @@ export const createMaster = async (req, res) => {
 
     const table = masterMap[type];
 
-    // 🔹 Validate master type
     if (!table) {
-      return res.status(400).json({
-        message: "Invalid master type",
-      });
+      return res.status(400).json({ message: "Invalid master type" });
     }
 
-    // 🔹 Validate name
     if (!name || !name.trim()) {
-      return res.status(400).json({
-        message: "Name is required",
-      });
+      return res.status(400).json({ message: "Name is required" });
     }
 
     const cleanedName = name.trim();
 
-    // 🔥 Case-insensitive duplicate check
     const existing = await table.findFirst({
       where: {
         name: {
           equals: cleanedName,
-          mode: "insensitive", // prevents REAL ESTATE vs real estate
+          mode: "insensitive",
         },
       },
     });
 
     if (existing) {
-      return res.status(409).json({
-        message: "This entry already exists",
-      });
+      return res.status(409).json({ message: "This entry already exists" });
     }
 
-    // 🔹 Create master record (always save trimmed value)
     const data = await table.create({
-      data: {
-        name: cleanedName,
-      },
+      data: { name: cleanedName },
     });
 
     return res.status(201).json(data);
   } catch (error) {
     console.error("Create master error:", error);
-    return res.status(500).json({
-      message: "Failed to create master data",
-    });
+    return res.status(500).json({ message: "Failed to create master data" });
   }
 };
 
@@ -244,40 +219,16 @@ export const getEmployeeDeals = async (req, res) => {
 
     const where = {};
 
-    // 🔐 IMPORTANT: Restrict to logged-in employee
+    // 🔐 Restrict to logged-in employee
     where.employeeId = req.user.employeeId;
 
-    // ----------- Basic Filters -----------
-    if (industry) {
-      where.industry = industry;
-    }
+    if (industry) where.industry = industry;
+    if (leadType) where.leadType = leadType;
+    if (dealStatus) where.dealStatus = dealStatus;
 
-    if (leadType) {
-      where.leadType = leadType;
-    }
-
-    if (dealStatus) {
-      where.dealStatus = dealStatus;
-    }
-
-    // ----------- Month & Year Filter -----------
-    if (month && year) {
-      const startDate = new Date(year, month - 1, 1);
-      const endDate = new Date(year, month, 1);
-
-      where.createdAt = {
-        gte: startDate,
-        lt: endDate,
-      };
-    } else if (year) {
-      const startDate = new Date(year, 0, 1);
-      const endDate = new Date(Number(year) + 1, 0, 1);
-
-      where.createdAt = {
-        gte: startDate,
-        lt: endDate,
-      };
-    }
+    // ✅ Filter by stored integer month/year fields directly
+    if (month) where.month = Number(month);
+    if (year) where.year = Number(year);
 
     const deals = await prisma.dealInfo.findMany({
       where,

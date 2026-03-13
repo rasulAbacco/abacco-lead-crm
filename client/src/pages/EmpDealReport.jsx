@@ -19,7 +19,6 @@ const EmpDealReport = () => {
 
   const getAuthHeaders = () => {
     const token = localStorage.getItem("token");
-
     return {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -32,7 +31,7 @@ const EmpDealReport = () => {
     const loadDeals = async () => {
       try {
         setLoading(true);
-        setDeals([]); // clear previous data immediately
+        setDeals([]);
 
         const queryParams = new URLSearchParams();
         Object.entries(filters).forEach(([key, value]) => {
@@ -67,7 +66,7 @@ const EmpDealReport = () => {
 
     loadDeals();
 
-    return () => controller.abort(); // cancel previous request
+    return () => controller.abort();
   }, [filters, activeTab]);
 
   return (
@@ -80,7 +79,6 @@ const EmpDealReport = () => {
               My Deal Insights
             </h1>
 
-            {/* Tabs */}
             <div className="flex items-center bg-slate-50 border border-slate-200 p-1 rounded-full">
               {[
                 { id: "analytics", label: "Analytics" },
@@ -110,19 +108,14 @@ const EmpDealReport = () => {
           </div>
         )}
 
-        {activeTab === "deals" &&
-          (loading ? (
-            <div className="text-center py-10 text-slate-500">
-              Loading deals...
-            </div>
-          ) : (
-            <EmpDealTab
-              deals={deals}
-              filters={filters}
-              setFilters={setFilters}
-              loading={loading}
-            />
-          ))}
+        {activeTab === "deals" && (
+          <EmpDealTab
+            deals={deals}
+            filters={filters}
+            setFilters={setFilters}
+            loading={loading}
+          />
+        )}
       </main>
     </div>
   );

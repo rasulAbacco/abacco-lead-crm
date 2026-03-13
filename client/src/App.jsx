@@ -32,7 +32,7 @@ import AdminEmailDomains from "./pages/AdminEmailDomains";
 import DealUpdates from "./pages/DealUpdates";
 import EmpDealReport from "./pages/EmpDealReport";
 
-const MAINTENANCE_MODE = true;
+const MAINTENANCE_MODE = false;
 
 
 function App() {

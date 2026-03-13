@@ -280,6 +280,8 @@ model DealInfo {
   industry    String
   leadType    String
   dealStatus  String
+  month       Int?
+  year        Int?
 
   employeeId String
   employee   Employee @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)

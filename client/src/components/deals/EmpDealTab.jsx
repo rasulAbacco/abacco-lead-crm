@@ -19,13 +19,18 @@ const EmpDealTab = ({ deals, filters, setFilters, loading }) => {
     { value: "12", label: "Dec" },
   ];
 
+  const getMonthLabel = (val) =>
+    months.find((m) => m.value === String(val))?.label || val;
+
   const getStatusStyle = (status) => {
     const s = status?.toLowerCase();
-    if (s?.includes("win") || s?.includes("done"))
+    if (s?.includes("deal"))
       return "bg-emerald-50 text-emerald-700 border-emerald-100";
     if (s?.includes("lost") || s?.includes("cancel"))
       return "bg-rose-50 text-rose-700 border-rose-100";
-    return "bg-amber-50 text-amber-700 border-amber-100";
+    if (s?.includes("pending"))
+      return "bg-amber-50 text-amber-700 border-amber-100";
+    return "bg-slate-50 text-slate-700 border-slate-100";
   };
 
   return (
@@ -94,41 +99,52 @@ const EmpDealTab = ({ deals, filters, setFilters, loading }) => {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50/50">
-                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase">
+                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">
                   Agent Mail
                 </th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase">
+                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">
                   Industry
                 </th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase">
+                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">
                   Type
                 </th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase">
+                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">
                   Status
+                </th>
+                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">
+                  Period
                 </th>
               </tr>
             </thead>
 
             <tbody className="divide-y divide-slate-50">
               {deals.map((deal) => (
-                <tr key={deal.id} className="hover:bg-slate-50/80">
-                  <td className="px-6 py-4 text-sm font-semibold">
+                <tr
+                  key={deal.id}
+                  className="hover:bg-slate-50/80 transition-all duration-150"
+                >
+                  <td className="px-6 py-4 text-sm font-semibold text-slate-900 whitespace-nowrap">
                     {deal.clientEmail}
                   </td>
-                  <td className="px-6 py-4 text-sm text-slate-500">
+                  <td className="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">
                     {deal.industry}
                   </td>
-                  <td className="px-6 py-4 text-sm text-slate-500">
-                    {deal.leadType}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="text-xs font-medium text-slate-600 bg-slate-100 px-2 py-1 rounded">
+                      {deal.leadType}
+                    </span>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 whitespace-nowrap">
                     <span
-                      className={`text-xs font-bold px-2.5 py-1 rounded-full border ${getStatusStyle(
-                        deal.dealStatus,
-                      )}`}
+                      className={`text-[10px] font-bold uppercase px-2.5 py-1 rounded-full border ${getStatusStyle(deal.dealStatus)}`}
                     >
                       {deal.dealStatus}
                     </span>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">
+                    {deal.month && deal.year
+                      ? `${getMonthLabel(deal.month)} ${deal.year}`
+                      : "—"}
                   </td>
                 </tr>
               ))}
@@ -137,14 +153,19 @@ const EmpDealTab = ({ deals, filters, setFilters, loading }) => {
         </div>
 
         {loading && (
-          <div className="p-16 text-center text-sm text-slate-400">
-            Loading deals...
+          <div className="p-16 flex flex-col items-center justify-center gap-3">
+            <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+              Loading...
+            </span>
           </div>
         )}
 
         {!loading && deals.length === 0 && (
-          <div className="p-16 text-center text-sm text-slate-400">
-            No deals found.
+          <div className="p-16 text-center">
+            <p className="text-sm text-slate-400 font-medium">
+              No deals found.
+            </p>
           </div>
         )}
       </div>

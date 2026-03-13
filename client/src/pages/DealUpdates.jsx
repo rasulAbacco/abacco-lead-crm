@@ -9,6 +9,7 @@ const DealUpdates = () => {
   const [activeTab, setActiveTab] = useState("analytics");
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false); // ✅ separate save state
   const [editingId, setEditingId] = useState(null);
 
   const [deals, setDeals] = useState([]);
@@ -21,6 +22,8 @@ const DealUpdates = () => {
     industry: "",
     leadType: "",
     dealStatus: "",
+    month: "",
+    year: "",
   });
 
   const [filters, setFilters] = useState({
@@ -36,10 +39,8 @@ const DealUpdates = () => {
     value: "",
   });
 
-  // ✅ FIXED AUTH HEADERS
   const getAuthHeaders = () => {
     const token = localStorage.getItem("token");
-
     return {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -56,7 +57,6 @@ const DealUpdates = () => {
     }
   }, [filters, activeTab]);
 
-  // ✅ FIXED FETCH DEALS
   const fetchDeals = async () => {
     try {
       setLoading(true);
@@ -76,7 +76,6 @@ const DealUpdates = () => {
           window.location.href = "/login";
           return;
         }
-
         setDeals([]);
         return;
       }
@@ -91,14 +90,11 @@ const DealUpdates = () => {
     }
   };
 
-  // ✅ SAFE MASTER FETCH
   const fetchMasters = async () => {
     const request = async (url) => {
       try {
         const res = await fetch(url, { headers: getAuthHeaders() });
-
         if (!res.ok) return [];
-
         const data = await res.json();
         return Array.isArray(data) ? data : [];
       } catch {
@@ -120,35 +116,51 @@ const DealUpdates = () => {
   const handleSaveDeal = async (e) => {
     e.preventDefault();
 
+    // ✅ Show spinner on button immediately
+    setSaving(true);
+
     const method = editingId ? "PUT" : "POST";
     const url = editingId
       ? `${API_BASE}/deals/${editingId}`
       : `${API_BASE}/deals`;
 
-    const res = await fetch(url, {
-      method,
-      headers: getAuthHeaders(),
-      body: JSON.stringify(formData),
-    });
+    const payload = {
+      ...formData,
+      month: formData.month ? Number(formData.month) : null,
+      year: formData.year ? Number(formData.year) : null,
+    };
 
-    if (res.status === 401) {
-      localStorage.removeItem("token");
-      window.location.href = "/login";
-      return;
-    }
-
-    if (res.ok) {
-      setEditingId(null);
-      setShowForm(false);
-
-      setFormData({
-        clientEmail: "",
-        industry: "",
-        leadType: "",
-        dealStatus: "",
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload),
       });
 
-      fetchDeals();
+      if (res.status === 401) {
+        localStorage.removeItem("token");
+        window.location.href = "/login";
+        return;
+      }
+
+      if (res.ok) {
+        setEditingId(null);
+        setShowForm(false);
+        setFormData({
+          clientEmail: "",
+          industry: "",
+          leadType: "",
+          dealStatus: "",
+          month: "",
+          year: "",
+        });
+        // ✅ fetch deals without waiting — UI already closed the form
+        fetchDeals();
+      }
+    } catch (err) {
+      console.error("Save deal error:", err);
+    } finally {
+      setSaving(false); // ✅ always stop spinner
     }
   };
 
@@ -214,7 +226,6 @@ const DealUpdates = () => {
               <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-xs">DF</span>
               </div>
-
               <h1 className="text-lg font-bold tracking-tight text-slate-900 hidden sm:block">
                 DealFlow{" "}
                 <span className="text-indigo-600 font-medium text-sm">v1</span>
@@ -287,6 +298,7 @@ const DealUpdates = () => {
               handleSaveDeal={handleSaveDeal}
               handleDeleteDeal={handleDeleteDeal}
               loading={loading}
+              saving={saving} // ✅ passed down
             />
           </div>
         )}
@@ -299,7 +311,6 @@ const DealUpdates = () => {
                   Master Data Management
                 </h2>
               </div>
-
               <div className="p-6">
                 <DealSettings
                   industries={industries}

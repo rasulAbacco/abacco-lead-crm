@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef } from "react";
 
 const DealsTab = ({
   deals,
@@ -16,11 +16,35 @@ const DealsTab = ({
   handleSaveDeal,
   handleDeleteDeal,
   loading,
+  saving, // ✅ new prop for save button loader
 }) => {
   const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 6 }, (_, i) => currentYear - i);
+
+  // ✅ From 2010 up to next year, auto-expanding each year
+  const years = Array.from(
+    { length: currentYear + 1 - 2010 + 1 },
+    (_, i) => currentYear + 1 - i,
+  );
+
+  // ✅ Ref to scroll form into view on edit
+  const formRef = useRef(null);
 
   const months = [
+    { value: "1", label: "January" },
+    { value: "2", label: "February" },
+    { value: "3", label: "March" },
+    { value: "4", label: "April" },
+    { value: "5", label: "May" },
+    { value: "6", label: "June" },
+    { value: "7", label: "July" },
+    { value: "8", label: "August" },
+    { value: "9", label: "September" },
+    { value: "10", label: "October" },
+    { value: "11", label: "November" },
+    { value: "12", label: "December" },
+  ];
+
+  const monthShort = [
     { value: "1", label: "Jan" },
     { value: "2", label: "Feb" },
     { value: "3", label: "Mar" },
@@ -35,27 +59,35 @@ const DealsTab = ({
     { value: "12", label: "Dec" },
   ];
 
-  // Helper for status badge colors (Soft colors, Light mode only)
+  const getMonthLabel = (val) =>
+    monthShort.find((m) => m.value === String(val))?.label || val;
+
   const getStatusStyle = (status) => {
     const s = status?.toLowerCase();
-
-    // ✅ Deal = Green
     if (s?.includes("deal"))
       return "bg-emerald-50 text-emerald-700 border-emerald-100";
-
-    // ❌ Cancel / Lost = Red
     if (s?.includes("lost") || s?.includes("cancel"))
       return "bg-rose-50 text-rose-700 border-rose-100";
-
-    // ⏳ Pending = Yellow
     if (s?.includes("pending"))
       return "bg-amber-50 text-amber-700 border-amber-100";
-
     return "bg-slate-50 text-slate-700 border-slate-100";
+  };
+
+  // ✅ Scroll form into view smoothly when Edit is clicked
+  const handleEditClick = (deal) => {
+    setFormData(deal);
+    setEditingId(deal.id);
+    setShowForm(true);
+    setTimeout(() => {
+      formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50); // small delay lets the form render before scrolling
   };
 
   return (
     <div className="space-y-6">
+      {/* ✅ Anchor ref placed just before form */}
+      <div ref={formRef} />
+
       {/* ================= FORM SECTION ================= */}
       {showForm && (
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden animate-in fade-in zoom-in duration-200">
@@ -66,6 +98,7 @@ const DealsTab = ({
           </div>
 
           <form onSubmit={handleSaveDeal} className="p-6">
+            {/* Row 1: Email, Industry, Lead Type, Status */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
               <div className="flex flex-col gap-1.5">
                 <label className="text-[11px] font-bold text-slate-500 uppercase ml-1">
@@ -147,19 +180,83 @@ const DealsTab = ({
               </div>
             </div>
 
+            {/* Row 2: Month + Year */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mt-5">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-bold text-slate-500 uppercase ml-1">
+                  Deal Month
+                </label>
+                <select
+                  required
+                  value={formData.month || ""}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      month: e.target.value ? Number(e.target.value) : "",
+                    })
+                  }
+                  className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all appearance-none cursor-pointer"
+                >
+                  <option value="">Select Month</option>
+                  {months.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-bold text-slate-500 uppercase ml-1">
+                  Deal Year
+                </label>
+                <select
+                  required
+                  value={formData.year || ""}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      year: e.target.value ? Number(e.target.value) : "",
+                    })
+                  }
+                  className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all appearance-none cursor-pointer"
+                >
+                  <option value="">Select Year</option>
+                  {years.map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             <div className="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-6">
               <button
                 type="button"
                 onClick={() => setShowForm(false)}
-                className="px-6 py-2.5 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+                disabled={saving}
+                className="px-6 py-2.5 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-40"
               >
                 Cancel
               </button>
+
+              {/* ✅ Save button with inline spinner */}
               <button
                 type="submit"
-                className="bg-slate-900 text-white px-8 py-2.5 rounded-lg text-sm font-bold shadow-lg shadow-slate-200 hover:bg-slate-800 transition-all active:scale-95"
+                disabled={saving}
+                className="min-w-[160px] inline-flex items-center justify-center gap-2 bg-slate-900 text-white px-8 py-2.5 rounded-lg text-sm font-bold shadow-lg shadow-slate-200 hover:bg-slate-800 transition-all active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed disabled:active:scale-100"
               >
-                {editingId ? "Update Transaction" : "Save Entry"}
+                {saving ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    {editingId ? "Updating..." : "Saving..."}
+                  </>
+                ) : editingId ? (
+                  "Update Transaction"
+                ) : (
+                  "Save Entry"
+                )}
               </button>
             </div>
           </form>
@@ -216,7 +313,7 @@ const DealsTab = ({
               className="bg-transparent border-none text-xs font-semibold text-slate-600 focus:ring-0 py-2"
             >
               <option value="">Month</option>
-              {months.map((m) => (
+              {monthShort.map((m) => (
                 <option key={m.value} value={m.value}>
                   {m.label}
                 </option>
@@ -279,6 +376,9 @@ const DealsTab = ({
                   Status
                 </th>
                 <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">
+                  Period
+                </th>
+                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">
                   Agent Name
                 </th>
                 <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100 text-right">
@@ -313,17 +413,19 @@ const DealsTab = ({
                       {deal.dealStatus}
                     </span>
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                    {deal.month && deal.year
+                      ? `${getMonthLabel(deal.month)} ${deal.year}`
+                      : "—"}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-medium">
                     {deal.employee?.fullName || "—"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
                     <div className="flex justify-end gap-3">
+                      {/* ✅ Uses handleEditClick to scroll to form */}
                       <button
-                        onClick={() => {
-                          setFormData(deal);
-                          setEditingId(deal.id);
-                          setShowForm(true);
-                        }}
+                        onClick={() => handleEditClick(deal)}
                         className="text-indigo-600 hover:text-indigo-900 text-xs font-bold uppercase tracking-wider transition-colors"
                       >
                         Edit
