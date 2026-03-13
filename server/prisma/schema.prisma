@@ -46,24 +46,26 @@ model Lead {
 }
 
 model Employee {
-  id                Int                @id @default(autoincrement())
-  employeeId        String             @unique
+  id                Int                 @id @default(autoincrement())
+  employeeId        String              @unique
   fullName          String
-  email             String             @unique
+  email             String              @unique
   password          String
-  role              String             @default("EMPLOYEE")
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime?          @updatedAt
-  target            Int                @default(0)
+  role              String              @default("EMPLOYEE")
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime?           @updatedAt
+  target            Int                 @default(0)
   joiningDate       DateTime
-  isActive          Boolean            @default(true)
+  isActive          Boolean             @default(true)
   leads             Lead[]
   mailDomains       EmailDomain[]
-  sharedLinks       SharedLink[]       @relation("CreatedLinks") // Links created by admin
-  receivedLinks     ReceivedLink[]     @relation("ReceivedByEmployee") // Links received by employee
+  sharedLinks       SharedLink[]        @relation("CreatedLinks") // Links created by admin
+  receivedLinks     ReceivedLink[]      @relation("ReceivedByEmployee") // Links received by employee
   Notification      Notification[]
   pushSubscriptions PushSubscription[]
   dealInfos         DealInfo[]
+  //EmployeeLeadTarget EmployeeLeadTarget?
+  leadTarget        EmployeeLeadTarget?
 
   @@index([role])
   @@index([isActive])
@@ -338,4 +340,20 @@ model LoginOtp {
   updatedAt DateTime @updatedAt
 
   @@index([expiresAt])
+}
+
+model EmployeeLeadTarget {
+  id Int @id @default(autoincrement())
+
+  employeeId String   @unique
+  employee   Employee @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+
+  associationPercent Int @default(0)
+  attendeesPercent   Int @default(0)
+  industryPercent    Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeId])
 }

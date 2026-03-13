@@ -16,6 +16,7 @@ import IncentivePlan from "../components/IncentivePlan";
 import TodayProgress from "../components/TodayProgress";
 import MonthlyDoubleTarget from "../components/MonthlyDoubleTarget";
 import Leaderboard from "../components/Leaderboard";
+import LeadDistributionProgress from "../components/LeadDistributionProgress";
 
 const EmployeeDashboard = () => {
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -63,7 +64,7 @@ const EmployeeDashboard = () => {
         const subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array(
-            import.meta.env.VITE_VAPID_PUBLIC_KEY
+            import.meta.env.VITE_VAPID_PUBLIC_KEY,
           ),
         });
 
@@ -74,7 +75,7 @@ const EmployeeDashboard = () => {
           subscription,
           {
             headers: { Authorization: `Bearer ${token}` },
-          }
+          },
         );
 
         console.log("✅ Push notification subscribed");
@@ -136,7 +137,7 @@ const EmployeeDashboard = () => {
         const empId = localStorage.getItem("employeeId");
 
         const currentEmployee = employeesData.find(
-          (emp) => String(emp.id) === String(empId)
+          (emp) => String(emp.id) === String(empId),
         );
 
         if (currentEmployee) {
@@ -174,7 +175,7 @@ const EmployeeDashboard = () => {
       try {
         const employeeId = localStorage.getItem("employeeId");
         const res = await axios.get(
-          `${API_BASE_URL}/api/employees/${employeeId}/leads`
+          `${API_BASE_URL}/api/employees/${employeeId}/leads`,
         );
         setLeads(res.data.leads || []);
       } catch (err) {
@@ -245,7 +246,7 @@ const EmployeeDashboard = () => {
   const computeDailyPlanCounts = (plans, leads) => {
     const todayKey = getUSADateKey(new Date());
     const todayLeads = leads.filter(
-      (l) => getUSADateKey(l.date) === todayKey && l.qualified
+      (l) => getUSADateKey(l.date) === todayKey && l.qualified,
     );
 
     const output = {};
@@ -275,7 +276,7 @@ const EmployeeDashboard = () => {
     const breakdown = {
       totalToday: leads.filter(
         (l) =>
-          getUSADateKey(l.date) === getUSADateKey(new Date()) && l.qualified
+          getUSADateKey(l.date) === getUSADateKey(new Date()) && l.qualified,
       ).length,
 
       plans: {},
@@ -305,7 +306,7 @@ const EmployeeDashboard = () => {
       try {
         const employeeId = localStorage.getItem("employeeId");
         const res = await axios.get(
-          `${API_BASE_URL}/api/incentives/progress/${employeeId}`
+          `${API_BASE_URL}/api/incentives/progress/${employeeId}`,
         );
         setAchievedIncentive(res.data.achieved || null);
       } catch (err) {
@@ -331,15 +332,15 @@ const EmployeeDashboard = () => {
 
   const loggedInId = localStorage.getItem("employeeId");
   const loggedPerf = performanceData.find(
-    (p) => String(p.employeeId) === String(loggedInId)
+    (p) => String(p.employeeId) === String(loggedInId),
   );
   const loggedEmp = employees.find(
-    (e) => String(e.employeeId) === String(loggedInId)
+    (e) => String(e.employeeId) === String(loggedInId),
   );
 
   const todayKey = getUSADateKey(new Date());
   const todayLeadsCount = leads.filter(
-    (l) => getUSADateKey(l.date) === todayKey
+    (l) => getUSADateKey(l.date) === todayKey,
   ).length;
 
   return (
@@ -375,10 +376,14 @@ const EmployeeDashboard = () => {
           todayLeads={todayLeadsCount} // NEW: required for daily motivation
           streak={loggedPerf?.streak || 0} // OPTIONAL: if you track streaks
         />
-
         <DashboardStats leads={leads} />
 
-        {/* TODAY PROGRESS (Dynamic Plans) */}
+        <LeadDistributionProgress
+          leads={leads}
+          employeeTarget={employeeTarget}
+          apiBase={API_BASE_URL}
+        />
+
         <TodayProgress breakdown={incentiveBreakdown} useDefaults={false} />
 
         {/* CHARTS */}
