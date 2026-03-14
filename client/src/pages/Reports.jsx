@@ -59,7 +59,7 @@ const Reports = () => {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
-        }
+        },
       );
       if (!res.ok) throw new Error("Failed to fetch report data");
 
@@ -72,7 +72,7 @@ const Reports = () => {
       setSelectedMonth(
         data[currentMonth] && data[currentMonth].length > 0
           ? currentMonth
-          : Object.keys(data).find((m) => data[m].length > 0) || ""
+          : Object.keys(data).find((m) => data[m].length > 0) || "",
       );
     } catch (err) {
       setError("Unable to load report data. Please try again.");
@@ -115,6 +115,7 @@ const Reports = () => {
       "Association Leads",
       "Industry Leads",
       "Attendee Leads",
+      "Member Attendee Leads",
       "Active",
       "Deals",
       "Disqualified",
@@ -134,6 +135,7 @@ const Reports = () => {
       r.associationLeads ?? 0,
       r.industryLeads ?? 0,
       r.attendeeLeads ?? 0,
+      r.memberAttendeeLeads ?? 0,
       r.active ?? 0,
       r.deal ?? 0,
       r.disqualified ?? 0,
@@ -157,6 +159,7 @@ const Reports = () => {
       { wch: 16 }, // Association Leads
       { wch: 14 }, // Industry Leads
       { wch: 14 }, // Attendee Leads
+      { wch: 16 }, // Member Attendee Leads
       { wch: 10 }, // Active
       { wch: 10 }, // Deals
       { wch: 12 }, // Disqualified
@@ -253,6 +256,11 @@ const Reports = () => {
 
           case 7: // Attendee Leads
             fontColor = "6366F1"; // Indigo lighter
+            isBold = true;
+            break;
+
+          case 8: // Member Attendee Leads
+            fontColor = "9333EA"; // Purple
             isBold = true;
             break;
 
@@ -363,7 +371,7 @@ const Reports = () => {
       data = data.filter(
         (emp) =>
           emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          emp.email.toLowerCase().includes(searchTerm.toLowerCase())
+          emp.email.toLowerCase().includes(searchTerm.toLowerCase()),
       );
     }
 
@@ -398,8 +406,8 @@ const Reports = () => {
           align === "center"
             ? "justify-center"
             : align === "right"
-            ? "justify-end"
-            : "justify-start"
+              ? "justify-end"
+              : "justify-start"
         }`}
       >
         <span>{label}</span>
@@ -672,6 +680,12 @@ const Reports = () => {
                       onClick={handleSort}
                     />
                     <SortableHeader
+                      label="Member Attendees"
+                      field="memberAttendeeLeads"
+                      align="center"
+                      onClick={handleSort}
+                    />
+                    <SortableHeader
                       label="Active"
                       field="active"
                       align="center"
@@ -753,7 +767,7 @@ const Reports = () => {
                           <span className="text-[10px] text-gray-400">
                             {row.target
                               ? `${Math.round(
-                                  (row.totalLeads / row.target) * 100
+                                  (row.totalLeads / row.target) * 100,
                                 )}%`
                               : "-"}
                           </span>
@@ -789,6 +803,9 @@ const Reports = () => {
                         {/* Checked for both spellings: attendee vs attendees */}
                         {row.attendeesLeads || row.attendeeLeads || 0}
                       </td>
+                      <td className="px-4 py-3 text-center align-middle font-semibold text-purple-600">
+                        {row.memberAttendeeLeads ?? 0}
+                      </td>
                       <td className="px-4 py-3 text-center align-middle">
                         <span
                           className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
@@ -809,7 +826,7 @@ const Reports = () => {
                           {row.deal}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-center align-middle text-gray-500">
+                      <td className="px-4 py-3 text-center align-middle text-red-500">
                         {row.disqualified || (
                           <span className="text-gray-200">0</span>
                         )}
