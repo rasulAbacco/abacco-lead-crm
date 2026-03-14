@@ -391,6 +391,7 @@ export default function AllLeadsTable({ leadStatuses }) {
                 <option value="Association Lead">Association</option>
                 <option value="Industry Lead">Industry</option>
                 <option value="Attendees Lead">Attendees</option>
+                <option value="Member Attendees">Member Attendees</option>
               </select>
 
               {/* Add qualified filter */}

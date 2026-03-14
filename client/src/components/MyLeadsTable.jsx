@@ -274,25 +274,35 @@ export default function MyLeadsTable() {
   }, [leads, filters]);
 
   const getLeadTypeBadge = (type) => {
-    const badges = {
-      association: "bg-purple-100 text-purple-700 border-purple-200",
-      industry: "bg-blue-100 text-blue-700 border-blue-200",
-      attendees: "bg-emerald-100 text-emerald-700 border-emerald-200",
-    };
-    return (
-      badges[
-        String(type || "")
-          .trim()
-          .toLowerCase()
-      ] || "bg-gray-100 text-gray-700 border-gray-200"
-    );
+    const str = String(type || "")
+      .trim()
+      .toLowerCase();
+
+    if (str.includes("member attendees"))
+      return "bg-yellow-100 text-yellow-700 border-yellow-200";
+
+    if (str.includes("association"))
+      return "bg-purple-100 text-purple-700 border-purple-200";
+
+    if (str.includes("industry"))
+      return "bg-blue-100 text-blue-700 border-blue-200";
+
+    if (str.includes("attendees"))
+      return "bg-emerald-100 text-emerald-700 border-emerald-200";
+
+    return "bg-gray-100 text-gray-700 border-gray-200";
   };
 
   const getLeadTypeLabel = (type) => {
-    const str = String(type || "").trim();
-    if (str.toLowerCase().includes("association")) return "Association";
-    if (str.toLowerCase().includes("industry")) return "Industry";
-    if (str.toLowerCase().includes("attendees")) return "Attendees";
+    const str = String(type || "")
+      .trim()
+      .toLowerCase();
+
+    if (str.includes("member attendees")) return "Member Attendees";
+    if (str.includes("association")) return "Association";
+    if (str.includes("industry")) return "Industry";
+    if (str.includes("attendees")) return "Attendees";
+
     return safe(type);
   };
 
@@ -447,6 +457,7 @@ export default function MyLeadsTable() {
                 <option value="Association Lead">Association</option>
                 <option value="Industry Lead">Industry</option>
                 <option value="Attendees Lead">Attendees</option>
+                <option value="Member Attendees">Member Attendees</option>
               </select>
 
               {/* Add qualified filter */}
@@ -567,6 +578,9 @@ export default function MyLeadsTable() {
                               </option>
                               <option value="Industry Lead">Industry</option>
                               <option value="Attendees Lead">Attendees</option>
+                              <option value="Member Attendees">
+                                Member Attendees
+                              </option>
                             </select>
                           ) : (
                             <span

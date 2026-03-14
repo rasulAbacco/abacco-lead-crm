@@ -199,9 +199,11 @@ const LeadForm = () => {
     }
   };
 
+  // ✅ UPDATED: Added label for "Member Attendees"
   const getWebsiteLabel = () => {
     if (formData.leadType === "Association Lead") return "Association Link";
     if (formData.leadType === "Attendees Lead") return "Expo Link";
+    if (formData.leadType === "Member Attendees") return "Member Link";
     return "Link";
   };
 
@@ -330,6 +332,8 @@ const LeadForm = () => {
                   <option value="Association Lead">Association Lead</option>
                   <option value="Attendees Lead">Attendees Lead</option>
                   <option value="Industry Lead">Industry Lead</option>
+                  {/* ✅ UPDATED: Added Member Attendees option */}
+                  <option value="Member Attendees">Member Attendees</option>
                 </select>
                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
                   <svg
@@ -563,8 +567,9 @@ const LeadForm = () => {
               />
             </div>
 
-            {/* Attendees Count - only visible when leadType is "Attendees Lead" and now optional */}
-            {formData.leadType === "Attendees Lead" && (
+            {/* ✅ UPDATED: Attendees Count - visible for both Attendees and Member Attendees */}
+            {(formData.leadType === "Attendees Lead" ||
+              formData.leadType === "Member Attendees") && (
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-gray-700">
                   Attendees Count

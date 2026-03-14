@@ -788,14 +788,29 @@ router.get("/leads-summary", async (req, res) => {
         select: { leadType: true },
       });
 
-      const summary = { total: 0, associations: 0, industry: 0, attendees: 0 };
+      const summary = {
+        total: 0,
+        associations: 0,
+        attendees: 0,
+        memberAttendees: 0,
+        industry: 0,
+      };
 
       leads.forEach((lead) => {
         if (!lead.leadType) return;
+
         const type = lead.leadType.trim().toLowerCase();
-        if (type.includes("association")) summary.associations++;
-        else if (type.includes("industry")) summary.industry++;
-        else if (type.includes("attendee")) summary.attendees++;
+
+        if (type.includes("association")) {
+          summary.associations++;
+        } else if (type.includes("member attendee")) {
+          summary.memberAttendees++;
+        } else if (type.includes("attendee")) {
+          summary.attendees++;
+        } else if (type.includes("industry")) {
+          summary.industry++;
+        }
+
         summary.total++;
       });
 
