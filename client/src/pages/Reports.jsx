@@ -810,7 +810,7 @@ const Reports = () => {
                         <span
                           className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
                             row.active > 0
-                              ? "bg-amber-100 text-amber-800"
+                              ? "bg-green-100 text-green-500"
                               : "text-gray-300"
                           }`}
                         >

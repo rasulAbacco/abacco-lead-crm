@@ -236,6 +236,11 @@ router.get(
               target: true,
             },
           },
+          status: {
+            select: {
+              name: true,
+            },
+          },
         },
         orderBy: { date: "asc" },
       });
@@ -247,11 +252,19 @@ router.get(
         let emp = monthsData[month].find((e) => e.employeeId === empId);
 
         const type = lead.leadType?.toLowerCase().trim() || "";
+        const status = lead.status?.name?.toLowerCase().trim() || "";
 
         const isAssociation = type.includes("association");
         const isIndustry = type.includes("industry");
         const isAttendees = type.includes("attendees lead");
         const isMemberAttendees = type.includes("member attendees");
+
+        const isActive = status.includes("active");
+        const isDeal = status.includes("deal");
+        const isInvoicePending = status.includes("pending");
+        const isInvoiceCanceled = status.includes("cancel");
+        const isLeaveOut = status.includes("leave");
+        const isNoResponse = status.includes("response");
 
         if (!emp) {
           emp = {
@@ -280,15 +293,26 @@ router.get(
           monthsData[month].push(emp);
         }
 
+        // total leads
         emp.totalLeads += 1;
 
+        // qualified / disqualified
         if (lead.qualified === true) emp.qualified += 1;
         if (lead.qualified === false) emp.disqualified += 1;
 
+        // lead type counts
         if (isAssociation) emp.associationLeads += 1;
         if (isIndustry) emp.industryLeads += 1;
         if (isAttendees) emp.attendeeLeads += 1;
         if (isMemberAttendees) emp.memberAttendeeLeads += 1;
+
+        // status counts
+        if (isActive) emp.active += 1;
+        if (isDeal) emp.deal += 1;
+        if (isInvoicePending) emp.invoicePending += 1;
+        if (isInvoiceCanceled) emp.invoiceCanceled += 1;
+        if (isLeaveOut) emp.leaveOut += 1;
+        if (isNoResponse) emp.noResponse += 1;
       });
 
       if (monthName) {
