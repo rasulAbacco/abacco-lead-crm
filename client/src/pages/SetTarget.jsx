@@ -14,12 +14,13 @@ import {
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 /* ─── Mini Donut — uses SVG arc paths (correct geometry) ── */
-const MiniDonut = ({ assoc = 0, attend = 0, industry = 0 }) => {
+const MiniDonut = ({ assoc = 0, attend = 0, industry = 0, memberAttend = 0 }) => {
   const svgRef = useRef(null);
   const segments = [
     { v: assoc, color: "#3B82F6" },
     { v: attend, color: "#22C55E" },
     { v: industry, color: "#7C3AED" },
+    { v: memberAttend, color: "#F59E0B" },
   ];
   const total = segments.reduce((s, d) => s + d.v, 0);
   const cx = 21,
@@ -83,6 +84,7 @@ const MiniDonut = ({ assoc = 0, attend = 0, industry = 0 }) => {
           { color: "#3B82F6", val: assoc },
           { color: "#22C55E", val: attend },
           { color: "#7C3AED", val: industry },
+          { color: "#F59E0B", val: memberAttend },
         ].map((d, i) => (
           <div
             key={i}
@@ -278,6 +280,7 @@ const SetTarget = () => {
       associationPercent: emp.associationPercent || 0,
       attendeesPercent: emp.attendeesPercent || 0,
       industryPercent: emp.industryPercent || 0,
+      memberAttendeesPercent: emp.memberAttendeesPercent || 0,
     });
   };
 
@@ -292,7 +295,8 @@ const SetTarget = () => {
     const total =
       Number(editedData.associationPercent) +
       Number(editedData.attendeesPercent) +
-      Number(editedData.industryPercent);
+      Number(editedData.industryPercent) +
+      Number(editedData.memberAttendeesPercent);
     if (total !== 100) {
       alert("Lead distribution must equal 100%");
       return;
@@ -308,6 +312,7 @@ const SetTarget = () => {
           associationPercent: Number(editedData.associationPercent),
           attendeesPercent: Number(editedData.attendeesPercent),
           industryPercent: Number(editedData.industryPercent),
+          memberAttendeesPercent: Number(editedData.memberAttendeesPercent),
         },
       );
       await fetchEmployees();
@@ -331,6 +336,12 @@ const SetTarget = () => {
   );
   const indTotal = Math.round(
     employees.reduce((s, e) => s + (e.target * e.industryPercent) / 100, 0),
+  );
+  const memberAttendTotal = Math.round(
+    employees.reduce(
+      (s, e) => s + (e.target * e.memberAttendeesPercent) / 100,
+      0,
+    ),
   );
 
   const th = {
@@ -461,6 +472,13 @@ const SetTarget = () => {
             icon={BarChart3}
             sub="Total leads"
           />
+          <StatCard
+            label="Member Attendees"
+            value={memberAttendTotal}
+            color="amber"
+            icon={BarChart3}
+            sub="Total leads"
+          />
         </div>
 
         {/* Table */}
@@ -492,6 +510,7 @@ const SetTarget = () => {
                 ["#3B82F6", "Association"],
                 ["#22C55E", "Attendees"],
                 ["#7C3AED", "Industry"],
+                ["#F59E0B", "Member Attendees"],
               ].map(([col, lbl]) => (
                 <span
                   key={lbl}
@@ -534,6 +553,7 @@ const SetTarget = () => {
                     "Target",
                     "Assoc %",
                     "Attend %",
+                    "Mem Attn %",
                     "Industry %",
                     "Total",
                     "Distribution",
@@ -557,7 +577,10 @@ const SetTarget = () => {
                   const iP = isEditing
                     ? Number(editedData.industryPercent) || 0
                     : emp.industryPercent;
-                  const total = aP + atP + iP;
+                  const mP = isEditing
+                    ? Number(editedData.memberAttendeesPercent) || 0
+                    : emp.memberAttendeesPercent;
+                  const total = aP + atP + iP + mP;
                   const totalOk = total === 100;
 
                   return (
@@ -690,6 +713,28 @@ const SetTarget = () => {
                       <td style={td}>
                         {isEditing ? (
                           <EditCell
+                            value={editedData.memberAttendeesPercent}
+                            onChange={(v) => handleChange("memberAttendeesPercent", v)}
+                          />
+                        ) : (
+                          <span
+                            style={{
+                              background: "#FFF7ED",
+                              color: "#C2410C",
+                              borderRadius: "6px",
+                              padding: "3px 8px",
+                              fontSize: "12px",
+                              fontWeight: 600,
+                            }}
+                          >
+                            {emp.memberAttendeesPercent}%
+                          </span>
+                        )}
+                      </td>
+
+                      <td style={td}>
+                        {isEditing ? (
+                          <EditCell
                             value={editedData.industryPercent}
                             onChange={(v) => handleChange("industryPercent", v)}
                           />
@@ -734,7 +779,7 @@ const SetTarget = () => {
                       </td>
 
                       <td style={{ ...td, minWidth: "90px" }}>
-                        <MiniDonut assoc={aP} attend={atP} industry={iP} />
+                        <MiniDonut assoc={aP} attend={atP} industry={iP} memberAttend={mP} />
                       </td>
 
                       <td style={td}>

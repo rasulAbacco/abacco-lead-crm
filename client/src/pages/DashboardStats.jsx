@@ -97,15 +97,15 @@ const DashboardStats = ({ leads }) => {
 
   if (distribution) {
     const associationTarget = Math.round(
-      (monthlyTarget * distribution.associationPercent) / 100,
+      (monthlyTarget * distribution.associationPercent) / 100
     );
 
     const attendeesTarget = Math.round(
-      (monthlyTarget * distribution.attendeesPercent) / 100,
+      (monthlyTarget * distribution.attendeesPercent) / 100
     );
 
     const industryTarget = Math.round(
-      (monthlyTarget * distribution.industryPercent) / 100,
+      (monthlyTarget * distribution.industryPercent) / 100
     );
 
     const achieved =
@@ -113,10 +113,8 @@ const DashboardStats = ({ leads }) => {
       Math.min(attendeesLeads, attendeesTarget) +
       Math.min(industryLeads, industryTarget);
 
-    const totalTarget = associationTarget + attendeesTarget + industryTarget;
-
-    if (totalTarget > 0) {
-      achievementRate = Math.round((achieved / totalTarget) * 100);
+    if (monthlyTarget > 0) {
+      achievementRate = Math.floor((achieved / monthlyTarget) * 100);
     }
   }
 

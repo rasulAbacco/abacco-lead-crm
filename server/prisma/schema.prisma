@@ -356,9 +356,10 @@ model EmployeeLeadTarget {
   employeeId String   @unique
   employee   Employee @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
 
-  associationPercent Int @default(0)
-  attendeesPercent   Int @default(0)
-  industryPercent    Int @default(0)
+  associationPercent     Int @default(0)
+  attendeesPercent       Int @default(0)
+  industryPercent        Int @default(0)
+  memberAttendeesPercent Int @default(0) // 👈 NEW FIELD
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -260,6 +260,9 @@ const LeadDistributionProgress = ({ leads, employeeTarget, apiBase }) => {
   const industryLeads = monthlyLeads.filter((l) =>
     (l.leadType || "").toLowerCase().includes("industry"),
   ).length;
+  const memberAttendeesLeads = monthlyLeads.filter((l) =>
+    (l.leadType || "").toLowerCase().includes("member"),
+  ).length;
 
   /* ── Targets ── */
   const associationTarget = Math.round(
@@ -271,8 +274,12 @@ const LeadDistributionProgress = ({ leads, employeeTarget, apiBase }) => {
   const industryTarget = Math.round(
     (employeeTarget * distribution.industryPercent) / 100,
   );
+  const memberAttendeesTarget = Math.round(
+    (employeeTarget * distribution.memberAttendeesPercent) / 100,
+  );
 
-  const totalLeads = associationLeads + attendeesLeads + industryLeads;
+  const totalLeads =
+    associationLeads + attendeesLeads + industryLeads + memberAttendeesLeads;
 
   const assocPct =
     associationTarget > 0
@@ -292,12 +299,17 @@ const LeadDistributionProgress = ({ leads, employeeTarget, apiBase }) => {
   const achieved =
     Math.min(associationLeads, associationTarget) +
     Math.min(attendeesLeads, attendeesTarget) +
-    Math.min(industryLeads, industryTarget);
+    Math.min(industryLeads, industryTarget) +
+    Math.min(memberAttendeesLeads, memberAttendeesTarget);
 
-  const totalTarget = associationTarget + attendeesTarget + industryTarget;
+  const totalTarget =
+    associationTarget +
+    attendeesTarget +
+    industryTarget +
+    memberAttendeesTarget;
 
   const overallPct =
-    totalTarget > 0 ? Math.round((achieved / totalTarget) * 100) : 0;
+    totalTarget > 0 ? Math.ceil((achieved / totalTarget) * 100) : 0;
 
   const remainingAssociation = Math.max(
     0,
@@ -305,15 +317,23 @@ const LeadDistributionProgress = ({ leads, employeeTarget, apiBase }) => {
   );
   const remainingAttendees = Math.max(0, attendeesTarget - attendeesLeads);
   const remainingIndustry = Math.max(0, industryTarget - industryLeads);
-
+  const remainingMemberAttendees = Math.max(
+    0,
+    memberAttendeesTarget - memberAttendeesLeads,
+  );
   const remaining =
-    remainingAssociation + remainingAttendees + remainingIndustry;
+    remainingAssociation +
+    remainingAttendees +
+    remainingIndustry +
+    remainingMemberAttendees;
+
 
   /* Small donut segments (header pill) */
   const smallDonutSegments = [
     { v: Math.min(associationLeads, associationTarget), color: "#3B82F6" },
     { v: Math.min(attendeesLeads, attendeesTarget), color: "#22C55E" },
     { v: Math.min(industryLeads, industryTarget), color: "#7C3AED" },
+    { v: Math.min(memberAttendeesLeads, memberAttendeesTarget), color: "#F59E0B" },
     { v: remaining, color: "#EEF2FF" },
   ];
 
@@ -336,6 +356,12 @@ const LeadDistributionProgress = ({ leads, employeeTarget, apiBase }) => {
       color: "#7C3AED",
       label: "Industry",
       target: industryTarget,
+    },
+    {
+      v: Math.min(memberAttendeesLeads, memberAttendeesTarget),
+      color: "#F59E0B",
+      label: "Member Attendees",
+      target: memberAttendeesTarget,
     },
     {
       v: remaining,
@@ -363,6 +389,12 @@ const LeadDistributionProgress = ({ leads, employeeTarget, apiBase }) => {
       label: "Industry",
       value: industryLeads,
       target: industryTarget,
+    },
+    {
+      color: "#F59E0B",
+      label: "Member Attendees",
+      value: memberAttendeesLeads,
+      target: memberAttendeesTarget,
     },
     {
       color: "#E2E8F0",
@@ -574,8 +606,13 @@ const LeadDistributionProgress = ({ leads, employeeTarget, apiBase }) => {
             target={industryTarget}
             color="violet"
           />
+          <StatCard
+            label="Member Attendees"
+            current={memberAttendeesLeads}
+            target={memberAttendeesTarget}
+            color="amber"
+          />
         </div>
-
         {/* Big donut card */}
         <div
           style={{
