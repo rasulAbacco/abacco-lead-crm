@@ -16,7 +16,6 @@ export const getDeals = async (req, res) => {
     if (leadType) where.leadType = leadType;
     if (dealStatus) where.dealStatus = dealStatus;
 
-    // ✅ Filter by stored integer month/year fields directly
     if (month) where.month = Number(month);
     if (year) where.year = Number(year);
 
@@ -33,18 +32,35 @@ export const getDeals = async (req, res) => {
       orderBy: { createdAt: "desc" },
     });
 
-    res.json(deals);
+    // Normalize agent info (employee OR manual)
+    const formattedDeals = deals.map((deal) => ({
+      ...deal,
+      agentName: deal.employee?.fullName || deal.manualAgentName || null,
+      agentEmployeeId: deal.employee?.employeeId || deal.manualAgentId || null,
+      agentEmail: deal.employee
+        ? null
+        : deal.manualAgentEmail || deal.clientEmail,
+    }));
+
+    res.json(formattedDeals);
   } catch (error) {
-    console.error(error);
+    console.error("Fetch deals error:", error);
     res.status(500).json({ message: "Failed to fetch deals" });
   }
 };
 
 export const createDeal = async (req, res) => {
   try {
-    // ✅ month and year extracted from body
-    const { clientEmail, industry, leadType, dealStatus, month, year } =
-      req.body;
+    const {
+      clientEmail,
+      industry,
+      leadType,
+      dealStatus,
+      month,
+      year,
+      manualAgentName,
+      manualAgentId,
+    } = req.body;
 
     if (!clientEmail) {
       return res.status(400).json({ message: "Client email required" });
@@ -59,23 +75,35 @@ export const createDeal = async (req, res) => {
       },
     });
 
-    if (!emailRecord) {
-      return res.status(400).json({
-        message: "Email not registered in EmailDomain",
-      });
+    let dealData = {
+      clientEmail: normalizedEmail,
+      industry,
+      leadType,
+      dealStatus,
+      month: month ? Number(month) : null,
+      year: year ? Number(year) : null,
+    };
+
+    // ✅ Case 1: Email belongs to registered employee
+    if (emailRecord) {
+      dealData.employeeId = emailRecord.employeeId;
+    } 
+    // ✅ Case 2: Email not registered → treat as ex employee
+    else {
+      if (!manualAgentName) {
+        return res.status(400).json({
+          message:
+            "Email not found in EmailDomain. Please provide manual agent details.",
+        });
+      }
+
+      dealData.manualAgentName = manualAgentName;
+      dealData.manualAgentId = manualAgentId || null;
+      dealData.manualAgentEmail = normalizedEmail;
     }
 
     const deal = await prisma.dealInfo.create({
-      data: {
-        clientEmail: normalizedEmail,
-        industry,
-        leadType,
-        dealStatus,
-        // ✅ Store as integers, null if not provided
-        month: month ? Number(month) : null,
-        year: year ? Number(year) : null,
-        employeeId: emailRecord.employeeId,
-      },
+      data: dealData,
     });
 
     res.status(201).json(deal);
@@ -88,25 +116,58 @@ export const createDeal = async (req, res) => {
 export const updateDeal = async (req, res) => {
   try {
     const { id } = req.params;
-    // ✅ month and year extracted from body
-    const { clientEmail, industry, leadType, dealStatus, month, year } =
-      req.body;
+
+    const {
+      clientEmail,
+      industry,
+      leadType,
+      dealStatus,
+      month,
+      year,
+      manualAgentName,
+      manualAgentId,
+    } = req.body;
+
+    const normalizedEmail = clientEmail?.toLowerCase().trim();
+
+    const emailRecord = normalizedEmail
+      ? await prisma.emailDomain.findFirst({
+          where: {
+            email: normalizedEmail,
+            isActive: true,
+          },
+        })
+      : null;
+
+    let updateData = {
+      clientEmail: normalizedEmail,
+      industry,
+      leadType,
+      dealStatus,
+      month: month ? Number(month) : null,
+      year: year ? Number(year) : null,
+    };
+
+    if (emailRecord) {
+      updateData.employeeId = emailRecord.employeeId;
+      updateData.manualAgentName = null;
+      updateData.manualAgentId = null;
+      updateData.manualAgentEmail = null;
+    } else {
+      updateData.employeeId = null;
+      updateData.manualAgentName = manualAgentName || null;
+      updateData.manualAgentId = manualAgentId || null;
+      updateData.manualAgentEmail = normalizedEmail || null;
+    }
 
     const deal = await prisma.dealInfo.update({
       where: { id: Number(id) },
-      data: {
-        clientEmail,
-        industry,
-        leadType,
-        dealStatus,
-        // ✅ Store as integers, null if not provided
-        month: month ? Number(month) : null,
-        year: year ? Number(year) : null,
-      },
+      data: updateData,
     });
 
     res.json(deal);
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: "Failed to update deal" });
   }
 };
