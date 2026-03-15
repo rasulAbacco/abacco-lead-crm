@@ -339,21 +339,21 @@ const DealsTab = ({
             filters.dealStatus ||
             filters.month ||
             filters.year) && (
-            <button
-              onClick={() =>
-                setFilters({
-                  industry: "",
-                  leadType: "",
-                  dealStatus: "",
-                  month: "",
-                  year: "",
-                })
-              }
-              className="ml-auto px-4 py-2 text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors uppercase tracking-tight"
-            >
-              Reset Filters
-            </button>
-          )}
+              <button
+                onClick={() =>
+                  setFilters({
+                    industry: "",
+                    leadType: "",
+                    dealStatus: "",
+                    month: "",
+                    year: "",
+                  })
+                }
+                className="ml-auto px-4 py-2 text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors uppercase tracking-tight"
+              >
+                Reset Filters
+              </button>
+            )}
         </div>
       </div>
 
@@ -419,7 +419,7 @@ const DealsTab = ({
                       : "—"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-medium">
-                    {deal.employee?.fullName || "—"}
+                    {deal.employee?.fullName || deal.manualAgentName || "—"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
                     <div className="flex justify-end gap-3">

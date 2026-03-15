@@ -283,8 +283,14 @@ model DealInfo {
   month       Int?
   year        Int?
 
-  employeeId String
-  employee   Employee @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  // Employee linked deal (current employees)
+  employeeId String?
+  employee   Employee? @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+
+  // Manual agent fields (for ex-employees or unknown emails)
+  manualAgentName  String?
+  manualAgentId    String?
+  manualAgentEmail String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

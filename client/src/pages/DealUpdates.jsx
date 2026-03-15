@@ -17,6 +17,13 @@ const DealUpdates = () => {
   const [leadTypes, setLeadTypes] = useState([]);
   const [dealStatuses, setDealStatuses] = useState([]);
 
+  const [showManualPopup, setShowManualPopup] = useState(false);
+
+  const [manualAgent, setManualAgent] = useState({
+    manualAgentName: "",
+    manualAgentId: ""
+  });
+
   const [formData, setFormData] = useState({
     clientEmail: "",
     industry: "",
@@ -115,8 +122,6 @@ const DealUpdates = () => {
 
   const handleSaveDeal = async (e) => {
     e.preventDefault();
-
-    // ✅ Show spinner on button immediately
     setSaving(true);
 
     const method = editingId ? "PUT" : "POST";
@@ -126,6 +131,7 @@ const DealUpdates = () => {
 
     const payload = {
       ...formData,
+      ...manualAgent,
       month: formData.month ? Number(formData.month) : null,
       year: formData.year ? Number(formData.year) : null,
     };
@@ -137,6 +143,16 @@ const DealUpdates = () => {
         body: JSON.stringify(payload),
       });
 
+      if (res.status === 400) {
+        const data = await res.json();
+
+        if (data.message?.includes("manual agent")) {
+          setShowManualPopup(true);
+          setSaving(false);
+          return;
+        }
+      }
+
       if (res.status === 401) {
         localStorage.removeItem("token");
         window.location.href = "/login";
@@ -146,6 +162,8 @@ const DealUpdates = () => {
       if (res.ok) {
         setEditingId(null);
         setShowForm(false);
+        setManualAgent({ manualAgentName: "", manualAgentId: "" });
+
         setFormData({
           clientEmail: "",
           industry: "",
@@ -154,13 +172,13 @@ const DealUpdates = () => {
           month: "",
           year: "",
         });
-        // ✅ fetch deals without waiting — UI already closed the form
+
         fetchDeals();
       }
     } catch (err) {
       console.error("Save deal error:", err);
     } finally {
-      setSaving(false); // ✅ always stop spinner
+      setSaving(false);
     }
   };
 
@@ -224,11 +242,11 @@ const DealUpdates = () => {
           <div className="flex h-16 items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-xs">DF</span>
+                <span className="text-white font-bold text-xs">AT</span>
               </div>
               <h1 className="text-lg font-bold tracking-tight text-slate-900 hidden sm:block">
-                DealFlow{" "}
-                <span className="text-indigo-600 font-medium text-sm">v1</span>
+                Deal Report{" "}
+                <span className="text-indigo-600 font-medium text-sm ml-2">Abacco Tech</span>
               </h1>
             </div>
 
@@ -241,11 +259,10 @@ const DealUpdates = () => {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 ${
-                    activeTab === tab.id
-                      ? "bg-white text-indigo-600 shadow-sm border border-slate-100"
-                      : "text-slate-500 hover:text-slate-700"
-                  }`}
+                  className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 ${activeTab === tab.id
+                    ? "bg-white text-indigo-600 shadow-sm border border-slate-100"
+                    : "text-slate-500 hover:text-slate-700"
+                    }`}
                 >
                   {tab.label}
                 </button>
@@ -259,11 +276,10 @@ const DealUpdates = () => {
                     setShowForm(!showForm);
                     setEditingId(null);
                   }}
-                  className={`inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                    showForm
-                      ? "text-slate-600 bg-white border border-slate-200 hover:bg-slate-50"
-                      : "bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-100"
-                  }`}
+                  className={`inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-semibold transition-all ${showForm
+                    ? "text-slate-600 bg-white border border-slate-200 hover:bg-slate-50"
+                    : "bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-100"
+                    }`}
                 >
                   {showForm ? "Close Form" : "+ Create Deal"}
                 </button>
@@ -321,6 +337,60 @@ const DealUpdates = () => {
                   handleAddMaster={handleAddMaster}
                   handleDeleteMaster={handleDeleteMaster}
                 />
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {showManualPopup && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl shadow-xl w-[420px] p-6 space-y-4">
+              <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">
+                Agent Not Found
+              </h3>
+
+              <p className="text-sm text-slate-500">
+                This email is not registered. Please enter agent details manually.
+              </p>
+
+              <input
+                type="text"
+                placeholder="Agent Name"
+                value={manualAgent.manualAgentName}
+                onChange={(e) =>
+                  setManualAgent({ ...manualAgent, manualAgentName: e.target.value })
+                }
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+              />
+
+              <input
+                type="text"
+                placeholder="Employee ID"
+                value={manualAgent.manualAgentId}
+                onChange={(e) =>
+                  setManualAgent({ ...manualAgent, manualAgentId: e.target.value })
+                }
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+              />
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  onClick={() => setShowManualPopup(false)}
+                  className="px-4 py-2 text-sm text-slate-500"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowManualPopup(false);
+                    handleSaveDeal(new Event("submit"));
+                  }}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm"
+                >
+                  Save Deal
+                </button>
               </div>
             </div>
           </div>

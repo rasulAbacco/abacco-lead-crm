@@ -188,9 +188,8 @@ router.post("/", async (req, res) => {
             u.searchParams.delete(k);
         });
         u.pathname = u.pathname.replace(/\/+$/, "");
-        return `${u.protocol}//${u.hostname}${u.pathname}${
-          u.search || ""
-        }`.toLowerCase();
+        return `${u.protocol}//${u.hostname}${u.pathname}${u.search || ""
+          }`.toLowerCase();
       } catch {
         return s.replace(/\/+$/, "").toLowerCase();
       }
