@@ -264,7 +264,7 @@ const Reports = () => {
             isBold = true;
             break;
 
-          case 8: // Active
+          case 12: // Active
             if (rowData.active > 0) {
               fontColor = "D97706"; // Amber
               isBold = true;

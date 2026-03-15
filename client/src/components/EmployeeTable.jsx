@@ -85,17 +85,15 @@ export default function EmployeeTable({
   }, [employees, filter, setFilter, isInitialized]);
 
   const calcPerc = (emp) => {
-    const result = calculateDistributionProgress({
+    return calculateDistributionProgress({
       leads: emp.leads || [],
       target: emp.target || 0,
 
-      // fallback distribution
       associationPercent: emp.associationPercent,
       attendeesPercent: emp.attendeesPercent,
       industryPercent: emp.industryPercent,
+      memberAttendeesPercent: emp.memberAttendeesPercent,
     });
-
-    return result.achievementRate;
   };
 
   return (
@@ -127,8 +125,11 @@ export default function EmployeeTable({
       {/* Employee Rows */}
       <div className="space-y-4">
         {sortedEmployees.map((emp, index) => {
-          const percentage = calcPerc(emp);
-          const achieved = emp.qualifiedLeads >= emp.target;
+          const progress = calcPerc(emp);
+          const percentage = progress.achievementRate;
+          const achieved = progress.achieved;
+          // const achieved = emp.qualifiedLeads >= emp.target;
+          const targetAchieved = achieved >= emp.target;
           const isTopThree = index < 3;
 
           return (
@@ -144,24 +145,22 @@ export default function EmployeeTable({
                   <div className="col-span-2 flex items-center gap-3">
                     {/* Rank */}
                     <div
-                      className={`w-10 h-10 flex items-center justify-center rounded-full font-bold text-sm ${
-                        index === 0
-                          ? "bg-yellow-500 text-white"
-                          : index === 1
-                            ? "bg-gray-400 text-white"
-                            : index === 2
-                              ? "bg-amber-600 text-white"
-                              : "bg-indigo-100 text-indigo-800"
-                      }`}
+                      className={`w-10 h-10 flex items-center justify-center rounded-full font-bold text-sm ${index === 0
+                        ? "bg-yellow-500 text-white"
+                        : index === 1
+                          ? "bg-gray-400 text-white"
+                          : index === 2
+                            ? "bg-amber-600 text-white"
+                            : "bg-indigo-100 text-indigo-800"
+                        }`}
                     >
                       {index + 1}
                     </div>
 
                     {/* Avatar */}
                     <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm ${
-                        isTopThree ? "bg-indigo-600" : "bg-blue-500"
-                      }`}
+                      className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm ${isTopThree ? "bg-indigo-600" : "bg-blue-500"
+                        }`}
                     >
                       {emp.name
                         .split(" ")
@@ -218,7 +217,7 @@ export default function EmployeeTable({
                       />
                       <div className="ml-2 text-right">
                         <div className="text-sm font-semibold text-gray-900">
-                          {emp.qualifiedLeads}/{emp.target}
+                          {achieved}/{emp.target}
                         </div>
                         <div className="text-xs text-gray-500">
                           {percentage === 100
@@ -229,13 +228,12 @@ export default function EmployeeTable({
                     </div>
 
                     <span
-                      className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                        achieved
-                          ? "bg-green-100 text-green-800"
-                          : "bg-blue-100 text-blue-800"
-                      }`}
+                      className={`px-2 py-1 rounded-full text-xs font-semibold ${achieved
+                        ? "bg-green-100 text-green-800"
+                        : "bg-blue-100 text-blue-800"
+                        }`}
                     >
-                      {achieved ? "Achieved" : "In Progress"}
+                      {targetAchieved ? "Achieved" : "In Progress"}
                     </span>
                   </div>
                 </div>

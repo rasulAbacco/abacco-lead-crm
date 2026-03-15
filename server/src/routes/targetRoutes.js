@@ -38,6 +38,7 @@ router.get("/", async (req, res) => {
         associationPercent: emp.leadTarget?.associationPercent ?? 0,
         attendeesPercent: emp.leadTarget?.attendeesPercent ?? 0,
         industryPercent: emp.leadTarget?.industryPercent ?? 0,
+        memberAttendeesPercent: emp.leadTarget?.memberAttendeesPercent ?? 0, // NEW
       };
     });
 
@@ -76,7 +77,7 @@ router.get("/leads-summary", async (req, res) => {
         select: { leadType: true },
       });
 
-      const summary = { total: 0, associations: 0, industry: 0, attendees: 0 };
+      const summary = { total: 0, associations: 0, industry: 0, attendees: 0, memberAttendees: 0, };
 
       leads.forEach((lead) => {
         if (!lead.leadType) return;
@@ -84,6 +85,7 @@ router.get("/leads-summary", async (req, res) => {
         const type = lead.leadType.trim().toLowerCase();
 
         if (type.includes("association")) summary.associations += 1;
+        else if (type.includes("member attendee")) summary.memberAttendees += 1;
         else if (type.includes("industry")) summary.industry += 1;
         else if (type.includes("attendee")) summary.attendees += 1;
 
@@ -190,12 +192,13 @@ router.put("/:id", async (req, res) => {
 router.put("/lead-distribution/:employeeId", async (req, res) => {
   const { employeeId } = req.params;
 
-  const { associationPercent, attendeesPercent, industryPercent } = req.body;
+  const { associationPercent, attendeesPercent, industryPercent, memberAttendeesPercent, } = req.body;
 
   const total =
     Number(associationPercent) +
     Number(attendeesPercent) +
-    Number(industryPercent);
+    Number(industryPercent) +
+    Number(memberAttendeesPercent);
 
   if (total !== 100) {
     return res.status(400).json({
@@ -215,7 +218,8 @@ router.put("/lead-distribution/:employeeId", async (req, res) => {
           associationPercent,
           attendeesPercent,
           industryPercent,
-        },
+          memberAttendeesPercent,
+        }
       });
 
       return res.json(updated);
@@ -227,7 +231,8 @@ router.put("/lead-distribution/:employeeId", async (req, res) => {
         associationPercent,
         attendeesPercent,
         industryPercent,
-      },
+        memberAttendeesPercent,
+      }
     });
 
     res.json(created);
