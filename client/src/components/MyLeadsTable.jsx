@@ -13,6 +13,7 @@ import {
   MessageSquare,
   Send,
   MailPlus,
+  User,
   Globe,
   Phone,
   Edit,
@@ -29,6 +30,7 @@ const defaultFilters = {
   search: "",
   sortBy: "id-desc",
   leadEmail: "all",
+  qualified: "all", // Use qualified instead of status
 };
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -49,7 +51,7 @@ const formatDateForInput = (dateString) => {
   if (isNaN(date)) return "";
   // Convert to USA timezone (America/New_York)
   const usaDate = new Date(
-    date.toLocaleString("en-US", { timeZone: "America/New_York" })
+    date.toLocaleString("en-US", { timeZone: "America/New_York" }),
   );
   const year = usaDate.getFullYear();
   const month = String(usaDate.getMonth() + 1).padStart(2, "0");
@@ -84,7 +86,7 @@ export default function MyLeadsTable() {
     setLoading(true);
     try {
       const res = await fetch(
-        `${API_BASE_URL}/api/employees/leads/${employeeId}`
+        `${API_BASE_URL}/api/employees/leads/${employeeId}`,
       );
       const data = await res.json();
       if (data) setLeads(Array.isArray(data) ? data : data.leads);
@@ -119,6 +121,12 @@ export default function MyLeadsTable() {
       country: lead.country || "",
       subjectLine: lead.subjectLine || "",
       leadType: lead.leadType || "",
+      qualified:
+        lead.qualified === true
+          ? "true"
+          : lead.qualified === false
+            ? "false"
+            : "null", // Convert to string for select
       date: formatDateForInput(lead.date),
       link: lead.link || "",
       emailPitch: lead.emailPitch || "",
@@ -143,8 +151,19 @@ export default function MyLeadsTable() {
         dateToSend = `${dateToSend}T17:00:00.000Z`;
       }
 
+      // Convert qualified back to boolean or null
+      let qualifiedValue;
+      if (editForm.qualified === "true") {
+        qualifiedValue = true;
+      } else if (editForm.qualified === "false") {
+        qualifiedValue = false;
+      } else {
+        qualifiedValue = null;
+      }
+
       const dataToSend = {
         ...editForm,
+        qualified: qualifiedValue,
         date: dateToSend,
         isEdited: true, // Mark as edited
       };
@@ -187,6 +206,12 @@ export default function MyLeadsTable() {
             .trim()
             .toLowerCase() === filters.leadType.toLowerCase();
 
+        const qualifiedMatch =
+          filters.qualified === "all" ||
+          (filters.qualified === "true" && lead.qualified === true) ||
+          (filters.qualified === "false" && lead.qualified === false) ||
+          (filters.qualified === "null" && lead.qualified === null);
+
         const fromDateMatch =
           !filters.fromDate ||
           new Date(lead.date) >= new Date(filters.fromDate);
@@ -202,13 +227,18 @@ export default function MyLeadsTable() {
             lead.leadEmail,
             lead.ccEmail,
             lead.leadType,
+            lead.qualified
+              ? "qualified"
+              : lead.qualified === false
+                ? "disqualified"
+                : "pending",
             lead.country,
             lead.phone,
           ].some((field) =>
             (field || "")
               .toString()
               .toLowerCase()
-              .includes(filters.search.toLowerCase())
+              .includes(filters.search.toLowerCase()),
           );
 
         const leadEmailMatch =
@@ -218,6 +248,7 @@ export default function MyLeadsTable() {
 
         return (
           leadTypeMatch &&
+          qualifiedMatch &&
           fromDateMatch &&
           toDateMatch &&
           searchMatch &&
@@ -243,26 +274,66 @@ export default function MyLeadsTable() {
   }, [leads, filters]);
 
   const getLeadTypeBadge = (type) => {
-    const badges = {
-      association: "bg-purple-100 text-purple-700 border-purple-200",
-      industry: "bg-blue-100 text-blue-700 border-blue-200",
-      attendees: "bg-emerald-100 text-emerald-700 border-emerald-200",
-    };
-    return (
-      badges[
-        String(type || "")
-          .trim()
-          .toLowerCase()
-      ] || "bg-gray-100 text-gray-700 border-gray-200"
-    );
+    const str = String(type || "")
+      .trim()
+      .toLowerCase();
+
+    if (str.includes("member attendees"))
+      return "bg-yellow-100 text-yellow-700 border-yellow-200";
+
+    if (str.includes("association"))
+      return "bg-purple-100 text-purple-700 border-purple-200";
+
+    if (str.includes("industry"))
+      return "bg-blue-100 text-blue-700 border-blue-200";
+
+    if (str.includes("attendees"))
+      return "bg-emerald-100 text-emerald-700 border-emerald-200";
+
+    return "bg-gray-100 text-gray-700 border-gray-200";
   };
 
   const getLeadTypeLabel = (type) => {
-    const str = String(type || "").trim();
-    if (str.toLowerCase().includes("association")) return "Association";
-    if (str.toLowerCase().includes("industry")) return "Industry";
-    if (str.toLowerCase().includes("attendees")) return "Attendees";
+    const str = String(type || "")
+      .trim()
+      .toLowerCase();
+
+    if (str.includes("member attendees")) return "Member Attendees";
+    if (str.includes("association")) return "Association";
+    if (str.includes("industry")) return "Industry";
+    if (str.includes("attendees")) return "Attendees";
+
     return safe(type);
+  };
+
+  // Update function to get status badge based on qualified boolean
+  const getQualifiedBadge = (qualified) => {
+    if (qualified === true) {
+      return "bg-green-100 text-green-700 border-green-200";
+    } else if (qualified === false) {
+      return "bg-red-100 text-red-700 border-red-200";
+    } else {
+      return "bg-orange-100 text-orange-700 border-orange-200";
+    }
+  };
+
+  // Update function to get status label based on qualified boolean
+  const getQualifiedLabel = (qualified) => {
+    if (qualified === true) {
+      return "Qualified";
+    } else if (qualified === false) {
+      return "Disqualified";
+    } else {
+      return "Pending";
+    }
+  };
+
+  // Function to get card border color based on qualified status
+  const getCardBorderColor = (qualified) => {
+    if (qualified === false) {
+      return "border-red-300";
+    }
+    return "border-slate-200"; // Default border color
   };
 
   const downloadCSV = () => {
@@ -278,6 +349,7 @@ export default function MyLeadsTable() {
       "Country",
       "Subject",
       "Lead Type",
+      "Status",
       "Date (dd/mm/yy)",
       "Link",
       "Pitch",
@@ -295,6 +367,7 @@ export default function MyLeadsTable() {
       safe(lead.country),
       safe(lead.subjectLine),
       safe(lead.leadType),
+      getQualifiedLabel(lead.qualified),
       formatDate(lead.date),
       safe(lead.link),
       safe(lead.emailPitch),
@@ -306,7 +379,7 @@ export default function MyLeadsTable() {
       .map((row) =>
         row
           .map((val) => `"${(val || "").toString().replace(/"/g, '""')}"`)
-          .join(",")
+          .join(","),
       )
       .join("\n");
 
@@ -363,7 +436,7 @@ export default function MyLeadsTable() {
               <Search className="w-5 h-5 absolute left-3 top-3 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search by name, email, country, phone, subject..."
+                placeholder="Search by name, email, country, phone, subject, status..."
                 className="w-full pl-11 pr-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-slate-700"
                 value={filters.search}
                 onChange={(e) =>
@@ -372,7 +445,7 @@ export default function MyLeadsTable() {
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
               <select
                 value={filters.leadType}
                 onChange={(e) =>
@@ -384,6 +457,21 @@ export default function MyLeadsTable() {
                 <option value="Association Lead">Association</option>
                 <option value="Industry Lead">Industry</option>
                 <option value="Attendees Lead">Attendees</option>
+                <option value="Member Attendees">Member Attendees</option>
+              </select>
+
+              {/* Add qualified filter */}
+              <select
+                value={filters.qualified}
+                onChange={(e) =>
+                  setFilters({ ...filters, qualified: e.target.value })
+                }
+                className="px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-slate-700"
+              >
+                <option value="all">All Status</option>
+                <option value="true">Qualified</option>
+                <option value="false">Disqualified</option>
+                <option value="null">Pending</option>
               </select>
 
               <select
@@ -456,7 +544,9 @@ export default function MyLeadsTable() {
               return (
                 <div
                   key={lead.id}
-                  className="bg-white rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-all duration-200 overflow-hidden"
+                  className={`bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden ${getCardBorderColor(
+                    lead.qualified,
+                  )}`}
                 >
                   {/* Card Header */}
                   <div className="p-4 sm:p-5 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
@@ -488,14 +578,64 @@ export default function MyLeadsTable() {
                               </option>
                               <option value="Industry Lead">Industry</option>
                               <option value="Attendees Lead">Attendees</option>
+                              <option value="Member Attendees">
+                                Member Attendees
+                              </option>
                             </select>
                           ) : (
                             <span
                               className={`inline-flex px-2.5 py-0.5 text-xs font-semibold rounded-full border ${getLeadTypeBadge(
-                                lead.leadType
+                                lead.leadType,
                               )}`}
                             >
                               {getLeadTypeLabel(lead.leadType)}
+                            </span>
+                          )}
+
+                          {/* Add qualified badge */}
+                          {isEditing ? (
+                            <select
+                              value={editForm.qualified}
+                              onChange={(e) =>
+                                setEditForm({
+                                  ...editForm,
+                                  qualified: e.target.value,
+                                })
+                              }
+                              className="px-2.5 py-0.5 text-xs font-semibold rounded-full border"
+                            >
+                              <option value="true">Qualified</option>
+                              <option value="false">Disqualified</option>
+                              <option value="null">Pending</option>
+                            </select>
+                          ) : (
+                            <span
+                              className={`inline-flex px-2.5 py-0.5 text-xs font-semibold rounded-full border ${getQualifiedBadge(
+                                lead.qualified,
+                              )}`}
+                            >
+                              {getQualifiedLabel(lead.qualified)}
+                            </span>
+                          )}
+                          {/* LeadStatus badge — NEW */}
+                          {lead.status?.name && (
+                            <span className="inline-flex px-2.5 py-0.5 text-xs font-semibold rounded-full border bg-indigo-100 text-indigo-700 border-indigo-200">
+                              {lead.status.name}
+                            </span>
+                          )}
+
+                          {lead.salesEmployeeName && lead.salesEmployeeEmail ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200">
+                              <User className="h-4" />
+                              {lead.salesEmployeeName.trim()}
+                              <span className="text-indigo-500">
+                                ({lead.salesEmployeeEmail})
+                              </span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-600 border border-gray-200">
+                              <User className="h-4" />
+                              Sales: Not Assigned
                             </span>
                           )}
                         </div>
@@ -770,7 +910,7 @@ export default function MyLeadsTable() {
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center">
               <FileText className="w-16 h-16 text-slate-300 mx-auto mb-4" />
               <p className="text-slate-500 font-medium text-lg mb-2">
-                No leads found
+                Your lead board is empty… let’s change that today 💪
               </p>
               <p className="text-slate-400 text-sm">
                 Try adjusting your filters or search terms
@@ -843,7 +983,7 @@ const ExpandedContent = ({ lead, isEditing, editForm, setEditForm }) => (
             className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
           />
         </div>
-         <div>
+        <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">
             Email Response
           </label>
@@ -855,7 +995,7 @@ const ExpandedContent = ({ lead, isEditing, editForm, setEditForm }) => (
             rows={6}
             className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
           />
-        </div> 
+        </div>
       </>
     ) : (
       <>

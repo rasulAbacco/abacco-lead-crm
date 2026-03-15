@@ -16,6 +16,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 import IndustryType from "./pages/IndustryType";
 import IndustryTypeEmployee from "./pages/IndustryTypeEmployee";
+import EmailDomains from "./pages/EmailDomains";
 import AllEmployees from "./pages/AllEmployees";
 import MyLeads from "./pages/MyLeads";
 import ShareLink from "./pages/ShareLink";
@@ -23,170 +24,246 @@ import MyLink from "./pages/MyLink";
 import MyReport from "./pages/MyReport";
 import Reports from "./pages/Reports";
 import ShareLinkAccessWrapper from "./components/ShareLinkAccessWrapper";
+import IncentiveManagement from "./pages/IncentiveManagement";
+import NewYearOverlay from "./components/NewYearOverlay";
+import Maintenance from "./pages/Maintenance";
+import SalesEmployee from "./pages/SalesEmployee";
+import AdminEmailDomains from "./pages/AdminEmailDomains";
+import DealUpdates from "./pages/DealUpdates";
+import EmpDealReport from "./pages/EmpDealReport";
+
+const MAINTENANCE_MODE = false;
+
 
 function App() {
+  if (MAINTENANCE_MODE) {
+    return <Maintenance />;
+  }
   return (
-    <Routes>
-      {/* Login Page */}
-      <Route
-        path="/"
-        element={
-          <Layout>
-            <Login />
-          </Layout>
-        }
-      />
-      <Route path="/employee/:id" element={<EmployeeLeadsPage />} />
+    <>
+      <NewYearOverlay />
+      <Routes>
+        {/* Login Page */}
+        <Route
+          path="/"
+          element={
+            <Layout>
+              <Login />
+            </Layout>
+          }
+        />
+        <Route path="/employee/:id" element={<EmployeeLeadsPage />} />
 
-      {/* Admin Routes */}
-      <Route
-        path="/admin-dashboard"
-        element={
-          <Layout>
-            <ProtectedRoute role="admin">
-              <AdminDashboard />
-            </ProtectedRoute>
-          </Layout>
-        }
-      />
-      <Route
-        path="/forward-leads"
-        element={
-          <Layout>
-            <ProtectedRoute role="admin">
-              <ForwardLeads />
-            </ProtectedRoute>
-          </Layout>
-        }
-      />
-      <Route
-        path="/add-employee"
-        element={
-          <Layout>
-            <ProtectedRoute role="admin">
-              <AddEmployeeForm />
-            </ProtectedRoute>
-          </Layout>
-        }
-      />
-      <Route
-        path="/all-leads"
-        element={
-          <Layout>
-            <ProtectedRoute role="admin">
-              <AllLeads />
-            </ProtectedRoute>
-          </Layout>
-        }
-      />
-      <Route
-        path="/set-targets"
-        element={
-          <Layout>
-            <ProtectedRoute role="admin">
-              <SetTarget />
-            </ProtectedRoute>
-          </Layout>
-        }
-      />
-      <Route
-        path="/reports"
-        element={
-          <Layout>
-            <ProtectedRoute role="admin">
-              <Reports />
-            </ProtectedRoute>
-          </Layout>
-        }
-      />
-      <Route
-        path="/industry-types"
-        element={
-          <Layout>
-            <ProtectedRoute role="admin">
-              <IndustryType />
-            </ProtectedRoute>
-          </Layout>
-        }
-      />
-      <Route
-        path="/share-links"
-        element={
-          <Layout>
-            <ShareLinkAccessWrapper>
-              <ShareLink />
-            </ShareLinkAccessWrapper>
-          </Layout>
-        }
-      />
+        {/* Admin Routes */}
+        <Route
+          path="/admin-dashboard"
+          element={
+            <Layout>
+              <ProtectedRoute role="admin">
+                <AdminDashboard />
+              </ProtectedRoute>
+            </Layout>
+          }
+        />
+        <Route
+          path="/forward-leads"
+          element={
+            <Layout>
+              <ProtectedRoute role="admin">
+                <ForwardLeads />
+              </ProtectedRoute>
+            </Layout>
+          }
+        />
+        <Route
+          path="/add-employee"
+          element={
+            <Layout>
+              <ProtectedRoute role="admin">
+                <AddEmployeeForm />
+              </ProtectedRoute>
+            </Layout>
+          }
+        />
+        <Route
+          path="/all-leads"
+          element={
+            <Layout>
+              <ProtectedRoute role="admin">
+                <AllLeads />
+              </ProtectedRoute>
+            </Layout>
+          }
+        />
+        <Route
+          path="/deal-updates"
+          element={
+            <Layout>
+              <ProtectedRoute role="admin">
+                <DealUpdates />
+              </ProtectedRoute>
+            </Layout>
+          }
+        />
+        <Route
+          path="/set-targets"
+          element={
+            <Layout>
+              <ProtectedRoute role="admin">
+                <SetTarget />
+              </ProtectedRoute>
+            </Layout>
+          }
+        />
+        <Route
+          path="/sales-employee"
+          element={
+            <Layout>
+              <ProtectedRoute role="admin">
+                <SalesEmployee />
+              </ProtectedRoute>
+            </Layout>
+          }
+        />
+        <Route
+          path="/reports"
+          element={
+            <Layout>
+              <ProtectedRoute role="admin">
+                <Reports />
+              </ProtectedRoute>
+            </Layout>
+          }
+        />
+        <Route
+          path="/industry-types"
+          element={
+            <Layout>
+              <ProtectedRoute role="admin">
+                <IndustryType />
+              </ProtectedRoute>
+            </Layout>
+          }
+        />
+        <Route
+          path="/share-links"
+          element={
+            <Layout>
+              <ShareLinkAccessWrapper>
+                <ShareLink />
+              </ShareLinkAccessWrapper>
+            </Layout>
+          }
+        />
+        <Route
+          path="/incentives"
+          element={
+            <Layout>
+              <ProtectedRoute role="admin">
+                <IncentiveManagement />
+              </ProtectedRoute>
+            </Layout>
+          }
+        />
+        <Route
+          path="/admin-email-domains"
+          element={
+            <Layout>
+              <ProtectedRoute role="admin">
+                <AdminEmailDomains />
+              </ProtectedRoute>
+            </Layout>
+          }
+        />
 
-      {/* Employee Routes */}
-      <Route
-        path="/employee-dashboard"
-        element={
-          <Layout>
-            <ProtectedRoute role="employee">
-              <EmployeeDashboard />
-            </ProtectedRoute>
-          </Layout>
-        }
-      />
-      <Route
-        path="/leadform"
-        element={
-          <Layout>
-            <ProtectedRoute role="employee">
-              <LeadForm />
-            </ProtectedRoute>
-          </Layout>
-        }
-      />
-      <Route
-        path="/myleads"
-        element={
-          <Layout>
-            <ProtectedRoute role="employee">
-              <MyLeads />
-            </ProtectedRoute>
-          </Layout>
-        }
-      />
-      <Route
-        path="/myreport"
-        element={
-          <Layout>
-            <ProtectedRoute role="employee">
-              <MyReport />
-            </ProtectedRoute>
-          </Layout>
-        }
-      />
-      <Route
-        path="/my-links"
-        element={
-          <Layout>
-            <ProtectedRoute role="employee">
-              <MyLink />
-            </ProtectedRoute>
-          </Layout>
-        }
-      />
-      <Route
-        path="/industry-type"
-        element={
-          <Layout>
-            <ProtectedRoute role="employee">
-              <IndustryTypeEmployee />
-            </ProtectedRoute>
-          </Layout>
-        }
-      />
+        {/* Employee Routes */}
+        <Route
+          path="/employee-dashboard"
+          element={
+            <Layout>
+              <ProtectedRoute role="employee">
+                <EmployeeDashboard />
+              </ProtectedRoute>
+            </Layout>
+          }
+        />
+        <Route
+          path="/leadform"
+          element={
+            <Layout>
+              <ProtectedRoute role="employee">
+                <LeadForm />
+              </ProtectedRoute>
+            </Layout>
+          }
+        />
+        <Route
+          path="/myleads"
+          element={
+            <Layout>
+              <ProtectedRoute role="employee">
+                <MyLeads />
+              </ProtectedRoute>
+            </Layout>
+          }
+        />
+        <Route
+          path="/myreport"
+          element={
+            <Layout>
+              <ProtectedRoute role="employee">
+                <MyReport />
+              </ProtectedRoute>
+            </Layout>
+          }
+        />
+        <Route
+          path="/employee-deal-updates"
+          element={
+            <Layout>
+              <ProtectedRoute role="employee">
+                <EmpDealReport />
+              </ProtectedRoute>
+            </Layout>
+          }
+        />
+        <Route
+          path="/my-links"
+          element={
+            <Layout>
+              <ProtectedRoute role="employee">
+                <MyLink />
+              </ProtectedRoute>
+            </Layout>
+          }
+        />
+        <Route
+          path="/industry-type"
+          element={
+            <Layout>
+              <ProtectedRoute role="employee">
+                <IndustryTypeEmployee />
+              </ProtectedRoute>
+            </Layout>
+          }
+        />
+        <Route
+          path="/email-domains"
+          element={
+            <Layout>
+              <ProtectedRoute role="employee">
+                <EmailDomains />
+              </ProtectedRoute>
+            </Layout>
+          }
+        />
 
-      {/* Details */}
-      <Route path="/employee/:id" element={<EmployeeDetails />} />
-      <Route path="/lead/:id" element={<LeadDetails />} />
-      <Route path="/employees" element={<AllEmployees />} />
-    </Routes>
+        {/* Details */}
+        <Route path="/employee/:id" element={<EmployeeDetails />} />
+        <Route path="/lead/:id" element={<LeadDetails />} />
+        <Route path="/employees" element={<AllEmployees />} />
+      </Routes>
+    </>
   );
 }
 

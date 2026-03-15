@@ -1,328 +1,847 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Eye, EyeOff, CheckCircle, Sparkles } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  CheckCircle,
+  Sparkles,
+  ArrowRight,
+  Zap,
+  TrendingUp,
+  Shield,
+  Users,
+  Target,
+  BarChart2,
+} from "lucide-react";
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [otp, setOtp] = useState("");
+  const [otpRequired, setOtpRequired] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const [welcomeMessage, setWelcomeMessage] = useState("");
-  const [userRole, setUserRole] = useState("");
+
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
-
     try {
       const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
-
       const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || "Login failed");
+      if (!res.ok) throw new Error(data.message || "Login failed");
+      if (data.otpRequired) {
+        setOtpRequired(true);
+        setLoading(false);
+        return;
       }
-
-      if (data.success) {
-        // Store in localStorage
-        localStorage.setItem("employeeId", data.employeeId);
-        localStorage.setItem("role", data.role.toLowerCase());
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("fullName", data.fullName);
-
-        // Show welcome message
-        const role = data.role.toLowerCase();
-        setUserRole(role);
-        const message = role === "admin"
-          ? "Welcome to Admin Dashboard!"
-          : "Welcome to Employee Dashboard!";
-        setWelcomeMessage(message);
-        setShowWelcome(true);
-
-        // Redirect after showing welcome message
-        setTimeout(() => {
-          if (role === "admin") {
-            navigate("/admin-dashboard");
-          } else {
-            navigate("/employee-dashboard");
-          }
-        }, 2500);
-      } else {
-        setError(data.message || "Invalid credentials");
-      }
+      if (data.success) loginSuccess(data);
     } catch (err) {
-      console.error("Login error:", err);
-      setError(err.message || "Server error, please try again later.");
+      setError(err.message || "Server error");
     } finally {
       setLoading(false);
     }
   };
 
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/auth/verify-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, otp }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "OTP verification failed");
+      loginSuccess(data);
+    } catch (err) {
+      setError(err.message || "Verification failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resendOtp = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/auth/resend-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      alert("OTP resent successfully");
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const loginSuccess = (data) => {
+    localStorage.setItem("employeeId", data.employeeId);
+    localStorage.setItem("role", data.role.toLowerCase());
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("fullName", data.fullName);
+    const role = data.role.toLowerCase();
+    setWelcomeMessage(role === "admin" ? "Welcome, Admin!" : `Welcome back!`);
+    setShowWelcome(true);
+    setTimeout(
+      () =>
+        navigate(role === "admin" ? "/admin-dashboard" : "/employee-dashboard"),
+      2600,
+    );
+  };
+
   return (
-    <div className="min-h-screen relative overflow-hidden bg-white">
-      {/* Animated Background Elements */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute w-96 h-96 bg-blue-100 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob top-0 -left-4"></div>
-        <div className="absolute w-96 h-96 bg-purple-100 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob animation-delay-2000 top-0 right-0"></div>
-        <div className="absolute w-96 h-96 bg-pink-100 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob animation-delay-4000 bottom-0 left-20"></div>
-      </div>
-
-      {/* Subtle Grid Pattern */}
-      <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
-
-      {/* Welcome Overlay - Full Screen */}
+    <div className="root">
+      {/* ── Welcome overlay ── */}
       {showWelcome && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-600 animate-fade-in">
-          <div className="text-center animate-scale-up">
-            <div className="mb-6 flex justify-center">
-              <div className="relative">
-                <CheckCircle className="w-32 h-32 text-white animate-check-bounce" />
-                <Sparkles className="w-12 h-12 text-yellow-300 absolute -top-2 -right-2 animate-sparkle" />
-              </div>
+        <div className="welcome-overlay">
+          <div className="welcome-box">
+            <div className="wc-ripple" />
+            <div className="wc-ripple r2" />
+            <div className="wc-ripple r3" />
+            <div className="wc-icon-wrap">
+              <CheckCircle className="wc-icon" />
             </div>
-            <h2 className="text-5xl md:text-6xl font-bold text-white mb-4 animate-slide-down">
-              Success!
-            </h2>
-            <p className="text-2xl md:text-3xl text-white/90 font-medium animate-slide-up">
-              {welcomeMessage}
-            </p>
-            <div className="mt-8 flex justify-center gap-2 animate-pulse">
-              <div className="w-3 h-3 bg-white rounded-full"></div>
-              <div className="w-3 h-3 bg-white rounded-full animation-delay-200"></div>
-              <div className="w-3 h-3 bg-white rounded-full animation-delay-400"></div>
+            <h2 className="wc-title">Authenticated!</h2>
+            <p className="wc-msg">{welcomeMessage}</p>
+            <div className="wc-bar">
+              <div className="wc-bar-fill" />
             </div>
           </div>
         </div>
       )}
 
-      {/* Main Content */}
-      <div className="relative z-10 min-h-screen flex flex-col items-center justify-center px-4">
-        {/* Title */}
-        <div className="text-center mb-8 animate-fade-in">
-          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent mb-2 tracking-tight">
-            Abacco Technology
-          </h1>
-          <p className="text-xl md:text-2xl text-gray-600 font-light">
-            Lead CRM
-          </p>
-        </div>
+      {/* ══════════ LEFT PANEL ══════════ */}
+      <div className="left">
+        {/* Mesh background */}
+        <div className="mesh" />
+        <div className="orb o1" />
+        <div className="orb o2" />
+        <div className="orb o3" />
 
-        {/* Login Card */}
-        <div className="w-full max-w-md animate-slide-up">
-          <div className="bg-white p-8 rounded-3xl shadow-2xl border-2 border-gray-100">
-            <h2 className="text-3xl font-bold mb-2 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent text-center">
-              Welcome Back
-            </h2>
-            <p className="text-gray-500 text-center mb-8">Sign in to continue</p>
-
-            {error && (
-              <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl border-2 border-red-200 animate-shake">
-                <p className="font-medium">{error}</p>
-              </div>
-            )}
-
-            <form onSubmit={handleLogin} className="space-y-6">
-              {/* Email Input */}
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-gray-700 block">Email Address</label>
-                <input
-                  type="email"
-                  placeholder="Enter your email"
-                  className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-
-              {/* Password Input */}
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-gray-700 block">Password</label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Enter your password"
-                    className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all pr-12"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="w-5 h-5" />
-                    ) : (
-                      <Eye className="w-5 h-5" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {/* Submit Button */}
-              <button
-                type="submit"
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl"
-                disabled={loading || showWelcome}
+        <div className="left-content">
+          {/* Logo */}
+          <div className="brand">
+            <div className="brand-logo">
+              <img
+                src="https://www.abaccotech.com/Logo/icon.png"
+                alt="Abacco"
+                onError={(e) => {
+                  e.target.style.display = "none";
+                  e.target.nextSibling.style.display = "block";
+                }}
+              />
+              <span
+                style={{
+                  display: "none",
+                  fontSize: "22px",
+                  fontWeight: 900,
+                  color: "#fff",
+                }}
               >
-                {loading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Logging in...
-                  </span>
-                ) : (
-                  "Sign In"
-                )}
-              </button>
-            </form>
+                A
+              </span>
+            </div>
+            <div>
+              <div className="brand-name">Abacco Technology</div>
+              <div className="brand-sub">Lead CRM Platform</div>
+            </div>
+          </div>
+
+          {/* Headline */}
+          <div className="headline-block">
+            <div className="headline-tag">✦ CRM Intelligence</div>
+            <h1 className="headline">
+              Turn every
+              <br />
+              lead into a<br />
+              <span className="headline-hl">closed deal.</span>
+            </h1>
+            <p className="headline-body">
+              Streamline your pipeline, track performance in real time, and hit
+              targets faster with data-driven insights.
+            </p>
+          </div>
+
+          {/* Metric cards */}
+          <div className="metrics">
+            <div className="metric-card">
+              <div
+                className="metric-icon"
+                style={{
+                  background: "linear-gradient(135deg,#a78bfa,#7c3aed)",
+                }}
+              >
+                <Users size={15} />
+              </div>
+              <div>
+                <div className="metric-val">2,400+</div>
+                <div className="metric-lbl">Active leads</div>
+              </div>
+            </div>
+            <div className="metric-card">
+              <div
+                className="metric-icon"
+                style={{
+                  background: "linear-gradient(135deg,#f472b6,#ec4899)",
+                }}
+              >
+                <Target size={15} />
+              </div>
+              <div>
+                <div className="metric-val">94%</div>
+                <div className="metric-lbl">Target hit rate</div>
+              </div>
+            </div>
+            <div className="metric-card">
+              <div
+                className="metric-icon"
+                style={{
+                  background: "linear-gradient(135deg,#34d399,#059669)",
+                }}
+              >
+                <BarChart2 size={15} />
+              </div>
+              <div>
+                <div className="metric-val">3.2×</div>
+                <div className="metric-lbl">Pipeline velocity</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Feature list */}
+          <div className="feats">
+            {[
+              {
+                icon: <Zap size={13} />,
+                label: "Real-time lead tracking",
+                color: "#a78bfa",
+              },
+              {
+                icon: <TrendingUp size={13} />,
+                label: "AI-powered analytics",
+                color: "#f472b6",
+              },
+              {
+                icon: <Shield size={13} />,
+                label: "Role-based access control",
+                color: "#34d399",
+              },
+            ].map((f, i) => (
+              <div className="feat" key={i}>
+                <span className="feat-icon" style={{ color: f.color }}>
+                  {f.icon}
+                </span>
+                <span>{f.label}</span>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="mt-8 text-center text-gray-500 text-sm animate-fade-in">
-          <p>© {new Date().getFullYear()} Abacco Technology. All rights reserved.</p>
+        <div className="left-footer">
+          © {new Date().getFullYear()} Abacco Technology
         </div>
-
       </div>
 
+      {/* ══════════ RIGHT PANEL ══════════ */}
+      <div className="right">
+        {/* subtle grid bg */}
+        <div className="right-grid" />
+
+        <div className="form-shell">
+          {/* Glowing border top */}
+          <div className="shell-glow" />
+
+          {!otpRequired ? (
+            <>
+              <div className="form-top">
+                <div className="form-avatar">
+                  <img
+                    src="https://www.abaccotech.com/Logo/icon.png"
+                    alt=""
+                    onError={(e) => {
+                      e.target.style.display = "none";
+                      e.target.nextSibling.style.display = "flex";
+                    }}
+                  />
+                  <span className="avatar-fallback">A</span>
+                </div>
+                <div>
+                  <h2 className="form-title">Sign in</h2>
+                  <p className="form-sub">Access your CRM dashboard</p>
+                </div>
+              </div>
+
+              {error && (
+                <div className="err">
+                  <span className="err-pip" /> {error}
+                </div>
+              )}
+
+              <form onSubmit={handleLogin} className="form">
+                <div className="field">
+                  <label className="lbl">Email</label>
+                  <div className="input-wrap">
+                    <span className="input-prefix">@</span>
+                    <input
+                      type="email"
+                      placeholder="you@abaccotech.com"
+                      className="inp"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="field">
+                  <label className="lbl">Password</label>
+                  <div className="input-wrap">
+                    <span className="input-prefix lock">
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.2"
+                      >
+                        <rect x="3" y="11" width="18" height="11" rx="2" />
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                      </svg>
+                    </span>
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••••"
+                      className="inp"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="eye"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="btn-primary"
+                >
+                  {loading ? (
+                    <>
+                      <span className="spin" /> Signing in…
+                    </>
+                  ) : (
+                    <>
+                      <span>Sign In</span>
+                      <ArrowRight size={16} className="btn-arrow" />
+                    </>
+                  )}
+                </button>
+              </form>
+
+              <div className="divider">
+                <span>secured by Abacco CRM</span>
+              </div>
+
+              <div className="trust-row">
+                <span className="trust-badge">
+                  <span className="trust-dot green" />
+                  SSL Encrypted
+                </span>
+                <span className="trust-badge">
+                  <span className="trust-dot blue" />
+                  2FA Ready
+                </span>
+                <span className="trust-badge">
+                  <span className="trust-dot purple" />
+                  SOC2 Safe
+                </span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="otp-header">
+                <div className="otp-icon-wrap">
+                  <svg
+                    width="32"
+                    height="32"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#7c3aed"
+                    strokeWidth="1.8"
+                  >
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                  </svg>
+                </div>
+                <h2 className="form-title">Verify your identity</h2>
+                <p className="form-sub">
+                  Enter the 6-digit code sent to
+                  <br />
+                  <strong>{email}</strong>
+                </p>
+              </div>
+
+              {error && (
+                <div className="err">
+                  <span className="err-pip" /> {error}
+                </div>
+              )}
+
+              <form onSubmit={handleVerifyOtp} className="form">
+                <div className="otp-grid">
+                  {[0, 1, 2, 3, 4, 5].map((i) => (
+                    <input
+                      key={i}
+                      type="text"
+                      maxLength={1}
+                      className="otp-box"
+                      value={otp[i] || ""}
+                      onChange={(e) => {
+                        const v = e.target.value.replace(/\D/, "");
+                        const a = otp.split("");
+                        a[i] = v;
+                        setOtp(a.join("").slice(0, 6));
+                        if (v && e.target.nextSibling)
+                          e.target.nextSibling.focus();
+                      }}
+                      onKeyDown={(e) => {
+                        if (
+                          e.key === "Backspace" &&
+                          !otp[i] &&
+                          e.target.previousSibling
+                        )
+                          e.target.previousSibling.focus();
+                      }}
+                    />
+                  ))}
+                </div>
+
+                <div className="otp-progress">
+                  {[0, 1, 2, 3, 4, 5].map((i) => (
+                    <div
+                      key={i}
+                      className={`otp-pip ${otp[i] ? "filled" : ""}`}
+                    />
+                  ))}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading || otp.length < 6}
+                  className="btn-primary"
+                >
+                  {loading ? (
+                    <>
+                      <span className="spin" /> Verifying…
+                    </>
+                  ) : (
+                    <>
+                      <span>Verify & Continue</span>
+                      <ArrowRight size={16} className="btn-arrow" />
+                    </>
+                  )}
+                </button>
+
+                <button type="button" onClick={resendOtp} className="btn-ghost">
+                  Didn't get it? <span>Resend code</span>
+                </button>
+              </form>
+            </>
+          )}
+
+          <p className="shell-footer">
+            © {new Date().getFullYear()} Abacco Technology · All rights reserved
+          </p>
+        </div>
+      </div>
+
+      {/* ════ ALL STYLES ════ */}
       <style>{`
-        @keyframes blob {
-          0%, 100% { transform: translate(0, 0) scale(1); }
-          25% { transform: translate(20px, -50px) scale(1.1); }
-          50% { transform: translate(-20px, 20px) scale(0.9); }
-          75% { transform: translate(50px, 50px) scale(1.05); }
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap');
+
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+        .root{
+          min-height:100vh; display:flex;
+          font-family:'Outfit',sans-serif;
+          background:#0d0b1a;
         }
 
-        @keyframes fade-in {
-          from { opacity: 0; }
-          to { opacity: 1; }
+        /* ─── LEFT ─── */
+        .left{
+          width:480px; min-height:100vh;
+          position:relative; overflow:hidden;
+          display:flex; flex-direction:column;
+          justify-content:space-between;
+          padding:48px 44px;
+          flex-shrink:0;
+          background:#0d0b1a;
         }
 
-        @keyframes slide-up {
-          from { 
-            opacity: 0;
-            transform: translateY(30px);
-          }
-          to { 
-            opacity: 1;
-            transform: translateY(0);
-          }
+        .mesh{
+          position:absolute;inset:0;
+          background:
+            radial-gradient(ellipse 80% 60% at 10% 20%, rgba(124,58,237,0.45) 0%, transparent 60%),
+            radial-gradient(ellipse 60% 50% at 80% 80%, rgba(99,102,241,0.35) 0%, transparent 55%),
+            radial-gradient(ellipse 50% 40% at 50% 50%, rgba(236,72,153,0.12) 0%, transparent 60%);
         }
 
-        @keyframes slide-down {
-          from { 
-            opacity: 0;
-            transform: translateY(-30px);
-          }
-          to { 
-            opacity: 1;
-            transform: translateY(0);
-          }
+        .orb{position:absolute;border-radius:50%;filter:blur(80px);opacity:0.18;}
+        .o1{width:380px;height:380px;background:#7c3aed;top:-60px;right:-80px;animation:drift 9s ease-in-out infinite;}
+        .o2{width:280px;height:280px;background:#6366f1;bottom:-40px;left:-60px;animation:drift 12s ease-in-out infinite reverse;}
+        .o3{width:150px;height:150px;background:#ec4899;top:55%;left:50%;animation:drift 7s ease-in-out infinite 1.5s;}
+        @keyframes drift{
+          0%,100%{transform:translate(0,0)scale(1);}
+          40%{transform:translate(20px,-25px)scale(1.06);}
+          70%{transform:translate(-15px,18px)scale(0.94);}
         }
 
-        @keyframes scale-up {
-          0% { 
-            opacity: 0;
-            transform: scale(0.5);
-          }
-          50% {
-            transform: scale(1.05);
-          }
-          100% { 
-            opacity: 1;
-            transform: scale(1);
-          }
+        .left-content{position:relative;z-index:2;display:flex;flex-direction:column;gap:36px;}
+
+        /* brand */
+        .brand{display:flex;align-items:center;gap:12px;}
+        .brand-logo{
+          width:48px;height:48px;border-radius:12px;
+          background:rgba(255,255,255,0.12);
+          backdrop-filter:blur(10px);
+          border:1px solid rgba(255,255,255,0.2);
+          display:flex;align-items:center;justify-content:center;overflow:hidden;
+        }
+        .brand-logo img{width:32px;height:32px;object-fit:contain;}
+        .brand-name{font-size:15px;font-weight:700;color:#fff;line-height:1.2;}
+        .brand-sub{font-size:10px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:.12em;}
+
+        /* headline */
+        .headline-block{display:flex;flex-direction:column;gap:14px;}
+        .headline-tag{
+          display:inline-flex;align-items:center;gap:6px;
+          font-size:11px;font-weight:600;color:#a78bfa;
+          letter-spacing:.1em;text-transform:uppercase;
+        }
+        .headline{
+          font-family:'Syne',sans-serif;
+          font-size:46px;font-weight:800;
+          color:#fff;line-height:1.08;
+        }
+        .headline-hl{
+          background:linear-gradient(90deg,#a78bfa,#f472b6);
+          -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+        }
+        .headline-body{font-size:14px;color:rgba(255,255,255,0.5);line-height:1.7;max-width:320px;}
+
+        /* metrics */
+        .metrics{display:flex;flex-direction:column;gap:10px;}
+        .metric-card{
+          display:flex;align-items:center;gap:14px;
+          padding:14px 18px;
+          background:rgba(255,255,255,0.06);
+          border:1px solid rgba(255,255,255,0.1);
+          border-radius:14px;
+          backdrop-filter:blur(8px);
+          transition:background .2s;
+        }
+        .metric-card:hover{background:rgba(255,255,255,0.1);}
+        .metric-icon{
+          width:32px;height:32px;border-radius:9px;
+          display:flex;align-items:center;justify-content:center;
+          color:#fff;flex-shrink:0;
+        }
+        .metric-val{font-size:16px;font-weight:700;color:#fff;line-height:1.1;}
+        .metric-lbl{font-size:11px;color:rgba(255,255,255,0.45);}
+
+        /* features */
+        .feats{display:flex;flex-direction:column;gap:8px;}
+        .feat{
+          display:flex;align-items:center;gap:10px;
+          font-size:13px;color:rgba(255,255,255,0.65);
+          padding:8px 0;
+          border-bottom:1px solid rgba(255,255,255,0.06);
+        }
+        .feat:last-child{border-bottom:none;}
+        .feat-icon{display:flex;align-items:center;}
+
+        .left-footer{position:relative;z-index:2;font-size:11px;color:rgba(255,255,255,0.25);}
+
+        /* ─── RIGHT ─── */
+        .right{
+          flex:1; display:flex;
+          align-items:center; justify-content:center;
+          padding:40px 32px;
+          background:linear-gradient(135deg,#f5f3ff 0%,#ede9fe 40%,#f0f4ff 100%);
+          position:relative;
+          overflow:hidden;
         }
 
-        @keyframes check-bounce {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.1); }
+        .right-grid{
+          position:absolute;inset:0;
+          background-image:
+            linear-gradient(rgba(124,58,237,.06) 1px,transparent 1px),
+            linear-gradient(90deg,rgba(124,58,237,.06) 1px,transparent 1px);
+          background-size:40px 40px;
         }
 
-        @keyframes sparkle {
-          0%, 100% { 
-            opacity: 1;
-            transform: rotate(0deg) scale(1);
-          }
-          50% { 
-            opacity: 0.5;
-            transform: rotate(180deg) scale(1.2);
-          }
+        /* form shell */
+        .form-shell{
+          position:relative;z-index:2;
+          width:100%;max-width:440px;
+          background:#fff;
+          border-radius:28px;
+          padding:40px 40px 28px;
+          box-shadow:
+            0 0 0 1px rgba(124,58,237,0.12),
+            0 20px 60px rgba(124,58,237,0.14),
+            0 4px 16px rgba(0,0,0,0.06);
+          animation:shellIn .55s cubic-bezier(.22,1,.36,1) both;
+        }
+        @keyframes shellIn{
+          from{opacity:0;transform:translateY(28px)scale(.97);}
+          to{opacity:1;transform:translateY(0)scale(1);}
         }
 
-        @keyframes shake {
-          0%, 100% { transform: translateX(0); }
-          25% { transform: translateX(-10px); }
-          75% { transform: translateX(10px); }
+        .shell-glow{
+          position:absolute;top:0;left:10%;right:10%;
+          height:3px;border-radius:100px;
+          background:linear-gradient(90deg,#7c3aed,#6366f1,#ec4899,#f472b6);
         }
 
-        .animate-blob {
-          animation: blob 7s infinite;
+        /* form top */
+        .form-top{display:flex;align-items:center;gap:16px;margin-bottom:32px;}
+        .form-avatar{
+          width:52px;height:52px;border-radius:14px;
+          background:linear-gradient(135deg,#7c3aed,#6366f1);
+          display:flex;align-items:center;justify-content:center;
+          overflow:hidden;flex-shrink:0;
+          box-shadow:0 4px 14px rgba(124,58,237,0.4);
+        }
+        .form-avatar img{width:34px;height:34px;object-fit:contain;}
+        .avatar-fallback{
+          display:flex;align-items:center;justify-content:center;
+          font-size:20px;font-weight:900;color:#fff;
+          width:34px;height:34px;
+        }
+        .form-title{font-family:'Syne',sans-serif;font-size:24px;font-weight:800;color:#1e1b4b;line-height:1.15;}
+        .form-sub{font-size:13px;color:#9ca3af;margin-top:2px;}
+
+        /* error */
+        .err{
+          display:flex;align-items:center;gap:10px;
+          padding:11px 14px;margin-bottom:20px;
+          background:#fff5f5;border:1px solid #fca5a5;
+          border-radius:10px;font-size:13px;color:#dc2626;
+        }
+        .err-pip{width:7px;height:7px;border-radius:50%;background:#dc2626;flex-shrink:0;}
+
+        /* form */
+        .form{display:flex;flex-direction:column;gap:20px;}
+
+        .field{display:flex;flex-direction:column;gap:7px;}
+        .lbl{font-size:11px;font-weight:700;color:#6b7280;letter-spacing:.08em;text-transform:uppercase;}
+
+        .input-wrap{
+          position:relative;display:flex;align-items:center;
+          background:#f8f7ff;border:2px solid #ede9fe;
+          border-radius:12px;overflow:hidden;
+          transition:border-color .2s,box-shadow .2s;
+        }
+        .input-wrap:focus-within{
+          border-color:#7c3aed;background:#fff;
+          box-shadow:0 0 0 4px rgba(124,58,237,0.1);
+        }
+        .input-prefix{
+          display:flex;align-items:center;justify-content:center;
+          width:42px;height:100%;
+          font-size:14px;font-weight:600;color:#a78bfa;
+          border-right:2px solid #ede9fe;
+          flex-shrink:0;align-self:stretch;
+        }
+        .input-wrap:focus-within .input-prefix{border-right-color:#c4b5fd;}
+
+        .inp{
+          flex:1;padding:13px 14px;
+          background:transparent;border:none;outline:none;
+          font-family:'Outfit',sans-serif;font-size:15px;color:#1e1b4b;
+        }
+        .inp::placeholder{color:#c4b5fd;}
+
+        .eye{
+          padding:0 14px;background:none;border:none;cursor:pointer;
+          color:#a78bfa;display:flex;align-items:center;
+          transition:color .15s;
+        }
+        .eye:hover{color:#7c3aed;}
+
+        /* primary button */
+        .btn-primary{
+          position:relative;overflow:hidden;
+          width:100%;padding:15px 20px;
+          background:linear-gradient(135deg,#7c3aed 0%,#6d28d9 50%,#4f46e5 100%);
+          color:#fff;border:none;border-radius:13px;
+          font-family:'Outfit',sans-serif;font-size:15px;font-weight:700;
+          cursor:pointer;
+          display:flex;align-items:center;justify-content:center;gap:9px;
+          transition:transform .15s,box-shadow .2s;
+          margin-top:4px;
+        }
+        .btn-primary::before{
+          content:'';position:absolute;inset:0;
+          background:linear-gradient(135deg,#6d28d9,#4338ca);
+          opacity:0;transition:opacity .2s;
+        }
+        .btn-primary:hover:not(:disabled)::before{opacity:1;}
+        .btn-primary:hover:not(:disabled){
+          transform:translateY(-2px);
+          box-shadow:0 10px 28px rgba(124,58,237,.4);
+        }
+        .btn-primary:active:not(:disabled){transform:translateY(0);}
+        .btn-primary:disabled{opacity:.5;cursor:not-allowed;}
+        .btn-primary>*{position:relative;z-index:1;}
+        .btn-arrow{transition:transform .2s;}
+        .btn-primary:hover .btn-arrow{transform:translateX(4px);}
+
+        .spin{
+          width:16px;height:16px;
+          border:2px solid rgba(255,255,255,.3);border-top-color:#fff;
+          border-radius:50%;animation:spin .7s linear infinite;display:inline-block;
+        }
+        @keyframes spin{to{transform:rotate(360deg);}}
+
+        /* divider */
+        .divider{
+          display:flex;align-items:center;gap:12px;
+          margin-top:24px;
+        }
+        .divider::before,.divider::after{
+          content:'';flex:1;height:1px;background:#f0ecff;
+        }
+        .divider span{font-size:11px;color:#c4b5fd;white-space:nowrap;}
+
+        /* trust badges */
+        .trust-row{display:flex;justify-content:center;gap:12px;margin-top:14px;}
+        .trust-badge{
+          display:flex;align-items:center;gap:6px;
+          font-size:11px;color:#9ca3af;font-weight:500;
+        }
+        .trust-dot{width:6px;height:6px;border-radius:50%;}
+        .trust-dot.green{background:#10b981;}
+        .trust-dot.blue{background:#3b82f6;}
+        .trust-dot.purple{background:#7c3aed;}
+
+        /* OTP */
+        .otp-header{text-align:center;margin-bottom:28px;display:flex;flex-direction:column;align-items:center;gap:10px;}
+        .otp-icon-wrap{
+          width:60px;height:60px;border-radius:18px;
+          background:linear-gradient(135deg,#ede9fe,#ddd6fe);
+          display:flex;align-items:center;justify-content:center;
+          box-shadow:0 4px 14px rgba(124,58,237,0.18);
+          margin-bottom:6px;
         }
 
-        .animation-delay-200 {
-          animation-delay: 0.2s;
+        .otp-grid{display:flex;gap:10px;justify-content:center;}
+        .otp-box{
+          width:54px;height:64px;
+          border:2px solid #ede9fe;border-radius:14px;
+          background:#f8f7ff;
+          text-align:center;
+          font-size:26px;font-weight:800;color:#1e1b4b;
+          font-family:'Syne',sans-serif;
+          outline:none;
+          transition:border-color .2s,box-shadow .2s,transform .1s;
+          caret-color:#7c3aed;
+        }
+        .otp-box:focus{
+          border-color:#7c3aed;background:#fff;
+          box-shadow:0 0 0 4px rgba(124,58,237,.12);
+          transform:scale(1.04);
         }
 
-        .animation-delay-400 {
-          animation-delay: 0.4s;
+        .otp-progress{display:flex;justify-content:center;gap:8px;margin-top:14px;}
+        .otp-pip{
+          width:28px;height:4px;border-radius:100px;
+          background:#ede9fe;transition:background .25s;
         }
+        .otp-pip.filled{background:linear-gradient(90deg,#7c3aed,#6366f1);}
 
-        .animation-delay-2000 {
-          animation-delay: 2s;
+        .btn-ghost{
+          background:none;border:none;
+          color:#9ca3af;font-size:13px;cursor:pointer;text-align:center;
+          font-family:'Outfit',sans-serif;padding:4px;
         }
+        .btn-ghost span{color:#7c3aed;font-weight:600;text-decoration:underline;text-underline-offset:3px;}
+        .btn-ghost:hover span{color:#6d28d9;}
 
-        .animation-delay-4000 {
-          animation-delay: 4s;
+        .shell-footer{font-size:11px;color:#d1d5db;text-align:center;margin-top:24px;}
+
+        /* ─── Welcome (light mode) ─── */
+        .welcome-overlay{
+          position:fixed;inset:0;z-index:200;
+          background:linear-gradient(135deg,#f5f3ff 0%,#ede9fe 50%,#f0f4ff 100%);
+          display:flex;align-items:center;justify-content:center;
+          animation:fadeIn .35s ease both;
         }
-
-        .animate-fade-in {
-          animation: fade-in 1s ease-out;
+        @keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+        .welcome-box{
+          text-align:center;position:relative;
+          animation:popIn .6s cubic-bezier(.34,1.56,.64,1) .15s both;
         }
+        @keyframes popIn{from{opacity:0;transform:scale(.7);}to{opacity:1;transform:scale(1);}}
 
-        .animate-slide-up {
-          animation: slide-up 0.6s ease-out;
+        .wc-ripple{
+          position:absolute;inset:-30px;border-radius:50%;
+          border:2px solid rgba(124,58,237,0.2);
+          animation:ripple 2s ease-in-out infinite;
         }
+        .wc-ripple.r2{inset:-55px;animation-delay:.4s;border-color:rgba(99,102,241,0.14);}
+        .wc-ripple.r3{inset:-80px;animation-delay:.8s;border-color:rgba(236,72,153,0.1);}
+        @keyframes ripple{0%,100%{transform:scale(1);opacity:.6;}50%{transform:scale(1.06);opacity:1;}}
 
-        .animate-slide-down {
-          animation: slide-down 0.8s ease-out;
+        .wc-icon-wrap{
+          width:96px;height:96px;border-radius:28px;
+          background:#fff;
+          box-shadow:0 8px 32px rgba(124,58,237,0.18),0 2px 8px rgba(124,58,237,0.1);
+          display:flex;align-items:center;justify-content:center;
+          margin:0 auto 24px;
         }
-
-        .animate-scale-up {
-          animation: scale-up 0.8s ease-out;
+        .wc-icon{width:52px;height:52px;color:#7c3aed;}
+        .wc-title{font-family:'Syne',sans-serif;font-size:48px;font-weight:800;color:#1e1b4b;margin-bottom:8px;}
+        .wc-msg{font-size:17px;color:#7c3aed;font-weight:500;margin-bottom:32px;}
+        .wc-bar{width:220px;height:4px;background:#e9e4ff;border-radius:100px;margin:0 auto;overflow:hidden;}
+        .wc-bar-fill{
+          height:100%;background:linear-gradient(90deg,#7c3aed,#6366f1,#ec4899);border-radius:100px;
+          animation:barFill 2.4s linear both;
         }
+        @keyframes barFill{from{width:0;}to{width:100%;}}
 
-        .animate-check-bounce {
-          animation: check-bounce 1s ease-in-out infinite;
+        /* ─── Responsive ─── */
+        @media(max-width:960px){
+          .left{width:380px;padding:40px 32px;}
+          .headline{font-size:36px;}
+          .metrics{display:none;}
         }
-
-        .animate-sparkle {
-          animation: sparkle 2s ease-in-out infinite;
-        }
-
-        .animate-shake {
-          animation: shake 0.3s ease-in-out;
-        }
-
-        .bg-grid-pattern {
-          background-image: 
-            linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
-          background-size: 50px 50px;
+        @media(max-width:700px){
+          .left{display:none;}
+          .right{background:linear-gradient(160deg,#1e1b4b,#312e81);}
+          .form-shell{background:rgba(255,255,255,0.97);}
         }
       `}</style>
     </div>

@@ -34,7 +34,7 @@ const AllEmployees = () => {
   const fetchEmployees = async () => {
     try {
       const res = await axios.get(`${API_BASE_URL}/api/all-employees`);
-      console.log("Fetched employees:", res.data);
+      // console.log("Fetched employees:", res.data);
       setEmployees(res.data);
     } catch (error) {
       console.error("Error fetching employees:", error);

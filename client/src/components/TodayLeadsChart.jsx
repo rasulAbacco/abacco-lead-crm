@@ -23,17 +23,21 @@ export default function TodayLeadsChart({ setSelectedEmployee }) {
 
   const fetchData = async () => {
     try {
-      const res = await axios.get(`${API_BASE_URL}/api/employees/leads-summary`);
+      const res = await axios.get(
+        `${API_BASE_URL}/api/employees/leads-summary`,
+      );
       const { today, weekly, months } = res.data;
 
       if (timeRange === "today") {
         const nowUSA = toZonedTime(new Date(), USA_TZ);
         const todayLabel = format(nowUSA, "EEE", { timeZone: USA_TZ }); // Mon, Tue, etc.
 
-        const todayData = [{
-          day: todayLabel,
-          ...today,
-        }];
+        const todayData = [
+          {
+            day: todayLabel,
+            ...today,
+          },
+        ];
 
         setChartData(todayData);
 
@@ -59,7 +63,6 @@ export default function TodayLeadsChart({ setSelectedEmployee }) {
             clearInterval(counter);
           }
         }, frameDuration);
-
       } else if (timeRange === "weekly") {
         // ✅ Ensure consistent Mon → Sat order and fill missing days
         const dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -76,7 +79,7 @@ export default function TodayLeadsChart({ setSelectedEmployee }) {
               associations: 0,
               attendees: 0,
               industry: 0,
-            }
+            },
         );
 
         setChartData(sortedWeekly);
@@ -128,7 +131,9 @@ export default function TodayLeadsChart({ setSelectedEmployee }) {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-1">{getChartTitle()}</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-1">
+            {getChartTitle()}
+          </h2>
           <p className="text-sm text-gray-500">
             {timeRange === "today"
               ? "Today's performance"
@@ -151,7 +156,11 @@ export default function TodayLeadsChart({ setSelectedEmployee }) {
               <option value="monthly">Monthly</option>
             </select>
             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
-              <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+              <svg
+                className="fill-current h-4 w-4"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20"
+              >
                 <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
               </svg>
             </div>
@@ -166,11 +175,16 @@ export default function TodayLeadsChart({ setSelectedEmployee }) {
             >
               <option value="associations">Associations</option>
               <option value="attendees">Attendees</option>
+              <option value="memberAttendees">Member Attendees</option>
               <option value="industry">Industry</option>
               <option value="total">Total</option>
             </select>
             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
-              <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+              <svg
+                className="fill-current h-4 w-4"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20"
+              >
                 <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
               </svg>
             </div>
@@ -204,7 +218,7 @@ export default function TodayLeadsChart({ setSelectedEmployee }) {
                   borderTopColor: "#6366f1",
                   borderRightColor: "#6366f1",
                   transform: `rotate(${Math.min(progress * 3.6, 360)}deg)`,
-                  transition: "transform 0.3s ease-out"
+                  transition: "transform 0.3s ease-out",
                 }}
               ></div>
 
@@ -213,23 +227,37 @@ export default function TodayLeadsChart({ setSelectedEmployee }) {
                 className="absolute top-0 left-1/2 w-4 h-4 bg-indigo-500 rounded-full transform -translate-x-1/2 -translate-y-1/2"
                 style={{
                   animation: "pulse 2s infinite",
-                  opacity: progress > 0 ? 1 : 0
+                  opacity: progress > 0 ? 1 : 0,
                 }}
               ></div>
             </div>
 
             {/* Stats grid with animation */}
-            <div className="grid grid-cols-3 gap-4 w-full max-w-md">
+            <div className="grid grid-cols-4 gap-4 w-full max-w-xl">
               <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 text-center transform transition-all duration-500 hover:scale-105">
-                <div className="text-2xl font-bold text-indigo-600">{chartData[0]?.associations || 0}</div>
+                <div className="text-2xl font-bold text-indigo-600">
+                  {chartData[0]?.associations || 0}
+                </div>
                 <div className="text-xs text-gray-500 mt-1">Associations</div>
               </div>
               <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 text-center transform transition-all duration-500 hover:scale-105">
-                <div className="text-2xl font-bold text-purple-600">{chartData[0]?.attendees || 0}</div>
+                <div className="text-2xl font-bold text-purple-600">
+                  {chartData[0]?.attendees || 0}
+                </div>
                 <div className="text-xs text-gray-500 mt-1">Attendees</div>
               </div>
               <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 text-center transform transition-all duration-500 hover:scale-105">
-                <div className="text-2xl font-bold text-pink-600">{chartData[0]?.industry || 0}</div>
+                <div className="text-2xl font-bold text-blue-600">
+                  {chartData[0]?.memberAttendees || 0}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Member Attendees
+                </div>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 text-center transform transition-all duration-500 hover:scale-105">
+                <div className="text-2xl font-bold text-pink-600">
+                  {chartData[0]?.industry || 0}
+                </div>
                 <div className="text-xs text-gray-500 mt-1">Industry</div>
               </div>
             </div>
@@ -241,7 +269,11 @@ export default function TodayLeadsChart({ setSelectedEmployee }) {
               data={chartData}
               margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="#f3f4f6"
+                vertical={false}
+              />
               <XAxis
                 dataKey={timeRange === "monthly" ? "month" : "day"}
                 tick={{ fill: "#6b7280", fontSize: 12 }}
@@ -258,12 +290,17 @@ export default function TodayLeadsChart({ setSelectedEmployee }) {
                   backgroundColor: "rgba(255, 255, 255, 0.95)",
                   border: "1px solid #e5e7eb",
                   borderRadius: "12px",
-                  boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+                  boxShadow:
+                    "0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
                   padding: "12px 16px",
                   fontSize: "14px",
                   fontWeight: "500",
                 }}
-                labelStyle={{ color: "#4f46e5", fontWeight: "600", marginBottom: "4px" }}
+                labelStyle={{
+                  color: "#4f46e5",
+                  fontWeight: "600",
+                  marginBottom: "4px",
+                }}
                 formatter={(value) => [value, "Leads"]}
               />
               <Bar
@@ -292,7 +329,11 @@ export default function TodayLeadsChart({ setSelectedEmployee }) {
           <div className="w-3 h-3 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500"></div>
           <span>{getChartTitle()}</span>
         </div>
-        <div>{timeRange === "today" ? "Today's summary" : "Click on bars for details"}</div>
+        <div>
+          {timeRange === "today"
+            ? "Today's summary"
+            : "Click on bars for details"}
+        </div>
       </div>
 
       {/* Pulse animation keyframes */}

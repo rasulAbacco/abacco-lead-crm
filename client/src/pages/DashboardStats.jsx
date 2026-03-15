@@ -9,6 +9,7 @@ const USA_TZ = "America/Chicago"; // ✅ Central USA timezone
 const DashboardStats = ({ leads }) => {
   const [monthlyTarget, setMonthlyTarget] = useState(60); // default fallback
   const [todayCount, setTodayCount] = useState(0); // fetched from backend (accurate Central Time)
+  const [distribution, setDistribution] = useState(null);
 
   // ✅ Convert any date string into Central USA date (no time component)
   const normalizeDate = (dateStr) => {
@@ -18,7 +19,11 @@ const DashboardStats = ({ leads }) => {
 
   // ✅ Get today's date in Central USA
   const nowUSA = toZonedTime(new Date(), USA_TZ);
-  const today = new Date(nowUSA.getFullYear(), nowUSA.getMonth(), nowUSA.getDate());
+  const today = new Date(
+    nowUSA.getFullYear(),
+    nowUSA.getMonth(),
+    nowUSA.getDate(),
+  );
 
   // ✅ Year and month in Central Time
   const currentYear = nowUSA.getFullYear();
@@ -26,7 +31,7 @@ const DashboardStats = ({ leads }) => {
 
   // ✅ Calculate today's leads (fallback local filter)
   const todayLeads = leads.filter(
-    (l) => normalizeDate(l.date).getTime() === today.getTime()
+    (l) => normalizeDate(l.date).getTime() === today.getTime(),
   ).length;
 
   // ✅ Calculate week stats (Mon–Sat based on Central Time)
@@ -52,10 +57,8 @@ const DashboardStats = ({ leads }) => {
     return local >= startOfWeekUSA && local < endOfWeekUSA;
   });
 
-
   const weekTotal = weekLeads.length;
   const avgDaily = weekTotal / 6;
-
 
   // ✅ Calculate month stats based on Central Time
   const monthlyLeads = leads.filter((l) => {
@@ -63,9 +66,62 @@ const DashboardStats = ({ leads }) => {
     return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
   }).length;
 
-  // ✅ Stats calculations
-  const achievementRate = Math.round((monthlyLeads / monthlyTarget) * 100);
+  const associationLeads = leads.filter((l) => {
+    const d = normalizeDate(l.date);
+    return (
+      d.getMonth() === currentMonth &&
+      d.getFullYear() === currentYear &&
+      (l.leadType || "").toLowerCase().includes("association")
+    );
+  }).length;
 
+  const attendeesLeads = leads.filter((l) => {
+    const d = normalizeDate(l.date);
+    return (
+      d.getMonth() === currentMonth &&
+      d.getFullYear() === currentYear &&
+      (l.leadType || "").toLowerCase().includes("attendee")
+    );
+  }).length;
+
+  const industryLeads = leads.filter((l) => {
+    const d = normalizeDate(l.date);
+    return (
+      d.getMonth() === currentMonth &&
+      d.getFullYear() === currentYear &&
+      (l.leadType || "").toLowerCase().includes("industry")
+    );
+  }).length;
+
+  let achievementRate = 0;
+
+  if (distribution) {
+    const associationTarget = Math.round(
+      (monthlyTarget * distribution.associationPercent) / 100,
+    );
+
+    const attendeesTarget = Math.round(
+      (monthlyTarget * distribution.attendeesPercent) / 100,
+    );
+
+    const industryTarget = Math.round(
+      (monthlyTarget * distribution.industryPercent) / 100,
+    );
+
+    const achieved =
+      Math.min(associationLeads, associationTarget) +
+      Math.min(attendeesLeads, attendeesTarget) +
+      Math.min(industryLeads, industryTarget);
+
+    const totalTarget = associationTarget + attendeesTarget + industryTarget;
+
+    if (totalTarget > 0) {
+      achievementRate = Math.round((achieved / totalTarget) * 100);
+    }
+  }
+
+  // ✅ Stats calculations
+  // const achievementRate = Math.round((monthlyLeads / monthlyTarget) * 100);
 
   // ✅ Fetch employee monthly target
   useEffect(() => {
@@ -78,7 +134,7 @@ const DashboardStats = ({ leads }) => {
         }
 
         const res = await axios.get(
-          `${API_BASE_URL}/api/employees/${employeeId}/target`
+          `${API_BASE_URL}/api/employees/${employeeId}/target`,
         );
 
         if (res.data?.target) {
@@ -92,20 +148,60 @@ const DashboardStats = ({ leads }) => {
     fetchTarget();
   }, []);
 
-  // ✅ Fetch “Today’s Leads” directly from backend (accurate Central Time)
   useEffect(() => {
     async function fetchTodayLeads() {
       try {
-        const res = await axios.get(`${API_BASE_URL}/api/leads/today`);
-        if (res.data?.success) {
+        const token = localStorage.getItem("token");
+        const employeeId = localStorage.getItem("employeeId");
+
+        if (!token || !employeeId) {
+          setTodayCount(0);
+          return;
+        }
+
+        const res = await axios.get(
+          `${API_BASE_URL}/api/leads/today/${employeeId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+
+        if (res.data?.leads && Array.isArray(res.data.leads)) {
           setTodayCount(res.data.leads.length);
+        } else {
+          setTodayCount(0);
         }
       } catch (err) {
-        console.error("Error fetching today's leads:", err);
+        console.warn("Today's leads unavailable, using fallback");
+        setTodayCount(0);
       }
     }
 
     fetchTodayLeads();
+  }, []);
+
+  useEffect(() => {
+    async function fetchDistribution() {
+      try {
+        const res = await axios.get(`${API_BASE_URL}/api/targets`);
+
+        const employeeId = localStorage.getItem("employeeId");
+
+        const emp = res.data.find(
+          (e) => String(e.employeeId) === String(employeeId),
+        );
+
+        if (emp) {
+          setDistribution(emp);
+        }
+      } catch (err) {
+        console.error("Error fetching distribution:", err);
+      }
+    }
+
+    fetchDistribution();
   }, []);
 
   // 🧩 Stat Card Component (UI unchanged)
