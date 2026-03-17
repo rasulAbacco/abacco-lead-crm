@@ -31,7 +31,7 @@ import SalesEmployee from "./pages/SalesEmployee";
 import AdminEmailDomains from "./pages/AdminEmailDomains";
 import DealUpdates from "./pages/DealUpdates";
 import EmpDealReport from "./pages/EmpDealReport";
-
+import LoginHistory from "./pages/admin/LoginHistory";
 const MAINTENANCE_MODE = false;
 
 
@@ -172,6 +172,16 @@ function App() {
             <Layout>
               <ProtectedRoute role="admin">
                 <Reports />
+              </ProtectedRoute>
+            </Layout>
+          }
+        />
+        <Route
+          path="/admin/login-history"
+          element={
+            <Layout>
+              <ProtectedRoute role="admin">
+                <LoginHistory />
               </ProtectedRoute>
             </Layout>
           }

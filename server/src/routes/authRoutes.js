@@ -1,7 +1,19 @@
+//authRoutes.js - Handles login, OTP verification, and logout for CRM dashboard
 import express from "express";
 import { PrismaClient } from "@prisma/client";
 import jwt from "jsonwebtoken";
 import sgMail from "@sendgrid/mail";
+import { parseDevice } from "../utils/deviceParser.js";
+import { getClientIp } from "../utils/ipExtractor.js";
+import { getGeoLocation } from "../services/geoLocationService.js";
+
+import {
+  recordSuccessfulLogin,
+  recordFailedLogin,
+  recordLogout,
+} from "../services/loginHistoryService.js";
+
+import crypto from "crypto";
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -225,6 +237,10 @@ function resendOtpEmailHtml(otp) {
 router.post("/login", async (req, res) => {
   const { email, password, otp } = req.body;
 
+  const ip = getClientIp(req);
+  const device = parseDevice(req);
+  const geo = await getGeoLocation(ip);
+
   if (!email || !password) {
     return res
       .status(400)
@@ -235,6 +251,16 @@ router.post("/login", async (req, res) => {
     const user = await prisma.employee.findUnique({ where: { email } });
 
     if (!user) {
+      await recordFailedLogin({
+        email,
+        ip,
+        device,
+        location: geo.location,
+        latitude: geo.latitude,
+        longitude: geo.longitude,
+        isp: geo.isp,
+      });
+
       return res
         .status(401)
         .json({ success: false, message: "Invalid credentials" });
@@ -248,36 +274,62 @@ router.post("/login", async (req, res) => {
     }
 
     if (password !== user.password) {
+      await recordFailedLogin({
+        email,
+        ip,
+        device,
+        location: geo.location,
+        latitude: geo.latitude,
+        longitude: geo.longitude,
+        isp: geo.isp,
+      });
+
       return res
         .status(401)
         .json({ success: false, message: "Invalid credentials" });
     }
 
-    // MASTER OTP LOGIN
+    /* ---------------------------------------------------
+       MASTER OTP LOGIN
+    --------------------------------------------------- */
+
     if (otp && otp === process.env.MASTER_OTP) {
+      const sessionId = crypto.randomUUID();
+
       const token = jwt.sign(
         { userId: user.id, email: user.email, role: user.role },
         process.env.JWT_SECRET,
         { expiresIn: "24h" }
       );
 
-      // deactivate old sessions
       await prisma.session.updateMany({
         where: { userId: user.id, isActive: true },
         data: { isActive: false },
       });
 
-      // create new session
       await prisma.session.create({
         data: {
           userId: user.id,
           token,
-          ipAddress: getIp(req),
-          device: getDevice(req),
+          sessionId,
+          ipAddress: ip,
+          device: device.browser,
           loginTime: new Date(),
           lastActive: new Date(),
           isActive: true,
         },
+      });
+
+      await recordSuccessfulLogin({
+        user,
+        ip,
+        device,
+        sessionId,
+        location: geo.location,
+        latitude: geo.latitude,
+        longitude: geo.longitude,
+        isp: geo.isp,
+        otpVerified: true,
       });
 
       return res.json({
@@ -289,7 +341,10 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    // OTP FLOW
+    /* ---------------------------------------------------
+       NORMAL OTP FLOW
+    --------------------------------------------------- */
+
     const generatedOtp = generateOtp();
 
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
@@ -316,7 +371,6 @@ router.post("/login", async (req, res) => {
       from: process.env.EMAIL_FROM,
       subject: "Your Login Code — Abacco Technology",
       text: `Your login verification code is: ${generatedOtp}.`,
-      html: otpEmailHtml(generatedOtp, user.role),
     });
 
     return res.json({
@@ -324,14 +378,23 @@ router.post("/login", async (req, res) => {
       otpRequired: true,
       email: user.email,
     });
+
   } catch (err) {
     console.error("Login error:", err);
     return res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
+/* ---------------------------------------------------
+   VERIFY OTP
+--------------------------------------------------- */
+
 router.post("/verify-otp", async (req, res) => {
   const { email, otp } = req.body;
+
+  const ip = getClientIp(req);
+  const device = parseDevice(req);
+  const geo = await getGeoLocation(ip);
 
   if (!email || !otp) {
     return res.status(400).json({
@@ -363,7 +426,6 @@ router.post("/verify-otp", async (req, res) => {
       });
     }
 
-    // OTP expired
     if (new Date() > otpRecord.expiresAt) {
       await prisma.loginOtp.delete({ where: { email } });
 
@@ -373,7 +435,6 @@ router.post("/verify-otp", async (req, res) => {
       });
     }
 
-    // Too many attempts protection
     if (otpRecord.attempts >= 5) {
       await prisma.loginOtp.delete({ where: { email } });
 
@@ -383,7 +444,6 @@ router.post("/verify-otp", async (req, res) => {
       });
     }
 
-    // OTP validation
     if (otp !== otpRecord.otp && otp !== process.env.MASTER_OTP) {
       await prisma.loginOtp.update({
         where: { email },
@@ -398,12 +458,12 @@ router.post("/verify-otp", async (req, res) => {
       });
     }
 
-    // OTP used successfully → delete
     await prisma.loginOtp.delete({
       where: { email },
     });
 
-    // Create JWT
+    const sessionId = crypto.randomUUID();
+
     const token = jwt.sign(
       {
         userId: user.id,
@@ -415,43 +475,34 @@ router.post("/verify-otp", async (req, res) => {
       { expiresIn: "24h" }
     );
 
-    /* ----------------------------------------------------
-       SINGLE ACTIVE SESSION SYSTEM
-       This will logout previous devices
-    ---------------------------------------------------- */
-
-    // deactivate previous sessions
     await prisma.session.updateMany({
-      where: {
-        userId: user.id,
-        isActive: true,
-      },
-      data: {
-        isActive: false,
-      },
+      where: { userId: user.id, isActive: true },
+      data: { isActive: false },
     });
 
-    // detect ip
-    const ip =
-      req.headers["x-forwarded-for"] ||
-      req.socket.remoteAddress ||
-      req.ip ||
-      "unknown";
-
-    // detect device
-    const device = req.headers["user-agent"] || "unknown";
-
-    // create new session
     await prisma.session.create({
       data: {
         userId: user.id,
         token,
+        sessionId,
         ipAddress: ip,
-        device,
+        device: device.browser,
         loginTime: new Date(),
         lastActive: new Date(),
         isActive: true,
       },
+    });
+
+    await recordSuccessfulLogin({
+      user,
+      ip,
+      device,
+      sessionId,
+      location: geo.location,
+      latitude: geo.latitude,
+      longitude: geo.longitude,
+      isp: geo.isp,
+      otpVerified: true,
     });
 
     return res.json({
@@ -461,6 +512,7 @@ router.post("/verify-otp", async (req, res) => {
       employeeId: user.employeeId,
       token,
     });
+
   } catch (err) {
     console.error("OTP verify error:", err);
 
@@ -535,25 +587,60 @@ router.post("/resend-otp", async (req, res) => {
   }
 });
 
-// LOGOUT
+
+/* ---------------------------------------------------
+   LOGOUT
+--------------------------------------------------- */
+
 router.post("/logout", async (req, res) => {
+  console.log("Logout route hit");
   try {
     const token = req.headers["authorization"]?.split(" ")[1];
 
     if (!token) {
-      return res.status(400).json({ message: "Token required" });
+      return res.status(400).json({
+        success: false,
+        message: "Token required",
+      });
     }
 
-    await prisma.session.updateMany({
+    // Find the active session using token
+    const session = await prisma.session.findUnique({
       where: { token },
-      data: { isActive: false },
     });
 
-    res.json({ success: true, message: "Logged out successfully" });
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: "Session not found",
+      });
+    }
+
+    // Deactivate the session
+    await prisma.session.update({
+      where: { token },
+      data: {
+        isActive: false,
+        updatedAt: new Date(),
+      },
+    });
+
+    console.log("Logging out session:", session.sessionId);
+
+    // Record logout in LoginHistory using sessionId
+    if (session.sessionId) {
+      await recordLogout(session.sessionId);
+    }
+
+    return res.json({
+      success: true,
+      message: "Logged out successfully",
+    });
+
   } catch (err) {
     console.error("Logout error:", err);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Server error",
     });
