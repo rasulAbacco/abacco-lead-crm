@@ -1,90 +1,82 @@
-import React, { useMemo, useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   BarChart,
   Bar,
   XAxis,
   YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
   CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
 } from "recharts";
 
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
 const P = {
-  ink: "#1a1a1a",
-  charcoal: "#2e2e2e",
-  graphite: "#4a4a4a",
-  ash: "#7a7a7a",
-  silver: "#b0b0b0",
-  fog: "#d6d6d6",
-  mist: "#efefef",
-  paper: "#f7f6f4",
-  white: "#ffffff",
-  accent: "#b8860b",
-  positive: "#2d5a27",
-  positiveLight: "#e8f0e7",
-  danger: "#6b2020",
-  dangerLight: "#f0e8e8",
-  pending: "#1a3a5c",
-  pendingLight: "#e8eef5",
+  white: "#fff",
+  fog: "#e4e7eb",
+  mist: "#f0f2f5",
+  paper: "#fafbfc",
+  charcoal: "#1d2129",
+  graphite: "#3c4454",
+  ink: "#24292f",
+  ash: "#6b7280",
+  silver: "#9ca3af",
+  accent: "#0969da",
+  positive: "#1a7f37",
+  pending: "#9a6700",
+  danger: "#cf222e",
+  dangerLight: "#ffebe9",
+  pendingLight: "#fff8c5",
 };
-const STATUS_MAP = {
-  Deal: { fg: P.positive, bg: P.positiveLight },
-  "Deal Closed": { fg: P.positive, bg: P.positiveLight },
-  "Invoice Pending": { fg: P.pending, bg: P.pendingLight },
-  "Invoice Cancelled": { fg: P.danger, bg: P.dangerLight },
-  Negotiation: { fg: P.graphite, bg: P.mist },
-  Prospecting: { fg: P.ash, bg: P.mist },
-  Active: { fg: P.charcoal, bg: P.fog },
+const STATUS_COLORS = {
+  "Deal Closed": P.positive,
+  "Invoice Pending": P.pending,
+  "Invoice Cancelled": P.danger,
+  "Deal": P.positive,
 };
-const LEAD_COLORS = [P.ink, P.accent, P.graphite, P.ash, "#3a5c3a", "#5c3a3a"];
-const sFg = (s) => STATUS_MAP[s]?.fg ?? P.graphite;
-const sBg = (s) => STATUS_MAP[s]?.bg ?? P.mist;
+const LEAD_COLORS = ["#0969da", "#8250df", "#cf222e", "#1a7f37", "#9a6700"];
+const sFg = (k) => STATUS_COLORS[k] || P.graphite;
+const sBg = (k) => {
+  const c = sFg(k);
+  return c + "0d";
+};
 
+// ─── STYLES ───────────────────────────────────────────────────────────────────
 const STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Source+Sans+3:wght@400;600;700&display=swap');
-  .da-wrap { font-family:'Source Sans 3',sans-serif; background:${P.paper}; color:${P.ink}; }
-  .da-wrap * { box-sizing:border-box; }
-  .da-inner { max-width:1200px; margin:0 auto; padding:32px 16px 48px; }
-  .da-header { display:flex; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; gap:16px; padding-bottom:24px; border-bottom:2px solid ${P.ink}; margin-bottom:28px; }
-  .da-h1 { font-family:'Playfair Display',Georgia,serif; font-size:clamp(22px,4vw,32px); font-weight:700; color:${P.ink}; letter-spacing:-0.02em; line-height:1.1; }
-  .da-eyebrow { font-size:9px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; color:${P.accent}; margin-bottom:5px; }
-  .da-tagline { font-size:12px; color:${P.ash}; margin-top:4px; }
-  .da-total-label { font-size:9px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:${P.ash}; text-align:right; }
-  .da-total-val { font-family:'Playfair Display',Georgia,serif; font-size:30px; font-weight:700; color:${P.ink}; line-height:1; text-align:right; }
-  .da-kpi { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:20px; }
-  .da-two { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:18px; }
-  @media(max-width:900px){ .da-kpi{grid-template-columns:repeat(2,1fr)} .da-two{grid-template-columns:1fr} }
-  @media(max-width:480px){ .da-kpi{grid-template-columns:1fr 1fr} }
-  .da-card { background:${P.white}; border:1px solid ${P.fog}; border-radius:6px; padding:24px 20px; margin-bottom:18px; }
-  .da-card-nm { background:${P.white}; border:1px solid ${P.fog}; border-radius:6px; padding:24px 20px; }
-  .da-kpi-card { background:${P.white}; border:1px solid ${P.fog}; border-radius:5px; padding:18px 16px 14px; }
-  .da-kpi-label { display:block; font-size:9px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; color:${P.silver}; }
-  .da-kpi-val { display:block; font-family:'Playfair Display',Georgia,serif; font-size:32px; font-weight:700; line-height:1; margin-top:4px; }
-  .da-kpi-sub { display:block; font-size:11px; color:${P.ash}; margin-top:2px; }
-  .da-scope-badge { display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:4px; font-size:11px; font-weight:600; margin-bottom:20px; }
-  .da-sec-title { font-family:'Playfair Display',Georgia,serif; font-size:16px; font-weight:700; color:${P.ink}; }
-  .da-sec-desc { font-size:12px; color:${P.ash}; margin-top:3px; margin-left:14px; }
+  .da-wrap { background:${P.paper}; min-height:100vh; padding:20px; font-family:'Source Sans 3',system-ui,sans-serif; }
+  .da-inner { max-width:1240px; margin:0 auto; }
+  .da-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:28px; flex-wrap:wrap; gap:16px; }
+  .da-eyebrow { font-size:11px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:${P.accent}; margin:0 0 4px; }
+  .da-h1 { font-size:28px; font-weight:800; color:${P.charcoal}; margin:0 0 6px; line-height:1.2; }
+  .da-tagline { font-size:14px; color:${P.ash}; margin:0; line-height:1.4; }
+  .da-total-label { font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:${P.silver}; margin:0 0 2px; text-align:right; }
+  .da-total-val { font-size:32px; font-weight:800; color:${P.charcoal}; margin:0; line-height:1; text-align:right; }
+  .da-scope-badge { display:flex; align-items:center; gap:8px; padding:10px 14px; border-radius:6px; font-size:12px; font-weight:600; margin-bottom:24px; }
+  .da-kpi { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:16px; margin-bottom:28px; }
+  .da-kpi-card { background:${P.white}; border:1px solid ${P.fog}; border-radius:6px; padding:18px 20px; }
+  .da-kpi-label { font-size:10px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:${P.silver}; display:block; margin-bottom:6px; }
+  .da-kpi-val { font-size:28px; font-weight:800; color:${P.ink}; line-height:1; margin-bottom:4px; }
+  .da-kpi-sub { font-size:12px; color:${P.ash}; font-weight:600; }
+  .da-card { background:${P.white}; border:1px solid ${P.fog}; border-radius:6px; padding:20px 24px; margin-bottom:24px; }
+  .da-card-nm { background:${P.white}; border:1px solid ${P.fog}; border-radius:6px; padding:20px 24px; margin-bottom:24px; }
   .da-sec-wrap { margin-bottom:18px; }
-  .da-legend { display:flex; flex-wrap:wrap; gap:7px; margin-bottom:16px; }
-  .da-legend-chip { display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:3px; font-size:11px; font-weight:600; }
-  .da-legend-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
-  .da-heat-hdr { display:flex; align-items:center; gap:10px; padding:0 6px; margin-bottom:6px; }
-  .da-heat-hdr span { font-size:9px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:${P.silver}; }
-  .da-heat-row { display:flex; align-items:center; gap:12px; padding:10px 6px; border-bottom:1px solid ${P.mist}; transition:background .1s; }
-  .da-heat-row:last-child { border-bottom:none; }
-  .da-heat-row:hover { background:${P.paper}; }
-  .da-heat-name { width:130px; flex-shrink:0; font-size:12px; font-weight:600; color:${P.charcoal}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .da-heat-track { flex:1; background:${P.mist}; border-radius:3px; height:24px; overflow:hidden; position:relative; }
-  .da-heat-fill { height:100%; border-radius:3px; display:flex; align-items:center; padding-left:8px; transition:width .5s ease; min-width:2px; }
-  .da-heat-fill span { color:white; font-size:10px; font-weight:700; pointer-events:none; user-select:none; white-space:nowrap; }
-  .da-heat-count { width:40px; flex-shrink:0; text-align:right; font-size:12px; font-weight:700; color:${P.ash}; }
-  .da-heat-pct { width:36px; flex-shrink:0; text-align:right; font-size:10px; color:${P.silver}; }
-  .da-chart-lbl { font-size:9px; font-weight:700; letter-spacing:.16em; text-transform:uppercase; color:${P.silver}; margin:24px 0 12px; display:flex; align-items:center; gap:10px; }
-  .da-chart-lbl::after { content:''; flex:1; height:1px; background:${P.mist}; }
-  .da-prog-row { display:flex; align-items:center; gap:10px; margin-bottom:9px; }
-  .da-prog-chip { width:115px; flex-shrink:0; font-size:10px; font-weight:700; padding:4px 8px; border-radius:3px; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; letter-spacing:.02em; }
-  .da-prog-track { flex:1; border-radius:2px; overflow:hidden; }
+  .da-sec-title { font-size:16px; font-weight:700; color:${P.charcoal}; margin:0; display:inline-block; }
+  .da-sec-desc { font-size:12px; color:${P.ash}; margin:4px 0 0; }
+  .da-legend { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:16px; }
+  .da-legend-chip { display:flex; align-items:center; gap:5px; font-size:11px; font-weight:600; padding:3px 9px; border-radius:3px; }
+  .da-legend-dot { width:7px; height:7px; border-radius:50%; }
+  .da-heat-hdr { display:flex; align-items:center; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:${P.silver}; padding:0 0 8px; border-bottom:1px solid ${P.mist}; margin-bottom:6px; }
+  .da-heat-row { display:flex; align-items:center; gap:10px; padding:6px 0; }
+  .da-heat-name { width:130px; font-size:12px; font-weight:600; color:${P.graphite}; flex-shrink:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .da-heat-track { flex:1; height:14px; background:${P.mist}; border-radius:2px; overflow:hidden; }
+  .da-heat-fill { height:100%; background:linear-gradient(90deg, #0969da 0%, #8250df 50%, #cf222e 100%); border-radius:2px; transition:width .6s; }
+  .da-heat-count { width:40px; text-align:right; font-size:12px; font-weight:700; color:${P.ink}; flex-shrink:0; }
+  .da-heat-pct { width:36px; text-align:right; font-size:10px; color:${P.silver}; flex-shrink:0; }
+  .da-chart-lbl { font-size:11px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:${P.silver}; margin:18px 0 10px; }
+  .da-two { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:24px; }
+  .da-prog-row { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .da-prog-chip { font-size:11px; font-weight:600; padding:3px 9px; border-radius:3px; width:95px; flex-shrink:0; text-align:center; }
+  .da-prog-track { flex:1; height:14px; background:${P.mist}; border-radius:2px; overflow:hidden; }
   .da-prog-fill { height:100%; border-radius:2px; transition:width .6s; }
   .da-prog-meta { width:50px; flex-shrink:0; text-align:right; }
   .da-prog-count { font-size:13px; font-weight:700; color:${P.ink}; }
@@ -338,6 +330,8 @@ const DealAnalytics = ({
 }) => {
   const [activeStatus, setActiveStatus] = useState(null);
   const [activeLead, setActiveLead] = useState(null);
+  const [activeEvent, setActiveEvent] = useState(null);
+  const [activeAssociation, setActiveAssociation] = useState(null);
 
   // Analytics always use allDeals if provided (so employees see full picture),
   // otherwise fall back to deals (admin case where allDeals isn't passed separately)
@@ -357,6 +351,20 @@ const DealAnalytics = ({
       ].sort(),
     [analyticsSource],
   );
+  const events = useMemo(
+    () =>
+      [
+        ...new Set(analyticsSource.map((d) => d.eventName).filter(Boolean)),
+      ].sort(),
+    [analyticsSource],
+  );
+  const associations = useMemo(
+    () =>
+      [
+        ...new Set(analyticsSource.map((d) => d.associationName).filter(Boolean)),
+      ].sort(),
+    [analyticsSource],
+  );
 
   // Filters apply to the analytics source
   const filtered = useMemo(
@@ -364,9 +372,11 @@ const DealAnalytics = ({
       analyticsSource.filter((d) => {
         if (activeStatus && d.dealStatus !== activeStatus) return false;
         if (activeLead && d.leadType !== activeLead) return false;
+        if (activeEvent && d.eventName !== activeEvent) return false;
+        if (activeAssociation && d.associationName !== activeAssociation) return false;
         return true;
       }),
-    [analyticsSource, activeStatus, activeLead],
+    [analyticsSource, activeStatus, activeLead, activeEvent, activeAssociation],
   );
 
   // KPI cards: employees see their own numbers, admins see filtered analytics
@@ -387,12 +397,22 @@ const DealAnalytics = ({
   const statusData = useMemo(() => groupBy(filtered, "dealStatus"), [filtered]);
   const industryData = useMemo(() => groupBy(filtered, "industry"), [filtered]);
   const leadTypeData = useMemo(() => groupBy(filtered, "leadType"), [filtered]);
+  const eventData = useMemo(() => groupBy(filtered, "eventName"), [filtered]);
+  const associationData = useMemo(() => groupBy(filtered, "associationName"), [filtered]);
   const indStatus = useMemo(
     () => crossTab(filtered, "industry", "dealStatus"),
     [filtered],
   );
   const indLead = useMemo(
     () => crossTab(filtered, "industry", "leadType"),
+    [filtered],
+  );
+  const indEvent = useMemo(
+    () => crossTab(filtered, "industry", "eventName"),
+    [filtered],
+  );
+  const indAssociation = useMemo(
+    () => crossTab(filtered, "industry", "associationName"),
     [filtered],
   );
 
@@ -418,7 +438,7 @@ const DealAnalytics = ({
             <p className="da-eyebrow">Deal Intelligence</p>
             <h1 className="da-h1">Analytics Dashboard</h1>
             <p className="da-tagline">
-              Industries · Lead types · Pipeline stages at a glance
+              Industries · Lead types · Events · Associations · Pipeline stages at a glance
             </p>
           </div>
           <div>
@@ -426,7 +446,7 @@ const DealAnalytics = ({
               {isEmployee ? "Your Deals" : "Total Records"}
             </p>
             <p className="da-total-val">{loading ? "—" : kpiTotal}</p>
-            {(activeStatus || activeLead) && (
+            {(activeStatus || activeLead || activeEvent || activeAssociation) && (
               <p
                 style={{
                   fontSize: 11,
@@ -520,12 +540,68 @@ const DealAnalytics = ({
                 {lt}
               </button>
             ))}
-            {(activeStatus || activeLead) && (
+            {leadTypes.length > 0 && events.length > 0 && (
+              <div className="da-filter-sep" />
+            )}
+            {events.map((ev, i) => (
+              <button
+                key={ev}
+                className="da-pill"
+                onClick={() => setActiveEvent((v) => (v === ev ? null : ev))}
+                style={{
+                  background:
+                    activeEvent === ev
+                      ? LEAD_COLORS[(i + 2) % LEAD_COLORS.length]
+                      : P.mist,
+                  color:
+                    activeEvent === ev
+                      ? P.white
+                      : LEAD_COLORS[(i + 2) % LEAD_COLORS.length],
+                  borderColor:
+                    activeEvent === ev
+                      ? LEAD_COLORS[(i + 2) % LEAD_COLORS.length]
+                      : P.fog,
+                  opacity: activeEvent && activeEvent !== ev ? 0.5 : 1,
+                }}
+              >
+                {ev}
+              </button>
+            ))}
+            {events.length > 0 && associations.length > 0 && (
+              <div className="da-filter-sep" />
+            )}
+            {associations.map((as, i) => (
+              <button
+                key={as}
+                className="da-pill"
+                onClick={() => setActiveAssociation((v) => (v === as ? null : as))}
+                style={{
+                  background:
+                    activeAssociation === as
+                      ? LEAD_COLORS[(i + 3) % LEAD_COLORS.length]
+                      : P.mist,
+                  color:
+                    activeAssociation === as
+                      ? P.white
+                      : LEAD_COLORS[(i + 3) % LEAD_COLORS.length],
+                  borderColor:
+                    activeAssociation === as
+                      ? LEAD_COLORS[(i + 3) % LEAD_COLORS.length]
+                      : P.fog,
+                  opacity: activeAssociation && activeAssociation !== as ? 0.5 : 1,
+                }}
+              >
+                {as}
+              </button>
+            ))}
+            {(activeStatus || activeLead || activeEvent || activeAssociation) && (
               <button
                 className="da-clear"
                 onClick={() => {
                   setActiveStatus(null);
                   setActiveLead(null);
+                  setActiveEvent(null);
+                  setActiveAssociation(null);
                 }}
               >
                 Clear filters
@@ -789,13 +865,89 @@ const DealAnalytics = ({
               </>
             )}
           </div>
+
+          {/* NEW: Event Distribution */}
+          <div className="da-card-nm">
+            <SectionTitle
+              title="Event Distribution"
+              desc="Deals grouped by events"
+            />
+            {loading ? (
+              <Skel />
+            ) : eventData.length === 0 ? (
+              <EmptyState message="No event data" />
+            ) : (
+              eventData.map((item, i) => {
+                const pct =
+                  filtered.length > 0
+                    ? (item.count / filtered.length) * 100
+                    : 0;
+                return (
+                  <div key={item.name} className="da-lead-row">
+                    <div className="da-lead-name">{item.name}</div>
+                    <div
+                      className="da-prog-track"
+                      style={{ background: P.mist, height: 7, flex: 1 }}
+                    >
+                      <div
+                        className="da-prog-fill"
+                        style={{
+                          width: `${pct}%`,
+                          background: LEAD_COLORS[(i + 2) % LEAD_COLORS.length],
+                        }}
+                      />
+                    </div>
+                    <span className="da-lead-count">{item.count}</span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* NEW: Association Distribution */}
+          <div className="da-card-nm">
+            <SectionTitle
+              title="Association Distribution"
+              desc="Deals grouped by associations"
+            />
+            {loading ? (
+              <Skel />
+            ) : associationData.length === 0 ? (
+              <EmptyState message="No association data" />
+            ) : (
+              associationData.map((item, i) => {
+                const pct =
+                  filtered.length > 0
+                    ? (item.count / filtered.length) * 100
+                    : 0;
+                return (
+                  <div key={item.name} className="da-lead-row">
+                    <div className="da-lead-name">{item.name}</div>
+                    <div
+                      className="da-prog-track"
+                      style={{ background: P.mist, height: 7, flex: 1 }}
+                    >
+                      <div
+                        className="da-prog-fill"
+                        style={{
+                          width: `${pct}%`,
+                          background: LEAD_COLORS[(i + 3) % LEAD_COLORS.length],
+                        }}
+                      />
+                    </div>
+                    <span className="da-lead-count">{item.count}</span>
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
 
         {/* TABLE */}
         <div className="da-card">
           <SectionTitle
             title="Industry Performance Table"
-            desc="Full breakdown of every industry across all statuses and lead types"
+            desc="Full breakdown of every industry across all statuses, lead types, events, and associations"
           />
           {loading ? (
             <Skel />
@@ -816,6 +968,12 @@ const DealAnalytics = ({
                     {leadTypes.map((lt) => (
                       <th key={lt}>{lt}</th>
                     ))}
+                    {events.map((ev) => (
+                      <th key={ev}>{ev}</th>
+                    ))}
+                    {associations.map((as) => (
+                      <th key={as}>{as}</th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
@@ -833,6 +991,18 @@ const DealAnalytics = ({
                       leadTypes.map((lt) => [
                         lt,
                         rows.filter((d) => d.leadType === lt).length,
+                      ]),
+                    );
+                    const ec = Object.fromEntries(
+                      events.map((ev) => [
+                        ev,
+                        rows.filter((d) => d.eventName === ev).length,
+                      ]),
+                    );
+                    const ac = Object.fromEntries(
+                      associations.map((as) => [
+                        as,
+                        rows.filter((d) => d.associationName === as).length,
                       ]),
                     );
                     return (
@@ -880,16 +1050,48 @@ const DealAnalytics = ({
                             )}
                           </td>
                         ))}
-                        {leadTypes.map((lt, li) => (
+                        {leadTypes.map((lt) => (
                           <td key={lt}>
                             {lc[lt] > 0 ? (
                               <span
                                 style={{
-                                  color: LEAD_COLORS[li % LEAD_COLORS.length],
+                                  color: LEAD_COLORS[leadTypes.indexOf(lt) % LEAD_COLORS.length],
                                   fontWeight: 700,
                                 }}
                               >
                                 {lc[lt]}
+                              </span>
+                            ) : (
+                              <span style={{ color: P.fog }}>—</span>
+                            )}
+                          </td>
+                        ))}
+                        {events.map((ev) => (
+                          <td key={ev}>
+                            {ec[ev] > 0 ? (
+                              <span
+                                style={{
+                                  color: LEAD_COLORS[(events.indexOf(ev) + 2) % LEAD_COLORS.length],
+                                  fontWeight: 700,
+                                }}
+                              >
+                                {ec[ev]}
+                              </span>
+                            ) : (
+                              <span style={{ color: P.fog }}>—</span>
+                            )}
+                          </td>
+                        ))}
+                        {associations.map((as) => (
+                          <td key={as}>
+                            {ac[as] > 0 ? (
+                              <span
+                                style={{
+                                  color: LEAD_COLORS[(associations.indexOf(as) + 3) % LEAD_COLORS.length],
+                                  fontWeight: 700,
+                                }}
+                              >
+                                {ac[as]}
                               </span>
                             ) : (
                               <span style={{ color: P.fog }}>—</span>
@@ -907,7 +1109,7 @@ const DealAnalytics = ({
 
         <div className="da-footer">
           Deal Intelligence Dashboard · {filtered.length} records displayed
-          {(activeStatus || activeLead) && (
+          {(activeStatus || activeLead || activeEvent || activeAssociation) && (
             <span style={{ color: P.accent, fontWeight: 600 }}>
               {" "}
               · Filtered view active

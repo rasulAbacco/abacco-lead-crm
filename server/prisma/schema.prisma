@@ -284,17 +284,27 @@ model DealInfo {
   id Int @id @default(autoincrement())
 
   clientEmail String
-  industry    String
-  leadType    String
-  dealStatus  String
-  month       Int?
-  year        Int?
 
-  // Employee linked deal (current employees)
+  // OLD (keep for backward compatibility)
+  industry   String
+  leadType   String
+  dealStatus String
+
+  // ✅ INDEPENDENT RELATIONS
+  industryId    Int?
+  eventId       Int?
+  associationId Int?
+
+  industryRef    IndustryMaster?    @relation(fields: [industryId], references: [id])
+  eventRef       EventMaster?       @relation(fields: [eventId], references: [id])
+  associationRef AssociationMaster? @relation(fields: [associationId], references: [id])
+
+  month Int?
+  year  Int?
+
   employeeId String?
   employee   Employee? @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
 
-  // Manual agent fields (for ex-employees or unknown emails)
   manualAgentName  String?
   manualAgentId    String?
   manualAgentEmail String?
@@ -305,6 +315,9 @@ model DealInfo {
   @@index([clientEmail])
   @@index([employeeId])
   @@index([createdAt])
+  @@index([industryId])
+  @@index([eventId])
+  @@index([associationId])
 }
 
 model IndustryMaster {
@@ -312,8 +325,38 @@ model IndustryMaster {
   name     String  @unique
   isActive Boolean @default(true)
 
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  DealInfo    DealInfo[]
+  EventMaster EventMaster[]
+
+  @@index([isActive])
+}
+
+model EventMaster {
+  id       Int     @id @default(autoincrement())
+  name     String  @unique
+  isActive Boolean @default(true)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  deals            DealInfo[]
+  IndustryMaster   IndustryMaster? @relation(fields: [industryMasterId], references: [id])
+  industryMasterId Int?
+
+  @@index([isActive])
+}
+
+model AssociationMaster {
+  id       Int     @id @default(autoincrement())
+  name     String  @unique
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  deals DealInfo[]
 
   @@index([isActive])
 }

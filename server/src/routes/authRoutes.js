@@ -12,6 +12,7 @@ import {
   recordFailedLogin,
   recordLogout,
 } from "../services/loginHistoryService.js";
+import { isIPAllowed } from "../services/ipWhitelistService.js";
 
 import crypto from "crypto";
 
@@ -241,6 +242,26 @@ router.post("/login", async (req, res) => {
   const device = parseDevice(req);
   const geo = await getGeoLocation(ip);
 
+  // 🔒 IP WHITELIST CHECK
+  const allowed = await isIPAllowed(ip);
+
+  if (!allowed) {
+    await recordFailedLogin({
+      email,
+      ip,
+      device,
+      location: geo.location,
+      latitude: geo.latitude,
+      longitude: geo.longitude,
+      isp: geo.isp,
+    });
+
+    return res.status(403).json({
+      success: false,
+      message: "Login not allowed from this network.",
+    });
+  }
+  
   if (!email || !password) {
     return res
       .status(400)

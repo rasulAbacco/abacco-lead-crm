@@ -216,6 +216,11 @@ function Layout({ children }) {
                   label="Login History"
                 />
                 <NavLink
+                  to="/admin/allowed-ips"
+                  icon={ShieldUser}
+                  label="Allowed IPs"
+                />
+                <NavLink
                   to="/admin-email-domains"
                   icon={Database}
                   label="Email Domains"

@@ -14,18 +14,11 @@ const LoginHistory = () => {
     const fetchHistory = async () => {
         try {
             setLoading(true);
-
             const token = localStorage.getItem("token");
-
             const res = await axios.get(
                 `${API_BASE_URL}/api/admin/login-history?page=${page}&limit=${limit}`,
-                {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                }
+                { headers: { Authorization: `Bearer ${token}` } }
             );
-
             setHistory(res.data.data);
         } catch (err) {
             console.error("Login history fetch error", err);
@@ -44,162 +37,140 @@ const LoginHistory = () => {
 
     const formatDuration = (seconds) => {
         if (!seconds) return "-";
-
         const mins = Math.floor(seconds / 60);
         const hrs = Math.floor(mins / 60);
-
-        if (hrs > 0) return `${hrs}h ${mins % 60}m`;
-        return `${mins}m`;
+        return hrs > 0 ? `${hrs}h ${mins % 60}m` : `${mins}m`;
     };
 
     return (
-        <div className="p-6">
+        <div className="min-h-screen bg-slate-50 p-4 md:p-10 font-sans text-slate-900">
+            <div className="max-w-[1600px] mx-auto">
 
-            <h1 className="text-2xl font-bold mb-4">Login History</h1>
+                {/* Header Section */}
+                <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
+                    <div>
+                        <h1 className="text-2xl font-serif font-semibold text-slate-800 border-b-2 border-indigo-600 pb-1 inline-block">
+                            System Access Logs
+                        </h1>
+                        <p className="text-slate-500 text-sm mt-2 font-medium uppercase tracking-wider">
+                            Detailed Login & Session History
+                        </p>
+                    </div>
 
-            {/* Search */}
-            <div className="mb-4">
-                <input
-                    type="text"
-                    placeholder="Search by email..."
-                    className="border px-3 py-2 rounded w-64"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                />
-            </div>
-
-            {loading ? (
-                <p>Loading...</p>
-            ) : (
-                <div className="overflow-auto bg-white shadow rounded-lg">
-
-                    <table className="min-w-full text-sm">
-                        <thead className="bg-gray-100">
-                            <tr>
-                                <th className="p-3 text-left">Employee</th>
-                                <th className="p-3 text-left">Employee ID</th>
-                                <th className="p-3 text-left">Email</th>
-                                <th className="p-3 text-left">IP</th>
-                                <th className="p-3 text-left">Location</th>
-                                <th className="p-3 text-left">ISP</th>
-                                <th className="p-3 text-left">Device</th>
-                                <th className="p-3 text-left">Browser</th>
-                                <th className="p-3 text-left">OS</th>
-                                <th className="p-3 text-left">Login Time</th>
-                                <th className="p-3 text-left">Logout Time</th>
-                                <th className="p-3 text-left">Duration</th>
-                                <th className="p-3 text-left">Method</th>
-                                <th className="p-3 text-left">OTP</th>
-                                <th className="p-3 text-left">Attempts</th>
-                                <th className="p-3 text-left">Status</th>
-                                <th className="p-3 text-left">Suspicious</th>
-                            </tr>
-                        </thead>
-
-                        <tbody>
-                            {filteredHistory.map((item) => (
-                                <tr key={item.id} className="border-t">
-
-                                    <td className="p-3">{item.employeeName || "-"}</td>
-
-                                    <td className="p-3">{item.employeeId || "-"}</td>
-
-                                    <td className="p-3">{item.email}</td>
-
-                                    <td className="p-3">{item.ipAddress || "-"}</td>
-
-                                    <td className="p-3">{item.location || "-"}</td>
-
-                                    <td className="p-3">{item.isp || "-"}</td>
-
-                                    <td className="p-3 capitalize">{item.deviceType || "-"}</td>
-
-                                    <td className="p-3">
-                                        {item.browser ? `${item.browser}` : "-"}
-                                    </td>
-
-                                    <td className="p-3">{item.os || "-"}</td>
-
-                                    <td className="p-3">
-                                        {new Date(item.loginTime).toLocaleString()}
-                                    </td>
-
-                                    <td className="p-3">
-                                        {item.logoutTime
-                                            ? new Date(item.logoutTime).toLocaleString()
-                                            : (
-                                                <span className="text-green-600 font-semibold">
-                                                    Active
-                                                </span>
-                                            )}
-                                    </td>
-
-                                    <td className="p-3">
-                                        {formatDuration(item.sessionDuration)}
-                                    </td>
-
-                                    <td className="p-3">{item.loginMethod || "-"}</td>
-
-                                    <td className="p-3">
-                                        {item.otpVerified ? (
-                                            <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-semibold">
-                                                Yes
-                                            </span>
-                                        ) : (
-                                            <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-semibold">
-                                                No
-                                            </span>
-                                        )}
-                                    </td>
-
-                                    <td className="p-3">{item.attemptCount}</td>
-
-                                    <td className="p-3">
-                                        <span
-                                            className={`px-2 py-1 rounded text-xs font-semibold ${item.status === "SUCCESS"
-                                                    ? "bg-green-100 text-green-700"
-                                                    : "bg-red-100 text-red-700"
-                                                }`}
-                                        >
-                                            {item.status}
-                                        </span>
-                                    </td>
-
-                                    <td className="p-3">
-                                        {item.suspiciousFlag ? (
-                                            <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs font-semibold">
-                                                ⚠ Suspicious
-                                            </span>
-                                        ) : (
-                                            "-"
-                                        )}
-                                    </td>
-
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-
+                    <div className="w-full md:w-80">
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1">Search Database</label>
+                        <input
+                            type="text"
+                            placeholder="Enter email address..."
+                            className="w-full bg-white border border-slate-200 px-4 py-2.5 rounded-md shadow-sm focus:ring-1 focus:ring-slate-400 focus:border-slate-400 outline-none transition-all text-sm"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                        />
+                    </div>
                 </div>
-            )}
 
-            {/* Pagination */}
-            <div className="flex gap-3 mt-4">
-                <button
-                    className="px-4 py-2 bg-gray-200 rounded"
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                >
-                    Previous
-                </button>
+                {/* Table Container */}
+                <div className="bg-white border border-slate-200 rounded-sm shadow-xl shadow-slate-200/50 overflow-hidden">
+                    {loading ? (
+                        <div className="p-20 text-center text-slate-400 italic">Retrieving secure logs...</div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="bg-slate-50 border-b border-slate-200">
+                                        <th className="p-4 text-[11px] font-bold text-slate-500 uppercase tracking-widest">Identity</th>
+                                        <th className="p-4 text-[11px] font-bold text-slate-500 uppercase tracking-widest">Network Info</th>
+                                        <th className="p-4 text-[11px] font-bold text-slate-500 uppercase tracking-widest">Platform</th>
+                                        <th className="p-4 text-[11px] font-bold text-slate-500 uppercase tracking-widest">Session Timing</th>
+                                        <th className="p-4 text-[11px] font-bold text-slate-500 uppercase tracking-widest">Status</th>
+                                        <th className="p-4 text-[11px] font-bold text-slate-500 uppercase tracking-widest">Security</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {filteredHistory.map((item) => (
+                                        <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
+                                            {/* Identity */}
+                                            <td className="p-4">
+                                                <div className="font-semibold text-slate-800">{item.employeeName || "N/A"}</div>
+                                                <div className="text-xs text-slate-500">{item.email}</div>
+                                                <div className="text-[10px] text-slate-400 mt-1">ID: {item.employeeId || "-"}</div>
+                                            </td>
 
-                <button
-                    className="px-4 py-2 bg-gray-200 rounded"
-                    onClick={() => setPage((p) => p + 1)}
-                >
-                    Next
-                </button>
+                                            {/* Network */}
+                                            <td className="p-4 text-sm text-slate-600">
+                                                <div className="font-medium text-slate-700">{item.ipAddress}</div>
+                                                <div className="text-xs opacity-75">{item.location || "Remote"}</div>
+                                                <div className="text-[10px] italic truncate max-w-[150px]">{item.isp}</div>
+                                            </td>
+
+                                            {/* Platform */}
+                                            <td className="p-4">
+                                                <div className="text-sm text-slate-700 capitalize">{item.deviceType}</div>
+                                                <div className="text-xs text-slate-500">{item.browser} / {item.os}</div>
+                                            </td>
+
+                                            {/* Timing */}
+                                            <td className="p-4">
+                                                <div className="text-xs font-medium text-slate-800">In: {new Date(item.loginTime).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</div>
+                                                <div className="text-xs text-slate-500 mt-0.5">
+                                                    Out: {item.logoutTime ? new Date(item.logoutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : <span className="text-emerald-600 font-bold underline decoration-emerald-200">Live Now</span>}
+                                                </div>
+                                                <div className="text-[11px] font-bold text-indigo-500 mt-1 uppercase tracking-tighter">Dur: {formatDuration(item.sessionDuration)}</div>
+                                            </td>
+
+                                            {/* Status */}
+                                            <td className="p-4">
+                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-[10px] font-bold border ${item.status === "SUCCESS"
+                                                        ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                                                        : "bg-rose-50 text-rose-700 border-rose-100"
+                                                    }`}>
+                                                    {item.status}
+                                                </span>
+                                                <div className="text-[10px] text-slate-400 mt-1 ml-1">{item.attemptCount} Attempts</div>
+                                            </td>
+
+                                            {/* Security flags */}
+                                            <td className="p-4">
+                                                <div className="flex flex-col gap-1.5">
+                                                    {item.otpVerified && (
+                                                        <span className="text-[9px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded border border-blue-100 w-fit font-bold">OTP VERIFIED</span>
+                                                    )}
+                                                    {item.suspiciousFlag && (
+                                                        <span className="text-[9px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 w-fit font-bold">⚠️ SUSPICIOUS</span>
+                                                    )}
+                                                    {!item.otpVerified && !item.suspiciousFlag && <span className="text-slate-300">-</span>}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+
+                {/* Pagination Controls */}
+                <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <p className="text-sm text-slate-400 font-medium">
+                        Showing page <span className="text-slate-800 font-bold">{page}</span> of entries
+                    </p>
+                    <div className="flex border border-slate-200 rounded overflow-hidden shadow-sm">
+                        <button
+                            disabled={page === 1}
+                            className="px-6 py-2 bg-white text-slate-600 text-sm font-bold hover:bg-slate-50 disabled:opacity-30 transition-all border-r border-slate-200"
+                            onClick={() => setPage((p) => Math.max(1, p - 1))}
+                        >
+                            PREVIOUS
+                        </button>
+                        <button
+                            className="px-6 py-2 bg-white text-slate-600 text-sm font-bold hover:bg-slate-50 transition-all"
+                            onClick={() => setPage((p) => p + 1)}
+                        >
+                            NEXT
+                        </button>
+                    </div>
+                </div>
             </div>
-
         </div>
     );
 };
