@@ -1,7 +1,20 @@
+//authRoutes.js - Handles login, OTP verification, and logout for CRM dashboard
 import express from "express";
 import { PrismaClient } from "@prisma/client";
 import jwt from "jsonwebtoken";
 import sgMail from "@sendgrid/mail";
+import { parseDevice } from "../utils/deviceParser.js";
+import { getClientIp } from "../utils/ipExtractor.js";
+import { getGeoLocation } from "../services/geoLocationService.js";
+
+import {
+  recordSuccessfulLogin,
+  recordFailedLogin,
+  recordLogout,
+} from "../services/loginHistoryService.js";
+import { isIPAllowed } from "../services/ipWhitelistService.js";
+
+import crypto from "crypto";
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -13,11 +26,21 @@ function generateOtp() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-// ─────────────────────────────────────────
-//  Email Templates
-// ─────────────────────────────────────────
+// Helper to get device info
+function getDevice(req) {
+  return req.headers["user-agent"] || "Unknown Device";
+}
 
-function otpEmailHtml(otp) {
+// Helper to get IP
+function getIp(req) {
+  return (
+    req.headers["x-forwarded-for"] ||
+    req.socket?.remoteAddress ||
+    "Unknown IP"
+  );
+}
+
+function otpEmailHtml(otp, role) {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -49,7 +72,7 @@ function otpEmailHtml(otp) {
                 <td style="padding:36px 40px 32px;">
 
                   <p style="font-size:12px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 12px;">
-                    Admin Login Verification
+                    ${role === "ADMIN" ? "Admin Login Verification" : "Employee Login Verification"}
                   </p>
 
                   <h1 style="font-size:22px;font-weight:700;color:#111827;margin:0 0 14px;line-height:1.3;">
@@ -147,7 +170,7 @@ function resendOtpEmailHtml(otp) {
                 <td style="padding:36px 40px 32px;">
 
                   <p style="font-size:12px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 12px;">
-                    New Code Requested
+                   Login Verification Code (Resent)
                   </p>
 
                   <h1 style="font-size:22px;font-weight:700;color:#111827;margin:0 0 14px;line-height:1.3;">
@@ -155,8 +178,8 @@ function resendOtpEmailHtml(otp) {
                   </h1>
 
                   <p style="font-size:14px;color:#6b7280;line-height:1.75;margin:0 0 28px;">
-                    You requested a new code for <strong style="color:#1e1b4b;">Abacco CRM Dashboard</strong>.
-                    Your previous code has been invalidated. This code expires in <strong>10 minutes</strong>.
+                    A new verification code has been generated for your <strong style="color:#1e1b4b;">Abacco CRM Dashboard</strong>.
+                    login. Your previous code is no longer valid. This code expires in <strong>10 minutes</strong>.
                   </p>
 
                   <!-- OTP Box -->
@@ -212,13 +235,33 @@ function resendOtpEmailHtml(otp) {
 </html>`;
 }
 
-// ─────────────────────────────────────────
-//  Routes
-// ─────────────────────────────────────────
-
 router.post("/login", async (req, res) => {
   const { email, password, otp } = req.body;
 
+  const ip = getClientIp(req);
+  const device = parseDevice(req);
+  const geo = await getGeoLocation(ip);
+
+  // 🔒 IP WHITELIST CHECK
+  const allowed = await isIPAllowed(ip);
+
+  if (!allowed) {
+    await recordFailedLogin({
+      email,
+      ip,
+      device,
+      location: geo.location,
+      latitude: geo.latitude,
+      longitude: geo.longitude,
+      isp: geo.isp,
+    });
+
+    return res.status(403).json({
+      success: false,
+      message: "Login not allowed from this network.",
+    });
+  }
+  
   if (!email || !password) {
     return res
       .status(400)
@@ -229,6 +272,16 @@ router.post("/login", async (req, res) => {
     const user = await prisma.employee.findUnique({ where: { email } });
 
     if (!user) {
+      await recordFailedLogin({
+        email,
+        ip,
+        device,
+        location: geo.location,
+        latitude: geo.latitude,
+        longitude: geo.longitude,
+        isp: geo.isp,
+      });
+
       return res
         .status(401)
         .json({ success: false, message: "Invalid credentials" });
@@ -242,97 +295,151 @@ router.post("/login", async (req, res) => {
     }
 
     if (password !== user.password) {
+      await recordFailedLogin({
+        email,
+        ip,
+        device,
+        location: geo.location,
+        latitude: geo.latitude,
+        longitude: geo.longitude,
+        isp: geo.isp,
+      });
+
       return res
         .status(401)
         .json({ success: false, message: "Invalid credentials" });
     }
 
-    const role = user.role || "EMPLOYEE";
+    /* ---------------------------------------------------
+       MASTER OTP LOGIN
+    --------------------------------------------------- */
 
-    // ── EMPLOYEE LOGIN (no OTP) ──
-    if (role !== "ADMIN") {
-      const token = jwt.sign(
-        { userId: user.id, email: user.email, role: user.role },
-        process.env.JWT_SECRET || "your-secret-key",
-        { expiresIn: "24h" },
-      );
-      return res.json({
-        success: true,
-        role: user.role,
-        fullName: user.fullName,
-        employeeId: user.employeeId,
-        isActive: user.isActive,
-        token,
-      });
-    }
-
-    // ── MASTER OTP ──
     if (otp && otp === process.env.MASTER_OTP) {
-      console.log("MASTER OTP used by:", email);
+      const sessionId = crypto.randomUUID();
+
       const token = jwt.sign(
         { userId: user.id, email: user.email, role: user.role },
-        process.env.JWT_SECRET || "your-secret-key",
-        { expiresIn: "24h" },
+        process.env.JWT_SECRET,
+        { expiresIn: "24h" }
       );
+
+      await prisma.session.updateMany({
+        where: { userId: user.id, isActive: true },
+        data: { isActive: false },
+      });
+
+      await prisma.session.create({
+        data: {
+          userId: user.id,
+          token,
+          sessionId,
+          ipAddress: ip,
+          device: device.browser,
+          loginTime: new Date(),
+          lastActive: new Date(),
+          isActive: true,
+        },
+      });
+
+      await recordSuccessfulLogin({
+        user,
+        ip,
+        device,
+        sessionId,
+        location: geo.location,
+        latitude: geo.latitude,
+        longitude: geo.longitude,
+        isp: geo.isp,
+        otpVerified: true,
+      });
+
       return res.json({
         success: true,
         role: user.role,
         fullName: user.fullName,
         employeeId: user.employeeId,
-        isActive: user.isActive,
         token,
       });
     }
 
-    // ── ADMIN OTP FLOW ──
+    /* ---------------------------------------------------
+       NORMAL OTP FLOW
+    --------------------------------------------------- */
+
     const generatedOtp = generateOtp();
+
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
     const resendAvailableAt = new Date(Date.now() + 60 * 1000);
 
     await prisma.loginOtp.upsert({
       where: { email },
-      update: { otp: generatedOtp, attempts: 0, expiresAt, resendAvailableAt },
-      create: { email, otp: generatedOtp, expiresAt, resendAvailableAt },
+      update: {
+        otp: generatedOtp,
+        attempts: 0,
+        expiresAt,
+        resendAvailableAt,
+      },
+      create: {
+        email,
+        otp: generatedOtp,
+        expiresAt,
+        resendAvailableAt,
+      },
     });
 
     await sgMail.send({
       to: email,
       from: process.env.EMAIL_FROM,
-      subject: "Your Admin Login Code — Abacco Technology",
-      text: `Your login verification code is: ${generatedOtp}. It will expire in 10 minutes.`,
-      html: otpEmailHtml(generatedOtp),
+      subject: "Your Login Code — Abacco Technology",
+      text: `Your login verification code is: ${generatedOtp}.`,
     });
 
     return res.json({
       success: true,
       otpRequired: true,
-      message: "OTP sent to your email",
       email: user.email,
     });
+
   } catch (err) {
     console.error("Login error:", err);
     return res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
+/* ---------------------------------------------------
+   VERIFY OTP
+--------------------------------------------------- */
+
 router.post("/verify-otp", async (req, res) => {
   const { email, otp } = req.body;
 
+  const ip = getClientIp(req);
+  const device = parseDevice(req);
+  const geo = await getGeoLocation(ip);
+
   if (!email || !otp) {
-    return res
-      .status(400)
-      .json({ success: false, message: "Email and OTP required" });
+    return res.status(400).json({
+      success: false,
+      message: "Email and OTP required",
+    });
   }
 
   try {
-    const user = await prisma.employee.findUnique({ where: { email } });
+    const user = await prisma.employee.findUnique({
+      where: { email },
+    });
+
     if (!user) {
-      return res
-        .status(404)
-        .json({ success: false, message: "User not found" });
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
     }
 
-    const otpRecord = await prisma.loginOtp.findUnique({ where: { email } });
+    const otpRecord = await prisma.loginOtp.findUnique({
+      where: { email },
+    });
+
     if (!otpRecord) {
       return res.status(400).json({
         success: false,
@@ -342,39 +449,98 @@ router.post("/verify-otp", async (req, res) => {
 
     if (new Date() > otpRecord.expiresAt) {
       await prisma.loginOtp.delete({ where: { email } });
+
       return res.status(400).json({
         success: false,
         message: "OTP expired. Please login again.",
       });
     }
 
+    if (otpRecord.attempts >= 5) {
+      await prisma.loginOtp.delete({ where: { email } });
+
+      return res.status(403).json({
+        success: false,
+        message: "Too many invalid attempts. Please login again.",
+      });
+    }
+
     if (otp !== otpRecord.otp && otp !== process.env.MASTER_OTP) {
       await prisma.loginOtp.update({
         where: { email },
-        data: { attempts: otpRecord.attempts + 1 },
+        data: {
+          attempts: otpRecord.attempts + 1,
+        },
       });
-      return res.status(401).json({ success: false, message: "Invalid OTP" });
+
+      return res.status(401).json({
+        success: false,
+        message: "Invalid OTP",
+      });
     }
 
-    await prisma.loginOtp.delete({ where: { email } });
+    await prisma.loginOtp.delete({
+      where: { email },
+    });
+
+    const sessionId = crypto.randomUUID();
 
     const token = jwt.sign(
-      { userId: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET || "your-secret-key",
-      { expiresIn: "24h" },
+      {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        employeeId: user.employeeId,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "24h" }
     );
+
+    await prisma.session.updateMany({
+      where: { userId: user.id, isActive: true },
+      data: { isActive: false },
+    });
+
+    await prisma.session.create({
+      data: {
+        userId: user.id,
+        token,
+        sessionId,
+        ipAddress: ip,
+        device: device.browser,
+        loginTime: new Date(),
+        lastActive: new Date(),
+        isActive: true,
+      },
+    });
+
+    await recordSuccessfulLogin({
+      user,
+      ip,
+      device,
+      sessionId,
+      location: geo.location,
+      latitude: geo.latitude,
+      longitude: geo.longitude,
+      isp: geo.isp,
+      otpVerified: true,
+    });
 
     return res.json({
       success: true,
       role: user.role,
       fullName: user.fullName,
       employeeId: user.employeeId,
-      isActive: user.isActive,
       token,
     });
+
   } catch (err) {
     console.error("OTP verify error:", err);
-    return res.status(500).json({ success: false, message: "Server error" });
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
   }
 });
 
@@ -388,19 +554,14 @@ router.post("/resend-otp", async (req, res) => {
   }
 
   try {
-    const user = await prisma.employee.findUnique({ where: { email } });
-    if (!user) {
-      return res
-        .status(404)
-        .json({ success: false, message: "User not found" });
-    }
+    const otpRecord = await prisma.loginOtp.findUnique({
+      where: { email },
+    });
 
-    const otpRecord = await prisma.loginOtp.findUnique({ where: { email } });
     if (!otpRecord) {
-      return res.status(400).json({
-        success: false,
-        message: "No OTP request found. Please login again.",
-      });
+      return res
+        .status(400)
+        .json({ success: false, message: "Login again to request OTP" });
     }
 
     if (new Date() < otpRecord.resendAvailableAt) {
@@ -411,27 +572,102 @@ router.post("/resend-otp", async (req, res) => {
     }
 
     const newOtp = generateOtp();
+
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
     const resendAvailableAt = new Date(Date.now() + 60 * 1000);
 
     await prisma.loginOtp.update({
       where: { email },
-      data: { otp: newOtp, attempts: 0, expiresAt, resendAvailableAt },
+      data: {
+        otp: newOtp,
+        attempts: 0,
+        expiresAt,
+        resendAvailableAt,
+      },
     });
 
     await sgMail.send({
       to: email,
       from: process.env.EMAIL_FROM,
       subject: "New Login Code — Abacco Technology",
-      text: `Your new verification code is: ${newOtp}. It will expire in 10 minutes.`,
+      text: `Your new verification code is: ${newOtp}`,
       html: resendOtpEmailHtml(newOtp),
     });
 
-    return res.json({ success: true, message: "New OTP sent to your email" });
+    return res.json({
+      success: true,
+      message: "New OTP sent",
+    });
   } catch (err) {
     console.error("Resend OTP error:", err);
-    return res.status(500).json({ success: false, message: "Server error" });
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+});
+
+
+/* ---------------------------------------------------
+   LOGOUT
+--------------------------------------------------- */
+
+router.post("/logout", async (req, res) => {
+  console.log("Logout route hit");
+  try {
+    const token = req.headers["authorization"]?.split(" ")[1];
+
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: "Token required",
+      });
+    }
+
+    // Find the active session using token
+    const session = await prisma.session.findUnique({
+      where: { token },
+    });
+
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: "Session not found",
+      });
+    }
+
+    // Deactivate the session
+    await prisma.session.update({
+      where: { token },
+      data: {
+        isActive: false,
+        updatedAt: new Date(),
+      },
+    });
+
+    console.log("Logging out session:", session.sessionId);
+
+    // Record logout in LoginHistory using sessionId
+    if (session.sessionId) {
+      await recordLogout(session.sessionId);
+    }
+
+    return res.json({
+      success: true,
+      message: "Logged out successfully",
+    });
+
+  } catch (err) {
+    console.error("Logout error:", err);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
   }
 });
 
 export default router;
+
+

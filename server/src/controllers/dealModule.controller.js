@@ -3,18 +3,38 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 // ===============================
-// DEAL CRUD (WITH FILTER SUPPORT)
+// HELPER
 // ===============================
+const parseNullableInt = (val) => {
+  if (val === undefined || val === null || val === "") return null;
+  return Number(val);
+};
 
+// ===============================
+// GET DEALS
+// ===============================
 export const getDeals = async (req, res) => {
   try {
-    const { industry, leadType, dealStatus, month, year } = req.query;
+    const {
+      industry,
+      leadType,
+      dealStatus,
+      month,
+      year,
+      industryId,
+      eventId,
+      associationId,
+    } = req.query;
 
     const where = {};
 
     if (industry) where.industry = industry;
     if (leadType) where.leadType = leadType;
     if (dealStatus) where.dealStatus = dealStatus;
+
+    if (industryId) where.industryId = Number(industryId);
+    if (eventId) where.eventId = Number(eventId);
+    if (associationId) where.associationId = Number(associationId);
 
     if (month) where.month = Number(month);
     if (year) where.year = Number(year);
@@ -28,15 +48,21 @@ export const getDeals = async (req, res) => {
             employeeId: true,
           },
         },
+        industryRef: true,
+        eventRef: true,
+        associationRef: true,
       },
       orderBy: { createdAt: "desc" },
     });
 
-    // Normalize agent info (employee OR manual)
     const formattedDeals = deals.map((deal) => ({
       ...deal,
+      industry: deal.industryRef?.name || deal.industry,
+      eventName: deal.eventRef?.name || null,
+      associationName: deal.associationRef?.name || null,
       agentName: deal.employee?.fullName || deal.manualAgentName || null,
-      agentEmployeeId: deal.employee?.employeeId || deal.manualAgentId || null,
+      agentEmployeeId:
+        deal.employee?.employeeId || deal.manualAgentId || null,
       agentEmail: deal.employee
         ? null
         : deal.manualAgentEmail || deal.clientEmail,
@@ -49,11 +75,17 @@ export const getDeals = async (req, res) => {
   }
 };
 
+// ===============================
+// CREATE DEAL
+// ===============================
 export const createDeal = async (req, res) => {
   try {
     const {
       clientEmail,
       industry,
+      industryId,
+      eventId,
+      associationId,
       leadType,
       dealStatus,
       month,
@@ -69,27 +101,24 @@ export const createDeal = async (req, res) => {
     const normalizedEmail = clientEmail.toLowerCase().trim();
 
     const emailRecord = await prisma.emailDomain.findFirst({
-      where: {
-        email: normalizedEmail,
-        isActive: true,
-      },
+      where: { email: normalizedEmail, isActive: true },
     });
 
     let dealData = {
       clientEmail: normalizedEmail,
       industry,
+      industryId: parseNullableInt(industryId),
+      eventId: parseNullableInt(eventId),
+      associationId: parseNullableInt(associationId),
       leadType,
       dealStatus,
-      month: month ? Number(month) : null,
-      year: year ? Number(year) : null,
+      month: parseNullableInt(month),
+      year: parseNullableInt(year),
     };
 
-    // ✅ Case 1: Email belongs to registered employee
     if (emailRecord) {
       dealData.employeeId = emailRecord.employeeId;
-    } 
-    // ✅ Case 2: Email not registered → treat as ex employee
-    else {
+    } else {
       if (!manualAgentName) {
         return res.status(400).json({
           message:
@@ -102,9 +131,7 @@ export const createDeal = async (req, res) => {
       dealData.manualAgentEmail = normalizedEmail;
     }
 
-    const deal = await prisma.dealInfo.create({
-      data: dealData,
-    });
+    const deal = await prisma.dealInfo.create({ data: dealData });
 
     res.status(201).json(deal);
   } catch (error) {
@@ -113,6 +140,9 @@ export const createDeal = async (req, res) => {
   }
 };
 
+// ===============================
+// UPDATE DEAL (FIXED)
+// ===============================
 export const updateDeal = async (req, res) => {
   try {
     const { id } = req.params;
@@ -120,6 +150,9 @@ export const updateDeal = async (req, res) => {
     const {
       clientEmail,
       industry,
+      industryId,
+      eventId,
+      associationId,
       leadType,
       dealStatus,
       month,
@@ -132,20 +165,21 @@ export const updateDeal = async (req, res) => {
 
     const emailRecord = normalizedEmail
       ? await prisma.emailDomain.findFirst({
-          where: {
-            email: normalizedEmail,
-            isActive: true,
-          },
-        })
+        where: { email: normalizedEmail, isActive: true },
+      })
       : null;
 
     let updateData = {
-      clientEmail: normalizedEmail,
-      industry,
-      leadType,
-      dealStatus,
-      month: month ? Number(month) : null,
-      year: year ? Number(year) : null,
+      ...(normalizedEmail && { clientEmail: normalizedEmail }),
+      ...(industry && { industry }),
+      ...(leadType && { leadType }),
+      ...(dealStatus && { dealStatus }),
+
+      industryId: parseNullableInt(industryId),
+      eventId: parseNullableInt(eventId),
+      associationId: parseNullableInt(associationId),
+      month: parseNullableInt(month),
+      year: parseNullableInt(year),
     };
 
     if (emailRecord) {
@@ -167,11 +201,14 @@ export const updateDeal = async (req, res) => {
 
     res.json(deal);
   } catch (error) {
-    console.error(error);
+    console.error("UPDATE ERROR:", error);
     res.status(500).json({ message: "Failed to update deal" });
   }
 };
 
+// ===============================
+// DELETE DEAL
+// ===============================
 export const deleteDeal = async (req, res) => {
   try {
     const { id } = req.params;
@@ -187,15 +224,19 @@ export const deleteDeal = async (req, res) => {
 };
 
 // ===============================
-// MASTER TABLES CRUD
+// MASTER MAP
 // ===============================
-
 const masterMap = {
   industries: prisma.industryMaster,
   "lead-types": prisma.leadTypeMaster,
   "deal-status": prisma.dealStatusMaster,
+  events: prisma.eventMaster,
+  associations: prisma.associationMaster,
 };
 
+// ===============================
+// MASTER CRUD
+// ===============================
 export const getMasters = async (req, res) => {
   try {
     const { type } = req.params;
@@ -220,10 +261,7 @@ export const createMaster = async (req, res) => {
     const { name } = req.body;
 
     const table = masterMap[type];
-
-    if (!table) {
-      return res.status(400).json({ message: "Invalid master type" });
-    }
+    if (!table) return res.status(400).json({ message: "Invalid type" });
 
     if (!name || !name.trim()) {
       return res.status(400).json({ message: "Name is required" });
@@ -233,25 +271,22 @@ export const createMaster = async (req, res) => {
 
     const existing = await table.findFirst({
       where: {
-        name: {
-          equals: cleanedName,
-          mode: "insensitive",
-        },
+        name: { equals: cleanedName, mode: "insensitive" },
       },
     });
 
     if (existing) {
-      return res.status(409).json({ message: "This entry already exists" });
+      return res.status(409).json({ message: "Already exists" });
     }
 
     const data = await table.create({
       data: { name: cleanedName },
     });
 
-    return res.status(201).json(data);
+    res.status(201).json(data);
   } catch (error) {
     console.error("Create master error:", error);
-    return res.status(500).json({ message: "Failed to create master data" });
+    res.status(500).json({ message: "Failed to create master data" });
   }
 };
 
@@ -273,33 +308,44 @@ export const deleteMaster = async (req, res) => {
   }
 };
 
+// ===============================
+// EMPLOYEE DEALS
+// ===============================
 export const getEmployeeDeals = async (req, res) => {
   try {
-    // console.log("REQ.USER ===>", req.user);
-    const { industry, leadType, dealStatus, month, year } = req.query;
+    const {
+      industry,
+      leadType,
+      dealStatus,
+      month,
+      year,
+      industryId,
+      eventId,
+      associationId,
+    } = req.query;
 
-    const where = {};
-
-    // 🔐 Restrict to logged-in employee
-    where.employeeId = req.user.employeeId;
+    const where = {
+      employeeId: req.user.employeeId,
+    };
 
     if (industry) where.industry = industry;
     if (leadType) where.leadType = leadType;
     if (dealStatus) where.dealStatus = dealStatus;
 
-    // ✅ Filter by stored integer month/year fields directly
+    if (industryId) where.industryId = Number(industryId);
+    if (eventId) where.eventId = Number(eventId);
+    if (associationId) where.associationId = Number(associationId);
+
     if (month) where.month = Number(month);
     if (year) where.year = Number(year);
 
     const deals = await prisma.dealInfo.findMany({
       where,
       include: {
-        employee: {
-          select: {
-            fullName: true,
-            employeeId: true,
-          },
-        },
+        employee: true,
+        industryRef: true,
+        eventRef: true,
+        associationRef: true,
       },
       orderBy: { createdAt: "desc" },
     });

@@ -77,8 +77,12 @@ const EmpDealTab = ({ deals, filters, setFilters, loading }) => {
           {(filters.month || filters.year) && (
             <button
               onClick={() =>
+                // ✅ STEP 3 — FIX RESET FILTER (IMPORTANT)
                 setFilters({
                   industry: "",
+                  industryId: "",
+                  eventId: "",
+                  associationId: "",
                   leadType: "",
                   dealStatus: "",
                   month: "",
@@ -105,6 +109,13 @@ const EmpDealTab = ({ deals, filters, setFilters, loading }) => {
                 <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">
                   Industry
                 </th>
+                {/* ✅ STEP 1 — ADD COLUMNS IN HEADER */}
+                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">
+                  Event
+                </th>
+                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">
+                  Association
+                </th>
                 <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">
                   Type
                 </th>
@@ -128,6 +139,13 @@ const EmpDealTab = ({ deals, filters, setFilters, loading }) => {
                   </td>
                   <td className="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">
                     {deal.industry}
+                  </td>
+                  {/* ✅ STEP 2 — ADD DATA IN TABLE ROW */}
+                  <td className="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">
+                    {deal.eventRef?.name || "—"}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">
+                    {deal.associationRef?.name || "—"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="text-xs font-medium text-slate-600 bg-slate-100 px-2 py-1 rounded">

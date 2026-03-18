@@ -2,6 +2,8 @@ import React from "react";
 
 const DealSettings = ({
   industries,
+  events,          // ✅ STEP 1: ACCEPT NEW PROPS
+  associations,    // ✅ STEP 1: ACCEPT NEW PROPS
   leadTypes,
   dealStatuses,
   newMaster,
@@ -33,7 +35,10 @@ const DealSettings = ({
                 }
                 className="w-full sm:w-44 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 appearance-none cursor-pointer"
               >
+                {/* ✅ STEP 2: ADD OPTIONS IN DROPDOWN */}
                 <option value="industries">Industries</option>
+                <option value="events">Events</option>
+                <option value="associations">Associations</option>
                 <option value="lead-types">Lead Types</option>
                 <option value="deal-status">Statuses</option>
               </select>
@@ -74,9 +79,12 @@ const DealSettings = ({
       </div>
 
       {/* ================= MASTER LISTS GRID ================= */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      {/* ✅ STEP 3: UPDATED GRID CLASSES FOR 5 CARDS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {[
           { title: "Industries", data: industries, type: "industries" },
+          { title: "Events", data: events, type: "events" },                 // ✅ NEW
+          { title: "Associations", data: associations, type: "associations" }, // ✅ NEW
           { title: "Lead Types", data: leadTypes, type: "lead-types" },
           { title: "Statuses", data: dealStatuses, type: "deal-status" },
         ].map((list) => (

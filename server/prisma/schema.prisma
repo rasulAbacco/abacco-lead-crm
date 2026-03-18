@@ -12,6 +12,11 @@ enum Role {
   EMPLOYEE
 }
 
+enum LoginStatus {
+  SUCCESS
+  FAILED
+}
+
 model Lead {
   id                 Int      @id @default(autoincrement())
   employeeId         String
@@ -58,6 +63,8 @@ model Employee {
   joiningDate       DateTime
   isActive          Boolean             @default(true)
   leads             Lead[]
+  sessions          Session[]
+  loginHistory      LoginHistory[]
   mailDomains       EmailDomain[]
   sharedLinks       SharedLink[]        @relation("CreatedLinks") // Links created by admin
   receivedLinks     ReceivedLink[]      @relation("ReceivedByEmployee") // Links received by employee
@@ -277,17 +284,27 @@ model DealInfo {
   id Int @id @default(autoincrement())
 
   clientEmail String
-  industry    String
-  leadType    String
-  dealStatus  String
-  month       Int?
-  year        Int?
 
-  // Employee linked deal (current employees)
+  // OLD (keep for backward compatibility)
+  industry   String
+  leadType   String
+  dealStatus String
+
+  // ✅ INDEPENDENT RELATIONS
+  industryId    Int?
+  eventId       Int?
+  associationId Int?
+
+  industryRef    IndustryMaster?    @relation(fields: [industryId], references: [id])
+  eventRef       EventMaster?       @relation(fields: [eventId], references: [id])
+  associationRef AssociationMaster? @relation(fields: [associationId], references: [id])
+
+  month Int?
+  year  Int?
+
   employeeId String?
   employee   Employee? @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
 
-  // Manual agent fields (for ex-employees or unknown emails)
   manualAgentName  String?
   manualAgentId    String?
   manualAgentEmail String?
@@ -298,6 +315,9 @@ model DealInfo {
   @@index([clientEmail])
   @@index([employeeId])
   @@index([createdAt])
+  @@index([industryId])
+  @@index([eventId])
+  @@index([associationId])
 }
 
 model IndustryMaster {
@@ -305,8 +325,38 @@ model IndustryMaster {
   name     String  @unique
   isActive Boolean @default(true)
 
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  DealInfo    DealInfo[]
+  EventMaster EventMaster[]
+
+  @@index([isActive])
+}
+
+model EventMaster {
+  id       Int     @id @default(autoincrement())
+  name     String  @unique
+  isActive Boolean @default(true)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  deals            DealInfo[]
+  IndustryMaster   IndustryMaster? @relation(fields: [industryMasterId], references: [id])
+  industryMasterId Int?
+
+  @@index([isActive])
+}
+
+model AssociationMaster {
+  id       Int     @id @default(autoincrement())
+  name     String  @unique
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  deals DealInfo[]
 
   @@index([isActive])
 }
@@ -365,4 +415,88 @@ model EmployeeLeadTarget {
   updatedAt DateTime @updatedAt
 
   @@index([employeeId])
+}
+
+model Session {
+  id        Int      @id @default(autoincrement())
+  sessionId String?
+  userId    Int
+  user      Employee @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  token String @unique
+
+  ipAddress String?
+  device    String?
+
+  loginTime  DateTime @default(now())
+  lastActive DateTime @default(now())
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([token])
+  @@index([isActive])
+}
+
+model LoginHistory {
+  id String @id @default(uuid())
+
+  userId Int?
+  user   Employee? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  employeeId   String
+  employeeName String
+  email        String
+
+  ipAddress String?
+  isp       String?
+  location  String?
+
+  latitude  Float?
+  longitude Float?
+
+  browser        String?
+  browserVersion String?
+  os             String?
+  deviceType     String? // desktop / mobile / tablet
+  deviceId       String?
+
+  sessionId String?
+
+  loginTime  DateTime  @default(now())
+  logoutTime DateTime?
+
+  sessionDuration Int? // seconds
+
+  status LoginStatus
+
+  otpVerified Boolean @default(false)
+
+  loginMethod String? // Password + OTP
+
+  attemptCount Int @default(1)
+
+  suspiciousFlag Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([employeeId])
+  @@index([email])
+  @@index([loginTime])
+  @@index([status])
+}
+
+model AllowedIP {
+  id        String   @id @default(uuid())
+  ipAddress String   @unique
+  label     String?
+  status    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([ipAddress])
+  @@index([status])
 }

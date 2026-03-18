@@ -130,13 +130,14 @@ const EmployeeDashboard = () => {
   useEffect(() => {
     const fetchEmployeesAndPerformance = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/employees`);
-        const employeesData = await res.json();
-        setEmployees(employeesData);
+        const res = await axios.get(`${API_BASE_URL}/api/employees`);
+        const employeesData = res.data;
+
+        setEmployees(Array.isArray(employeesData) ? employeesData : []);
 
         const empId = localStorage.getItem("employeeId");
 
-        const currentEmployee = employeesData.find(
+        const currentEmployee = (employeesData || []).find(
           (emp) => String(emp.id) === String(empId),
         );
 

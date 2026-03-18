@@ -10,70 +10,38 @@ import {
   getEmployeeDeals,
 } from "../controllers/dealModule.controller.js";
 
-import { authenticate, authorizeRole } from "../middlewares/auth.js";
+import { authenticate } from "../middlewares/auth.js";
 
 const router = express.Router();
 
-// ================= DEAL ROUTES =================
+// 🔒 Apply auth to all routes
+router.use(authenticate);
 
-// Admin deals
-router.get("/deals", authenticate, getDeals);
-router.post("/deals", authenticate, createDeal);
-router.put("/deals/:id", authenticate, updateDeal);
-router.delete("/deals/:id", authenticate, deleteDeal);
+// ===============================
+// DEAL ROUTES
+// ===============================
+router.get("/deals", getDeals);
+router.post("/deals", createDeal);
+router.put("/deals/:id", updateDeal);
+router.delete("/deals/:id", deleteDeal);
 
-// Employee deals (only their own)
-router.get("/emp-deals", authenticate, getEmployeeDeals);
+// ===============================
+// EMPLOYEE DEALS
+// ===============================
+router.get("/emp-deals", getEmployeeDeals);
 
-// ================= INDUSTRY =================
+// ===============================
+// MASTER DATA (GENERIC)
+// ===============================
+// Supported types:
+// - industries
+// - lead-types
+// - deal-status
+// - events
+// - associations
 
-router.get("/industries", authenticate, (req, res) =>
-  getMasters({ ...req, params: { type: "industries" } }, res),
-);
-
-router.post("/industries", authenticate, (req, res) =>
-  createMaster({ ...req, params: { type: "industries" } }, res),
-);
-
-router.delete("/industries/:id", authenticate, (req, res) =>
-  deleteMaster(
-    { ...req, params: { type: "industries", id: req.params.id } },
-    res,
-  ),
-);
-
-// ================= LEAD TYPES =================
-
-router.get("/lead-types", authenticate, (req, res) =>
-  getMasters({ ...req, params: { type: "lead-types" } }, res),
-);
-
-router.post("/lead-types", authenticate, (req, res) =>
-  createMaster({ ...req, params: { type: "lead-types" } }, res),
-);
-
-router.delete("/lead-types/:id", authenticate, (req, res) =>
-  deleteMaster(
-    { ...req, params: { type: "lead-types", id: req.params.id } },
-    res,
-  ),
-);
-
-// ================= DEAL STATUS =================
-
-router.get("/deal-status", authenticate, (req, res) =>
-  getMasters({ ...req, params: { type: "deal-status" } }, res),
-);
-
-router.post("/deal-status", authenticate, (req, res) =>
-  createMaster({ ...req, params: { type: "deal-status" } }, res),
-);
-
-router.delete("/deal-status/:id", authenticate, (req, res) =>
-  deleteMaster(
-    { ...req, params: { type: "deal-status", id: req.params.id } },
-    res,
-  ),
-);
+router.get("/masters/:type", getMasters);
+router.post("/masters/:type", createMaster);
+router.delete("/masters/:type/:id", deleteMaster);
 
 export default router;

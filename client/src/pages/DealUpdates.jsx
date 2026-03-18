@@ -9,13 +9,16 @@ const DealUpdates = () => {
   const [activeTab, setActiveTab] = useState("analytics");
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false); // ✅ separate save state
+  const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
   const [deals, setDeals] = useState([]);
   const [industries, setIndustries] = useState([]);
   const [leadTypes, setLeadTypes] = useState([]);
   const [dealStatuses, setDealStatuses] = useState([]);
+  // 🔹 STEP 1 — ADD NEW STATES
+  const [events, setEvents] = useState([]);
+  const [associations, setAssociations] = useState([]);
 
   const [showManualPopup, setShowManualPopup] = useState(false);
 
@@ -24,17 +27,25 @@ const DealUpdates = () => {
     manualAgentId: ""
   });
 
+  // 🔹 STEP 2 — UPDATE formData
   const [formData, setFormData] = useState({
     clientEmail: "",
     industry: "",
+    industryId: "",
+    eventId: "",
+    associationId: "",
     leadType: "",
     dealStatus: "",
     month: "",
     year: "",
   });
 
+  // 🔹 STEP 3 — UPDATE filters
   const [filters, setFilters] = useState({
     industry: "",
+    industryId: "",
+    eventId: "",
+    associationId: "",
     leadType: "",
     dealStatus: "",
     month: "",
@@ -70,12 +81,27 @@ const DealUpdates = () => {
 
       const queryParams = new URLSearchParams();
       Object.entries(filters).forEach(([key, value]) => {
-        if (value) queryParams.append(key, value);
+        if (
+          value !== undefined &&
+          value !== null &&
+          value !== "" &&
+          value !== "undefined" &&
+          value !== "null"
+        ) {
+          queryParams.append(key, value);
+        }
       });
 
-      const res = await fetch(`${API_BASE}/deals?${queryParams.toString()}`, {
-        headers: getAuthHeaders(),
-      });
+      const queryString = queryParams.toString();
+
+      const res = await fetch(
+        queryString
+          ? `${API_BASE}/deals?${queryString}`
+          : `${API_BASE}/deals`,
+        {
+          headers: getAuthHeaders(),
+        }
+      );
 
       if (!res.ok) {
         if (res.status === 401) {
@@ -109,15 +135,20 @@ const DealUpdates = () => {
       }
     };
 
-    const [i, l, s] = await Promise.all([
-      request(`${API_BASE}/industries`),
-      request(`${API_BASE}/lead-types`),
-      request(`${API_BASE}/deal-status`),
+    // 🔹 STEP 4 — FETCH EVENTS & ASSOCIATIONS
+    const [i, l, s, e, a] = await Promise.all([
+      request(`${API_BASE}/masters/industries`),
+      request(`${API_BASE}/masters/lead-types`),
+      request(`${API_BASE}/masters/deal-status`),
+      request(`${API_BASE}/masters/events`),
+      request(`${API_BASE}/masters/associations`),
     ]);
 
     setIndustries(i);
     setLeadTypes(l);
     setDealStatuses(s);
+    setEvents(e);
+    setAssociations(a);
   };
 
   const handleSaveDeal = async (e) => {
@@ -164,9 +195,13 @@ const DealUpdates = () => {
         setShowForm(false);
         setManualAgent({ manualAgentName: "", manualAgentId: "" });
 
+        // 🔹 STEP 5 — RESET FORM AFTER SAVE
         setFormData({
           clientEmail: "",
           industry: "",
+          industryId: "",
+          eventId: "",
+          associationId: "",
           leadType: "",
           dealStatus: "",
           month: "",
@@ -202,7 +237,7 @@ const DealUpdates = () => {
   const handleAddMaster = async () => {
     if (!newMaster.value.trim()) return;
 
-    const res = await fetch(`${API_BASE}/${newMaster.type}`, {
+    const res = await fetch(`${API_BASE}/masters/${newMaster.type}`, {
       method: "POST",
       headers: getAuthHeaders(),
       body: JSON.stringify({ name: newMaster.value }),
@@ -221,7 +256,7 @@ const DealUpdates = () => {
   const handleDeleteMaster = async (type, id) => {
     if (!window.confirm("Delete this item?")) return;
 
-    const res = await fetch(`${API_BASE}/${type}/${id}`, {
+    const res = await fetch(`${API_BASE}/masters/${type}/${id}`, {
       method: "DELETE",
       headers: getAuthHeaders(),
     });
@@ -298,9 +333,12 @@ const DealUpdates = () => {
 
         {activeTab === "deals" && (
           <div className="space-y-6">
+            {/* 🔹 STEP 6 — PASS DATA TO DealsTab */}
             <DealsTab
               deals={deals}
               industries={industries}
+              events={events}
+              associations={associations}
               dealStatuses={dealStatuses}
               leadTypes={leadTypes}
               formData={formData}
@@ -314,7 +352,7 @@ const DealUpdates = () => {
               handleSaveDeal={handleSaveDeal}
               handleDeleteDeal={handleDeleteDeal}
               loading={loading}
-              saving={saving} // ✅ passed down
+              saving={saving}
             />
           </div>
         )}
@@ -328,8 +366,11 @@ const DealUpdates = () => {
                 </h2>
               </div>
               <div className="p-6">
+                {/* 🔹 STEP 7 — PASS DATA TO DealSettings */}
                 <DealSettings
                   industries={industries}
+                  events={events}
+                  associations={associations}
                   leadTypes={leadTypes}
                   dealStatuses={dealStatuses}
                   newMaster={newMaster}
@@ -339,7 +380,6 @@ const DealUpdates = () => {
                 />
               </div>
             </div>
-
           </div>
         )}
 

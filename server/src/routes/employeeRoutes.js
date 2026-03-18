@@ -2,6 +2,7 @@
 import express from "express";
 import { PrismaClient } from "@prisma/client";
 import { fromZonedTime } from "date-fns-tz";
+import { authenticate } from "../middlewares/auth.js";
 
 import {
   getUSADateTime,
@@ -50,7 +51,7 @@ function getUSAMonthRange() {
    ✅ GET /api/employees
    Fetch employees with daily/monthly leads + qualified/disqualified counts
    =========================================================== */
-router.get("/", async (req, res) => {
+router.get("/", authenticate, async (req, res) => {
   try {
     const employees = await prisma.employee.findMany({
       where: {

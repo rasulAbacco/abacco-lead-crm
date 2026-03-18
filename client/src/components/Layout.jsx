@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
+import axios from "axios";
 import {
   LayoutDashboard,
   FileText,
@@ -19,6 +20,7 @@ import {
   Database,
   UserStar,
   Handshake,
+  ShieldUser,
 } from "lucide-react";
 
 const getRole = () => localStorage.getItem("role")?.toLowerCase();
@@ -33,23 +35,46 @@ function Layout({ children }) {
 
   const isActive = (path) => location.pathname === path;
 
+  const handleLogout = async () => {
+    console.log("Logout button clicked");
+
+    try {
+      const token = localStorage.getItem("token");
+
+      await axios.post(
+        `${import.meta.env.VITE_API_BASE_URL}/api/auth/logout`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+    } catch (error) {
+      console.error("Logout API error:", error);
+    } finally {
+      localStorage.removeItem("role");
+      localStorage.removeItem("token");
+      localStorage.removeItem("fullName");
+
+      window.location.href = "/";
+    }
+  };
   const NavLink = ({ to, icon: Icon, label }) => (
     <Link
       to={to}
-      className={`group flex items-center ${
-        isExpanded ? "gap-3 px-4" : "justify-center px-0"
-      } py-3 rounded-xl transition-all duration-300 ${
-        isActive(to)
+      className={`group flex items-center ${isExpanded ? "gap-3 px-4" : "justify-center px-0"
+        } py-3 rounded-xl transition-all duration-300 ${isActive(to)
           ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/30"
           : "text-gray-700 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 hover:text-indigo-600"
-      }`}
+        }`}
     >
       <Icon
-        className={`w-5 h-5 flex-shrink-0 ${
-          isActive(to)
-            ? "text-white"
-            : "text-gray-500 group-hover:text-indigo-600"
-        }`}
+        className={`w-5 h-5 flex-shrink-0 ${isActive(to)
+          ? "text-white"
+          : "text-gray-500 group-hover:text-indigo-600"
+          }`}
       />
       {/* Only show text when expanded */}
       {isExpanded && <span className="font-medium flex-1">{label}</span>}
@@ -64,9 +89,8 @@ function Layout({ children }) {
           ref={sidebarRef}
           onMouseEnter={() => setIsExpanded(true)}
           onMouseLeave={() => setIsExpanded(false)}
-          className={`${
-            isExpanded ? "w-64" : "w-20"
-          } h-screen bg-white flex flex-col shadow-xl fixed left-0 top-0 transition-all duration-300 ease-in-out overflow-hidden z-50 border-r border-gray-200`}
+          className={`${isExpanded ? "w-64" : "w-20"
+            } h-screen bg-white flex flex-col shadow-xl fixed left-0 top-0 transition-all duration-300 ease-in-out overflow-hidden z-50 border-r border-gray-200`}
         >
           {/* Header */}
           <div className="p-2 py-3 border-b border-gray-100 flex items-center justify-center gap-3">
@@ -99,24 +123,22 @@ function Layout({ children }) {
 
           {/* User Info */}
           <div
-            className={`p-4 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-purple-50 flex items-center ${
-              isExpanded ? "gap-3" : "justify-center"
-            }`}
+            className={`p-4 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-purple-50 flex items-center ${isExpanded ? "gap-3" : "justify-center"
+              }`}
           >
             <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg">
               {role === "admin"
                 ? "A"
                 : localStorage.getItem("fullName")?.charAt(0).toUpperCase() ||
-                  "E"}
+                "E"}
             </div>
             {isExpanded && (
               <div className="flex-1">
                 <p className="font-semibold text-gray-900 capitalize">
                   {role === "admin"
                     ? "Welcome Admin"
-                    : `Welcome ${
-                        localStorage.getItem("fullName") || "Employee"
-                      }`}
+                    : `Welcome ${localStorage.getItem("fullName") || "Employee"
+                    }`}
                 </p>
                 <p className="text-xs text-gray-600">
                   {role === "admin" ? "Administrator" : "Abacco Technology"}
@@ -189,6 +211,16 @@ function Layout({ children }) {
                   label="Set Targets"
                 />
                 <NavLink
+                  to="/admin/login-history"
+                  icon={ShieldUser}
+                  label="Login History"
+                />
+                <NavLink
+                  to="/admin/allowed-ips"
+                  icon={ShieldUser}
+                  label="Allowed IPs"
+                />
+                <NavLink
                   to="/admin-email-domains"
                   icon={Database}
                   label="Email Domains"
@@ -214,15 +246,9 @@ function Layout({ children }) {
           {/* Footer */}
           <div className="p-4 border-t border-gray-100">
             <button
-              onClick={() => {
-                localStorage.removeItem("role");
-                localStorage.removeItem("token");
-                localStorage.removeItem("fullName");
-                window.location.href = "/";
-              }}
-              className={`w-full flex items-center ${
-                isExpanded ? "justify-center gap-2" : "justify-center"
-              } bg-gradient-to-r from-red-500 to-red-600 text-white py-3 rounded-xl hover:from-red-600 hover:to-red-700 transition-all duration-300 shadow-lg hover:shadow-xl font-medium`}
+              onClick={handleLogout}
+              className={`w-full flex items-center ${isExpanded ? "justify-center gap-2" : "justify-center"
+                } bg-gradient-to-r from-red-500 to-red-600 text-white py-3 rounded-xl hover:from-red-600 hover:to-red-700 transition-all duration-300 shadow-lg hover:shadow-xl font-medium`}
             >
               <LogOut className="w-5 h-5" />
               {isExpanded && "Logout"}
@@ -233,9 +259,8 @@ function Layout({ children }) {
 
       {/* Main content */}
       <main
-        className={`flex-1 overflow-y-auto ${
-          !hideSidebar ? (isExpanded ? "ml-64" : "ml-20") : ""
-        }`}
+        className={`flex-1 overflow-y-auto ${!hideSidebar ? (isExpanded ? "ml-64" : "ml-20") : ""
+          }`}
       >
         {children}
       </main>

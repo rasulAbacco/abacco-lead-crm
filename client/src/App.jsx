@@ -1,6 +1,6 @@
 import React from "react";
 import { Routes, Route } from "react-router-dom";
-
+import axios from "axios";
 import LeadForm from "./pages/LeadForm";
 import EmployeeDashboard from "./pages/EmployeeDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -31,10 +31,52 @@ import SalesEmployee from "./pages/SalesEmployee";
 import AdminEmailDomains from "./pages/AdminEmailDomains";
 import DealUpdates from "./pages/DealUpdates";
 import EmpDealReport from "./pages/EmpDealReport";
-
+import LoginHistory from "./pages/admin/LoginHistory";
+import AllowedIPs from "./pages/admin/AllowedIPs";
 const MAINTENANCE_MODE = false;
 
 
+axios.defaults.baseURL = `${import.meta.env.VITE_API_BASE_URL}/api`;
+
+axios.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  return config;
+});
+
+
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const url = error.config?.url || "";
+
+    // Skip auth endpoints
+    if (
+      url.includes("/login") ||
+      url.includes("/verify-otp") ||
+      url.includes("/resend-otp")
+    ) {
+      return Promise.reject(error);
+    }
+
+    if (error.response?.status === 401) {
+      console.warn("Session expired");
+
+      localStorage.clear();
+
+      // prevent redirect loop
+      if (window.location.pathname !== "/") {
+        window.location.href = "/";
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
 function App() {
   if (MAINTENANCE_MODE) {
     return <Maintenance />;
@@ -131,6 +173,26 @@ function App() {
             <Layout>
               <ProtectedRoute role="admin">
                 <Reports />
+              </ProtectedRoute>
+            </Layout>
+          }
+        />
+        <Route
+          path="/admin/login-history"
+          element={
+            <Layout>
+              <ProtectedRoute role="admin">
+                <LoginHistory />
+              </ProtectedRoute>
+            </Layout>
+          }
+        />
+        <Route
+          path="/admin/allowed-ips"
+          element={
+            <Layout>
+              <ProtectedRoute role="admin">
+                <AllowedIPs />
               </ProtectedRoute>
             </Layout>
           }
