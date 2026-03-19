@@ -22,10 +22,18 @@ export default function AdminDashboard() {
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/employees`);
+        const token = localStorage.getItem("token"); // or wherever you store it
+
+        const res = await fetch(`${API_BASE_URL}/api/employees`, {
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json"
+          }
+        });
+
         if (!res.ok) throw new Error("Network response was not ok");
+
         const data = await res.json();
-        // console.log("Fetched employees:", data);
         setEmployees(data);
       } catch (err) {
         console.error("Failed to fetch employees:", err);
@@ -33,6 +41,7 @@ export default function AdminDashboard() {
         setLoading(false);
       }
     };
+
     fetchEmployees();
   }, []);
 
