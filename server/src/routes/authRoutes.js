@@ -261,7 +261,7 @@ router.post("/login", async (req, res) => {
       message: "Login not allowed from this network.",
     });
   }
-  
+
   if (!email || !password) {
     return res
       .status(400)
@@ -391,7 +391,8 @@ router.post("/login", async (req, res) => {
       to: email,
       from: process.env.EMAIL_FROM,
       subject: "Your Login Code — Abacco Technology",
-      text: `Your login verification code is: ${generatedOtp}.`,
+      text: `Your login verification code is: ${generatedOtp}.`, // fallback
+      html: otpEmailHtml(generatedOtp, user.role), // 👈 use your template
     });
 
     return res.json({
