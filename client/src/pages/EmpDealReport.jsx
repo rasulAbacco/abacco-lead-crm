@@ -29,6 +29,43 @@ const EmpDealReport = () => {
     };
   };
 
+  // 🔹 STEP 8 — DISABLE COPY/PASTE/CONTEXT MENU
+
+  useEffect(() => {
+    const disableCopy = (e) => {
+      e.preventDefault();
+    };
+
+    document.addEventListener("copy", disableCopy);
+    document.addEventListener("cut", disableCopy);
+    document.addEventListener("contextmenu", disableCopy);
+
+    return () => {
+      document.removeEventListener("copy", disableCopy);
+      document.removeEventListener("cut", disableCopy);
+      document.removeEventListener("contextmenu", disableCopy);
+    };
+  }, []);
+
+
+  // Additional keyboard shortcuts (Ctrl/Cmd + C/X/U)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        (e.key === "c" || e.key === "x" || e.key === "u")
+      ) {
+        e.preventDefault();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+  
   // ✅ STEP 5 — KEEP useEffect SAME
   useEffect(() => {
     const controller = new AbortController();
@@ -99,8 +136,8 @@ const EmpDealReport = () => {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${activeTab === tab.id
-                      ? "bg-white text-indigo-600 shadow-sm"
-                      : "text-slate-500 hover:text-slate-700"
+                    ? "bg-white text-indigo-600 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700"
                     }`}
                 >
                   {tab.label}
