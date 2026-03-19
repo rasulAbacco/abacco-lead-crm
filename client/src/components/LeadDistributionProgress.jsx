@@ -16,6 +16,8 @@ const DonutChart = ({
   const r = (size - strokeWidth) / 2;
   const holeR = r * holeRatio;
 
+
+
   if (total === 0) {
     return (
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
@@ -230,7 +232,8 @@ const LeadDistributionProgress = ({ leads, employeeTarget, apiBase }) => {
       leadDate.getFullYear() === currentYear
     );
   });
-
+  const normalizeType = (type) =>
+    (type || "").toLowerCase().trim();
   useEffect(() => {
     const fetchDistribution = async () => {
       try {
@@ -249,21 +252,21 @@ const LeadDistributionProgress = ({ leads, employeeTarget, apiBase }) => {
   if (!distribution) return null;
 
   /* ── Count Leads ── */
-  const associationLeads = monthlyLeads.filter((l) =>
-    (l.leadType || "").toLowerCase().includes("association"),
+  const associationLeads = monthlyLeads.filter(
+    (l) => normalizeType(l.leadType) === "association"
   ).length;
 
-  const attendeesLeads = monthlyLeads.filter((l) =>
-    (l.leadType || "").toLowerCase().includes("attendee"),
+  const attendeesLeads = monthlyLeads.filter(
+    (l) => normalizeType(l.leadType) === "attendees"
   ).length;
 
-  const industryLeads = monthlyLeads.filter((l) =>
-    (l.leadType || "").toLowerCase().includes("industry"),
-  ).length;
-  const memberAttendeesLeads = monthlyLeads.filter((l) =>
-    (l.leadType || "").toLowerCase().includes("member"),
+  const industryLeads = monthlyLeads.filter(
+    (l) => normalizeType(l.leadType) === "industry"
   ).length;
 
+  const memberAttendeesLeads = monthlyLeads.filter(
+    (l) => normalizeType(l.leadType) === "member attendees"
+  ).length;
   /* ── Targets ── */
   const associationTarget = Math.round(
     (employeeTarget * distribution.associationPercent) / 100,
