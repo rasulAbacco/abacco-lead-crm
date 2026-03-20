@@ -250,23 +250,23 @@ const LeadDistributionProgress = ({ leads, employeeTarget, apiBase }) => {
   }, [apiBase, employeeId]);
 
   if (!distribution) return null;
-
-  /* ── Count Leads ── */
   const associationLeads = monthlyLeads.filter(
-    (l) => normalizeType(l.leadType) === "association"
+    (l) => normalizeType(l.leadType).includes("association")
   ).length;
 
   const attendeesLeads = monthlyLeads.filter(
-    (l) => normalizeType(l.leadType) === "attendees"
+    (l) => normalizeType(l.leadType).includes("attendees") &&
+      !normalizeType(l.leadType).includes("member")
   ).length;
 
   const industryLeads = monthlyLeads.filter(
-    (l) => normalizeType(l.leadType) === "industry"
+    (l) => normalizeType(l.leadType).includes("industry")
   ).length;
 
   const memberAttendeesLeads = monthlyLeads.filter(
-    (l) => normalizeType(l.leadType) === "member attendees"
+    (l) => normalizeType(l.leadType).includes("member attendees")
   ).length;
+
   /* ── Targets ── */
   const associationTarget = Math.round(
     (employeeTarget * distribution.associationPercent) / 100,
