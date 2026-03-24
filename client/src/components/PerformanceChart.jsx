@@ -43,8 +43,8 @@ export default function PerformanceChart({ employees, performanceData, setSelect
 
   useEffect(() => {
     const dailyData = employees.map((emp) => ({
-      id: emp.employeeId || "N/A",
-      name: emp.name || "Unknown",
+      id: emp.employeeId || emp.id, // ✅ FIX
+      name: emp.fullName || emp.name,
       leads: emp.dailyLeads || 0,
     }));
     setTodayLeads(dailyData);
@@ -52,8 +52,8 @@ export default function PerformanceChart({ employees, performanceData, setSelect
 
   useEffect(() => {
     const enrichedData = performanceData.map(emp => {
-      const empData = employees.find(e =>
-        e.employeeId === emp.employeeId || e.id === emp.employeeId
+      const empData = employees.find(
+        (e) => String(e.employeeId || e.id) === String(emp.employeeId),
       );
 
       const total = emp.leads || emp.monthlyLeads || 0;

@@ -26,9 +26,9 @@ export default function AdminDashboard() {
 
         const res = await fetch(`${API_BASE_URL}/api/employees`, {
           headers: {
-            "Authorization": `Bearer ${token}`,
-            "Content-Type": "application/json"
-          }
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         });
 
         if (!res.ok) throw new Error("Network response was not ok");
@@ -50,7 +50,7 @@ export default function AdminDashboard() {
   }
 
   const totalMonthlyLeads = employees.reduce(
-    (sum, emp) => sum + emp.monthlyLeads,
+    (sum, emp) => sum + Number(emp.monthlyLeads || 0),
     0,
   );
   const avgLeads = employees.length
@@ -82,7 +82,7 @@ export default function AdminDashboard() {
   const performanceData = employees.map((emp) => ({
     employeeId: emp.employeeId,
     name: emp.fullName || emp.name,
-    leads: emp.monthlyLeads || emp.leads || 0,
+    leads: Number(emp.monthlyLeads || 0),
     target: emp.target || 0,
     qualifiedLeads: emp.qualifiedLeads || 0,
     disqualifiedLeads: emp.disqualifiedLeads || 0,
