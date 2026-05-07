@@ -1,10 +1,12 @@
+//components/deals/DealsTab.jsx
+
 import React, { useRef } from "react";
 
 const DealsTab = ({
   deals,
   industries,
-  events,          // ✅ STEP 1: NEW PROP
-  associations,    // ✅ STEP 1: NEW PROP
+  events,
+  associations,
   dealStatuses,
   leadTypes,
   formData,
@@ -19,6 +21,8 @@ const DealsTab = ({
   handleDeleteDeal,
   loading,
   saving,
+  handleBulkUpload, // ✅ STEP 1: ADDED PROP
+  uploading, // ✅ STEP 1: ADDED PROP
 }) => {
   const currentYear = new Date().getFullYear();
   const years = Array.from(
@@ -27,6 +31,7 @@ const DealsTab = ({
   );
 
   const formRef = useRef(null);
+  const fileInputRef = useRef(null); // ✅ STEP 2: ADDED REF
 
   const monthShort = [
     { value: "1", label: "Jan" },
@@ -63,13 +68,15 @@ const DealsTab = ({
 
   const getStatusStyle = (status) => {
     const s = status?.toLowerCase();
-    if (s?.includes("deal")) return "bg-emerald-50 text-emerald-700 border-emerald-100";
-    if (s?.includes("lost") || s?.includes("cancel")) return "bg-rose-50 text-rose-700 border-rose-100";
-    if (s?.includes("pending")) return "bg-amber-50 text-amber-700 border-amber-100";
+    if (s?.includes("deal"))
+      return "bg-emerald-50 text-emerald-700 border-emerald-100";
+    if (s?.includes("lost") || s?.includes("cancel"))
+      return "bg-rose-50 text-rose-700 border-rose-100";
+    if (s?.includes("pending"))
+      return "bg-amber-50 text-amber-700 border-amber-100";
     return "bg-slate-50 text-slate-700 border-slate-100";
   };
 
-  // ✅ STEP 2: FIX EDIT MODE - Ensures IDs are mapped for the selects
   const handleEditClick = (deal) => {
     setFormData({
       ...deal,
@@ -100,7 +107,6 @@ const DealsTab = ({
           </div>
 
           <form onSubmit={handleSaveDeal} className="p-6">
-            {/* ✅ STEP 3: UPDATED GRID TO lg:grid-cols-5 */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5">
               <div className="flex flex-col gap-1.5">
                 <label className="text-[11px] font-bold text-slate-500 uppercase ml-1">
@@ -111,7 +117,9 @@ const DealsTab = ({
                   placeholder="name@company.com"
                   required
                   value={formData.clientEmail || ""}
-                  onChange={(e) => setFormData({ ...formData, clientEmail: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, clientEmail: e.target.value })
+                  }
                   className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
                 />
               </div>
@@ -123,46 +131,56 @@ const DealsTab = ({
                 <select
                   required
                   value={formData.industry || ""}
-                  onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, industry: e.target.value })
+                  }
                   className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 appearance-none cursor-pointer"
                 >
                   <option value="">Select Industry</option>
                   {industries.map((i) => (
-                    <option key={i.id} value={i.name}>{i.name}</option>
+                    <option key={i.id} value={i.name}>
+                      {i.name}
+                    </option>
                   ))}
                 </select>
               </div>
 
-              {/* ✅ STEP 3: EVENT DROPDOWN */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-[11px] font-bold text-slate-500 uppercase ml-1">
                   Event
                 </label>
                 <select
                   value={formData.eventId || ""}
-                  onChange={(e) => setFormData({ ...formData, eventId: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, eventId: e.target.value })
+                  }
                   className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 appearance-none cursor-pointer"
                 >
                   <option value="">Select Event</option>
                   {events.map((e) => (
-                    <option key={e.id} value={e.id}>{e.name}</option>
+                    <option key={e.id} value={e.id}>
+                      {e.name}
+                    </option>
                   ))}
                 </select>
               </div>
 
-              {/* ✅ STEP 3: ASSOCIATION DROPDOWN */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-[11px] font-bold text-slate-500 uppercase ml-1">
                   Association
                 </label>
                 <select
                   value={formData.associationId || ""}
-                  onChange={(e) => setFormData({ ...formData, associationId: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, associationId: e.target.value })
+                  }
                   className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 appearance-none cursor-pointer"
                 >
                   <option value="">Select Association</option>
                   {associations.map((a) => (
-                    <option key={a.id} value={a.id}>{a.name}</option>
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -174,12 +192,16 @@ const DealsTab = ({
                 <select
                   required
                   value={formData.leadType || ""}
-                  onChange={(e) => setFormData({ ...formData, leadType: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, leadType: e.target.value })
+                  }
                   className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 appearance-none cursor-pointer"
                 >
                   <option value="">Select Type</option>
                   {leadTypes.map((l) => (
-                    <option key={l.id} value={l.name}>{l.name}</option>
+                    <option key={l.id} value={l.name}>
+                      {l.name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -193,12 +215,16 @@ const DealsTab = ({
                 <select
                   required
                   value={formData.dealStatus || ""}
-                  onChange={(e) => setFormData({ ...formData, dealStatus: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, dealStatus: e.target.value })
+                  }
                   className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 appearance-none cursor-pointer"
                 >
                   <option value="">Set Status</option>
                   {dealStatuses.map((s) => (
-                    <option key={s.id} value={s.name}>{s.name}</option>
+                    <option key={s.id} value={s.name}>
+                      {s.name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -210,12 +236,19 @@ const DealsTab = ({
                 <select
                   required
                   value={formData.month || ""}
-                  onChange={(e) => setFormData({ ...formData, month: e.target.value ? Number(e.target.value) : "" })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      month: e.target.value ? Number(e.target.value) : "",
+                    })
+                  }
                   className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm appearance-none cursor-pointer"
                 >
                   <option value="">Select Month</option>
                   {months.map((m) => (
-                    <option key={m.value} value={m.value}>{m.label}</option>
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -227,12 +260,19 @@ const DealsTab = ({
                 <select
                   required
                   value={formData.year || ""}
-                  onChange={(e) => setFormData({ ...formData, year: e.target.value ? Number(e.target.value) : "" })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      year: e.target.value ? Number(e.target.value) : "",
+                    })
+                  }
                   className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm appearance-none cursor-pointer"
                 >
                   <option value="">Select Year</option>
                   {years.map((y) => (
-                    <option key={y} value={y}>{y}</option>
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -257,12 +297,43 @@ const DealsTab = ({
                     <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                     {editingId ? "Updating..." : "Saving..."}
                   </>
-                ) : editingId ? "Update Transaction" : "Save Entry"}
+                ) : editingId ? (
+                  "Update Transaction"
+                ) : (
+                  "Save Entry"
+                )}
               </button>
             </div>
           </form>
         </div>
       )}
+
+      {/* ✅ STEP 3: BULK UPLOAD BUTTON SECTION */}
+      <div className="flex items-center justify-end gap-3">
+        <input
+          type="file"
+          ref={fileInputRef}
+          accept=".xlsx,.xls,.csv"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+
+            if (file) {
+              handleBulkUpload(file);
+            }
+
+            e.target.value = "";
+          }}
+        />
+
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold transition-all disabled:opacity-60"
+        >
+          {uploading ? "Uploading..." : "Upload Excel"}
+        </button>
+      </div>
 
       {/* ================= FILTER BAR ================= */}
       <div className="bg-white border border-slate-200 p-2 rounded-2xl shadow-sm">
@@ -271,7 +342,6 @@ const DealsTab = ({
             Filters
           </div>
 
-          {/* ✅ STEP 4: UPDATED FILTER LIST */}
           {[
             {
               label: "All Industries",
@@ -286,7 +356,10 @@ const DealsTab = ({
             {
               label: "All Associations",
               key: "associationId",
-              options: associations.map((a) => ({ label: a.name, value: a.id })),
+              options: associations.map((a) => ({
+                label: a.name,
+                value: a.id,
+              })),
             },
             {
               label: "All Lead Types",
@@ -302,11 +375,12 @@ const DealsTab = ({
             <select
               key={filter.key}
               value={filters[filter.key] || ""}
-              onChange={(e) => setFilters({ ...filters, [filter.key]: e.target.value })}
+              onChange={(e) =>
+                setFilters({ ...filters, [filter.key]: e.target.value })
+              }
               className="bg-slate-50 border-none rounded-lg px-4 py-2 text-xs font-semibold text-slate-600 focus:ring-2 focus:ring-indigo-500/10 cursor-pointer hover:bg-slate-100 transition-colors"
             >
               <option value="">{filter.label}</option>
-              {/* ✅ STEP 4: UPDATED SELECT RENDER */}
               {filter.options.map((opt) => (
                 <option
                   key={typeof opt === "object" ? opt.value : opt}
@@ -321,12 +395,16 @@ const DealsTab = ({
           <div className="flex items-center gap-1 bg-slate-50 rounded-lg px-2">
             <select
               value={filters.month || ""}
-              onChange={(e) => setFilters({ ...filters, month: e.target.value })}
+              onChange={(e) =>
+                setFilters({ ...filters, month: e.target.value })
+              }
               className="bg-transparent border-none text-xs font-semibold text-slate-600 focus:ring-0 py-2"
             >
               <option value="">Month</option>
               {monthShort.map((m) => (
-                <option key={m.value} value={m.value}>{m.label}</option>
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
               ))}
             </select>
             <div className="h-4 w-[1px] bg-slate-200" />
@@ -337,7 +415,9 @@ const DealsTab = ({
             >
               <option value="">Year</option>
               {years.map((y) => (
-                <option key={y} value={y}>{y}</option>
+                <option key={y} value={y}>
+                  {y}
+                </option>
               ))}
             </select>
           </div>
@@ -349,25 +429,24 @@ const DealsTab = ({
             filters.dealStatus ||
             filters.month ||
             filters.year) && (
-              <button
-                onClick={() =>
-                  // ✅ STEP 5: RESET FILTER FIX
-                  setFilters({
-                    industry: "",
-                    industryId: "",
-                    eventId: "",
-                    associationId: "",
-                    leadType: "",
-                    dealStatus: "",
-                    month: "",
-                    year: "",
-                  })
-                }
-                className="ml-auto px-4 py-2 text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors uppercase tracking-tight"
-              >
-                Reset Filters
-              </button>
-            )}
+            <button
+              onClick={() =>
+                setFilters({
+                  industry: "",
+                  industryId: "",
+                  eventId: "",
+                  associationId: "",
+                  leadType: "",
+                  dealStatus: "",
+                  month: "",
+                  year: "",
+                })
+              }
+              className="ml-auto px-4 py-2 text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors uppercase tracking-tight"
+            >
+              Reset Filters
+            </button>
+          )}
         </div>
       </div>
 
@@ -377,42 +456,77 @@ const DealsTab = ({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50/50">
-                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">Agent Name</th>
-                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">Agent Mail</th>
-                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">Industry</th>
-                {/* ✅ STEP 6: NEW HEADER COLUMNS */}
-                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">Event</th>
-                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">Association</th>
-                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">Type</th>
-                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">Status</th>
-                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">Period</th>
-                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100 text-right">Actions</th>
+                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">
+                  Agent Name
+                </th>
+                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">
+                  Agent Mail
+                </th>
+                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">
+                  Industry
+                </th>
+                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">
+                  Event
+                </th>
+                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">
+                  Association
+                </th>
+                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">
+                  Type
+                </th>
+                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">
+                  Status
+                </th>
+
+                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">
+                  Period
+                </th>
+                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100 text-right">
+                  Actions
+                </th>
               </tr>
             </thead>
 
             <tbody className="divide-y divide-slate-50">
               {deals.map((deal) => (
-                <tr key={deal.id} className="group hover:bg-slate-50/80 transition-all duration-150">
+                <tr
+                  key={deal.id}
+                  className="group hover:bg-slate-50/80 transition-all duration-150"
+                >
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700 font-semibold">
                     {deal.employee?.fullName || deal.manualAgentName || "—"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-semibold text-slate-900">{deal.clientEmail}</div>
+                    <div className="text-sm font-semibold text-slate-900">
+                      {deal.clientEmail}
+                    </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{deal.industry}</td>
-                  {/* ✅ STEP 6: NEW ROW DATA */}
-                  <td className="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">{deal.eventName || "—"}</td>
-                  <td className="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">{deal.associationName || "—"}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-xs font-medium text-slate-600 bg-slate-100 px-2 py-1 rounded">{deal.leadType}</span>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                    {deal.industry}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">
+                    {deal.eventName || "—"}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">
+                    {deal.associationName || "—"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`text-[10px] font-bold uppercase px-2.5 py-1 rounded-full border ${getStatusStyle(deal.dealStatus)}`}>
+                    <span className="text-xs font-medium text-slate-600 bg-slate-100 px-2 py-1 rounded">
+                      {deal.leadType}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span
+                      className={`text-[10px] font-bold uppercase px-2.5 py-1 rounded-full border ${getStatusStyle(deal.dealStatus)}`}
+                    >
                       {deal.dealStatus}
                     </span>
                   </td>
+
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                    {deal.month && deal.year ? `${getMonthLabel(deal.month)} ${deal.year}` : "—"}
+                    {deal.month && deal.year
+                      ? `${getMonthLabel(deal.month)} ${deal.year}`
+                      : "—"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
                     <div className="flex justify-end gap-3">
@@ -439,13 +553,17 @@ const DealsTab = ({
         {loading && (
           <div className="p-16 flex flex-col items-center justify-center gap-3">
             <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Synchronizing Data...</span>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+              Synchronizing Data...
+            </span>
           </div>
         )}
 
         {!loading && deals.length === 0 && (
           <div className="p-16 text-center">
-            <p className="text-sm text-slate-400 font-medium">No records found matching your criteria.</p>
+            <p className="text-sm text-slate-400 font-medium">
+              No records found matching your criteria.
+            </p>
           </div>
         )}
       </div>

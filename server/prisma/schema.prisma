@@ -309,6 +309,12 @@ model DealInfo {
   manualAgentId    String?
   manualAgentEmail String?
 
+  // ✅ NEW
+  agentResolved Boolean @default(false)
+
+  // ✅ NEW
+  customFields Json?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -318,6 +324,11 @@ model DealInfo {
   @@index([industryId])
   @@index([eventId])
   @@index([associationId])
+  @@index([agentResolved])
+  // ✅ OPTIONAL BUT RECOMMENDED
+  @@index([month, year])
+  // ✅ OPTIONAL BUT GOOD FOR FILTERING
+  @@index([dealStatus])
 }
 
 model IndustryMaster {

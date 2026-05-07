@@ -1,3 +1,4 @@
+// dealModule.controller.js
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -61,8 +62,7 @@ export const getDeals = async (req, res) => {
       eventName: deal.eventRef?.name || null,
       associationName: deal.associationRef?.name || null,
       agentName: deal.employee?.fullName || deal.manualAgentName || null,
-      agentEmployeeId:
-        deal.employee?.employeeId || deal.manualAgentId || null,
+      agentEmployeeId: deal.employee?.employeeId || deal.manualAgentId || null,
       agentEmail: deal.employee
         ? null
         : deal.manualAgentEmail || deal.clientEmail,
@@ -92,6 +92,7 @@ export const createDeal = async (req, res) => {
       year,
       manualAgentName,
       manualAgentId,
+      customFields,
     } = req.body;
 
     if (!clientEmail) {
@@ -114,11 +115,15 @@ export const createDeal = async (req, res) => {
       dealStatus,
       month: parseNullableInt(month),
       year: parseNullableInt(year),
+      customFields: customFields || {},
     };
 
+    // ✅ Employee found
     if (emailRecord) {
       dealData.employeeId = emailRecord.employeeId;
+      dealData.agentResolved = true;
     } else {
+      // ✅ Manual popup required only for single create
       if (!manualAgentName) {
         return res.status(400).json({
           message:
@@ -129,14 +134,230 @@ export const createDeal = async (req, res) => {
       dealData.manualAgentName = manualAgentName;
       dealData.manualAgentId = manualAgentId || null;
       dealData.manualAgentEmail = normalizedEmail;
+      dealData.agentResolved = true;
     }
 
-    const deal = await prisma.dealInfo.create({ data: dealData });
+    const deal = await prisma.dealInfo.create({
+      data: dealData,
+    });
 
     res.status(201).json(deal);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Failed to create deal" });
+  }
+};
+
+// ===============================
+// BULK UPLOAD DEALS
+// ===============================
+export const bulkUploadDeals = async (req, res) => {
+  try {
+    const { deals } = req.body;
+
+    if (!Array.isArray(deals) || deals.length === 0) {
+      return res.status(400).json({
+        message: "Deals array is required",
+      });
+    }
+
+    const createdDeals = [];
+    const unresolvedDeals = [];
+
+    for (const row of deals) {
+      const normalizedEmail = row.clientEmail?.toLowerCase().trim();
+
+      if (!normalizedEmail) continue;
+
+      // ===============================
+      // FIND EMPLOYEE
+      // ===============================
+      const emailRecord = await prisma.emailDomain.findFirst({
+        where: {
+          email: normalizedEmail,
+          isActive: true,
+        },
+      });
+
+      // ===============================
+      // INDUSTRY LOOKUP / CREATE
+      // ===============================
+      let industryId = null;
+
+      if (row.industry) {
+        const normalizedIndustry = row.industry.trim();
+
+        let industry = await prisma.industryMaster.findFirst({
+          where: {
+            name: {
+              equals: normalizedIndustry,
+              mode: "insensitive",
+            },
+          },
+        });
+
+        if (!industry) {
+          industry = await prisma.industryMaster.create({
+            data: {
+              name: normalizedIndustry,
+            },
+          });
+        }
+
+        industryId = industry.id;
+      }
+
+      // ===============================
+      // EVENT LOOKUP / CREATE
+      // ===============================
+      let eventId = null;
+
+      if (row.eventName && row.eventName !== "-") {
+        const normalizedEvent = row.eventName.trim();
+
+        let event = await prisma.eventMaster.findFirst({
+          where: {
+            name: {
+              equals: normalizedEvent,
+              mode: "insensitive",
+            },
+          },
+        });
+
+        if (!event) {
+          event = await prisma.eventMaster.create({
+            data: {
+              name: normalizedEvent,
+            },
+          });
+        }
+
+        eventId = event.id;
+      }
+
+      // ===============================
+      // ASSOCIATION LOOKUP / CREATE
+      // ===============================
+      let associationId = null;
+
+      if (row.associationName && row.associationName !== "-") {
+        const normalizedAssociation = row.associationName.trim();
+
+        let association = await prisma.associationMaster.findFirst({
+          where: {
+            name: {
+              equals: normalizedAssociation,
+              mode: "insensitive",
+            },
+          },
+        });
+
+        if (!association) {
+          association = await prisma.associationMaster.create({
+            data: {
+              name: normalizedAssociation,
+            },
+          });
+        }
+
+        associationId = association.id;
+      }
+
+      // ===============================
+      // CUSTOM FIELDS
+      // ===============================
+      const fixedFields = [
+        "clientEmail",
+        "industry",
+        "industryId",
+        "eventId",
+        "associationId",
+        "leadType",
+        "dealStatus",
+        "month",
+        "year",
+        "eventName",
+        "associationName",
+        "manualAgentName",
+      ];
+
+      const customFields = {};
+
+      Object.keys(row).forEach((key) => {
+        if (!fixedFields.includes(key)) {
+          customFields[key] = row[key];
+        }
+      });
+
+      // ===============================
+      // DEAL DATA
+      // ===============================
+      const dealData = {
+        clientEmail: normalizedEmail,
+
+        industry: row.industry || "",
+        industryId,
+
+        eventId,
+
+        associationId,
+
+        leadType: row.leadType || "",
+
+        dealStatus: row.dealStatus || "",
+
+        month: parseNullableInt(row.month),
+
+        year: parseNullableInt(row.year),
+
+        customFields,
+      };
+
+      // ===============================
+      // EMPLOYEE FOUND
+      // ===============================
+      if (emailRecord) {
+        dealData.employeeId = emailRecord.employeeId;
+        dealData.agentResolved = true;
+      } else {
+        // ===============================
+        // EXCEL AGENT FALLBACK
+        // ===============================
+        if (row.manualAgentName) {
+          dealData.manualAgentName = row.manualAgentName;
+
+          dealData.manualAgentEmail = normalizedEmail;
+
+          dealData.agentResolved = true;
+        } else {
+          // ===============================
+          // UNRESOLVED
+          // ===============================
+          dealData.agentResolved = false;
+
+          unresolvedDeals.push(normalizedEmail);
+        }
+      }
+
+      const created = await prisma.dealInfo.create({
+        data: dealData,
+      });
+
+      createdDeals.push(created);
+    }
+
+    res.status(201).json({
+      success: true,
+      totalUploaded: createdDeals.length,
+      unresolvedCount: unresolvedDeals.length,
+      unresolvedDeals,
+    });
+  } catch (error) {
+    console.error("Bulk upload error:", error);
+
+    res.status(500).json({
+      message: "Failed to upload deals",
+    });
   }
 };
 
@@ -159,14 +380,15 @@ export const updateDeal = async (req, res) => {
       year,
       manualAgentName,
       manualAgentId,
+      customFields,
     } = req.body;
 
     const normalizedEmail = clientEmail?.toLowerCase().trim();
 
     const emailRecord = normalizedEmail
       ? await prisma.emailDomain.findFirst({
-        where: { email: normalizedEmail, isActive: true },
-      })
+          where: { email: normalizedEmail, isActive: true },
+        })
       : null;
 
     let updateData = {
@@ -180,18 +402,23 @@ export const updateDeal = async (req, res) => {
       associationId: parseNullableInt(associationId),
       month: parseNullableInt(month),
       year: parseNullableInt(year),
+
+      ...(customFields && { customFields }),
     };
 
+    // ✅ Employee found
     if (emailRecord) {
       updateData.employeeId = emailRecord.employeeId;
       updateData.manualAgentName = null;
       updateData.manualAgentId = null;
       updateData.manualAgentEmail = null;
+      updateData.agentResolved = true;
     } else {
       updateData.employeeId = null;
       updateData.manualAgentName = manualAgentName || null;
       updateData.manualAgentId = manualAgentId || null;
       updateData.manualAgentEmail = normalizedEmail || null;
+      updateData.agentResolved = !!manualAgentName;
     }
 
     const deal = await prisma.dealInfo.update({

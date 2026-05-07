@@ -1,7 +1,9 @@
+// dealModule.routes.js
 import express from "express";
 import {
   getDeals,
   createDeal,
+  bulkUploadDeals,
   updateDeal,
   deleteDeal,
   getMasters,
@@ -21,8 +23,14 @@ router.use(authenticate);
 // DEAL ROUTES
 // ===============================
 router.get("/deals", getDeals);
+
 router.post("/deals", createDeal);
+
+// ✅ NEW BULK UPLOAD ROUTE
+router.post("/deals/bulk-upload", bulkUploadDeals);
+
 router.put("/deals/:id", updateDeal);
+
 router.delete("/deals/:id", deleteDeal);
 
 // ===============================
@@ -41,7 +49,9 @@ router.get("/emp-deals", getEmployeeDeals);
 // - associations
 
 router.get("/masters/:type", getMasters);
+
 router.post("/masters/:type", createMaster);
+
 router.delete("/masters/:type/:id", deleteMaster);
 
 export default router;
