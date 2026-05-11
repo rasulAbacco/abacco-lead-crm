@@ -22,7 +22,6 @@ import Domain from "./src/routes/Domain.js";
 import adminEmailDomains from "./src/routes/adminEmailDomains.js";
 import dealModuleRoutes from "./src/routes/dealModule.routes.js";
 
-
 console.log("🕐 Server time (UTC):", new Date().toISOString());
 console.log("🇺🇸 US (New York) time:", getUSADateTime());
 
@@ -45,7 +44,8 @@ app.use(
   }),
 );
 
-app.use(express.json());
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
 // Routes
 app.use("/api/auth", authRoutes);
