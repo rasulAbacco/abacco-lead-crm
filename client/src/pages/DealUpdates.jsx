@@ -145,7 +145,7 @@ const DealUpdates = () => {
       if (!res.ok) {
         if (res.status === 401) {
           localStorage.removeItem("token");
-          window.location.href = "/login";
+          window.location.href = "/";
           return;
         }
 
