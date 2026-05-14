@@ -21,17 +21,19 @@ const DealsTab = ({
   handleDeleteDeal,
   loading,
   saving,
-  handleBulkUpload, // ✅ STEP 1: ADDED PROP
-  uploading, // ✅ STEP 1: ADDED PROP
+  handleBulkUpload,
+  uploading,
 }) => {
   const currentYear = new Date().getFullYear();
+
   const years = Array.from(
     { length: currentYear + 1 - 2010 + 1 },
     (_, i) => currentYear + 1 - i,
   );
 
   const formRef = useRef(null);
-  const fileInputRef = useRef(null); // ✅ STEP 2: ADDED REF
+
+  const fileInputRef = useRef(null);
 
   const monthShort = [
     { value: "1", label: "Jan" },
@@ -68,12 +70,16 @@ const DealsTab = ({
 
   const getStatusStyle = (status) => {
     const s = status?.toLowerCase();
+
     if (s?.includes("deal"))
       return "bg-emerald-50 text-emerald-700 border-emerald-100";
+
     if (s?.includes("lost") || s?.includes("cancel"))
       return "bg-rose-50 text-rose-700 border-rose-100";
+
     if (s?.includes("pending"))
       return "bg-amber-50 text-amber-700 border-amber-100";
+
     return "bg-slate-50 text-slate-700 border-slate-100";
   };
 
@@ -86,10 +92,14 @@ const DealsTab = ({
     });
 
     setEditingId(deal.id);
+
     setShowForm(true);
 
     setTimeout(() => {
-      formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      formRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
     }, 50);
   };
 
@@ -97,7 +107,8 @@ const DealsTab = ({
     <div className="space-y-6">
       <div ref={formRef} />
 
-      {/* ================= FORM SECTION ================= */}
+      {/* FORM SECTION */}
+
       {showForm && (
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden animate-in fade-in zoom-in duration-200">
           <div className="px-6 py-4 border-b border-slate-50 bg-slate-50/30">
@@ -112,13 +123,17 @@ const DealsTab = ({
                 <label className="text-[11px] font-bold text-slate-500 uppercase ml-1">
                   Agent Email
                 </label>
+
                 <input
                   type="email"
                   placeholder="name@company.com"
                   required
                   value={formData.clientEmail || ""}
                   onChange={(e) =>
-                    setFormData({ ...formData, clientEmail: e.target.value })
+                    setFormData({
+                      ...formData,
+                      clientEmail: e.target.value,
+                    })
                   }
                   className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
                 />
@@ -128,15 +143,20 @@ const DealsTab = ({
                 <label className="text-[11px] font-bold text-slate-500 uppercase ml-1">
                   Industry
                 </label>
+
                 <select
                   required
                   value={formData.industry || ""}
                   onChange={(e) =>
-                    setFormData({ ...formData, industry: e.target.value })
+                    setFormData({
+                      ...formData,
+                      industry: e.target.value,
+                    })
                   }
                   className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 appearance-none cursor-pointer"
                 >
                   <option value="">Select Industry</option>
+
                   {industries.map((i) => (
                     <option key={i.id} value={i.name}>
                       {i.name}
@@ -149,14 +169,19 @@ const DealsTab = ({
                 <label className="text-[11px] font-bold text-slate-500 uppercase ml-1">
                   Event
                 </label>
+
                 <select
                   value={formData.eventId || ""}
                   onChange={(e) =>
-                    setFormData({ ...formData, eventId: e.target.value })
+                    setFormData({
+                      ...formData,
+                      eventId: e.target.value,
+                    })
                   }
                   className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 appearance-none cursor-pointer"
                 >
                   <option value="">Select Event</option>
+
                   {events.map((e) => (
                     <option key={e.id} value={e.id}>
                       {e.name}
@@ -169,14 +194,19 @@ const DealsTab = ({
                 <label className="text-[11px] font-bold text-slate-500 uppercase ml-1">
                   Association
                 </label>
+
                 <select
                   value={formData.associationId || ""}
                   onChange={(e) =>
-                    setFormData({ ...formData, associationId: e.target.value })
+                    setFormData({
+                      ...formData,
+                      associationId: e.target.value,
+                    })
                   }
                   className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 appearance-none cursor-pointer"
                 >
                   <option value="">Select Association</option>
+
                   {associations.map((a) => (
                     <option key={a.id} value={a.id}>
                       {a.name}
@@ -189,15 +219,20 @@ const DealsTab = ({
                 <label className="text-[11px] font-bold text-slate-500 uppercase ml-1">
                   Lead Type
                 </label>
+
                 <select
                   required
                   value={formData.leadType || ""}
                   onChange={(e) =>
-                    setFormData({ ...formData, leadType: e.target.value })
+                    setFormData({
+                      ...formData,
+                      leadType: e.target.value,
+                    })
                   }
                   className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 appearance-none cursor-pointer"
                 >
                   <option value="">Select Type</option>
+
                   {leadTypes.map((l) => (
                     <option key={l.id} value={l.name}>
                       {l.name}
@@ -212,15 +247,20 @@ const DealsTab = ({
                 <label className="text-[11px] font-bold text-slate-500 uppercase ml-1">
                   Status
                 </label>
+
                 <select
                   required
                   value={formData.dealStatus || ""}
                   onChange={(e) =>
-                    setFormData({ ...formData, dealStatus: e.target.value })
+                    setFormData({
+                      ...formData,
+                      dealStatus: e.target.value,
+                    })
                   }
                   className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 appearance-none cursor-pointer"
                 >
                   <option value="">Set Status</option>
+
                   {dealStatuses.map((s) => (
                     <option key={s.id} value={s.name}>
                       {s.name}
@@ -233,6 +273,7 @@ const DealsTab = ({
                 <label className="text-[11px] font-bold text-slate-500 uppercase ml-1">
                   Deal Month
                 </label>
+
                 <select
                   required
                   value={formData.month || ""}
@@ -245,6 +286,7 @@ const DealsTab = ({
                   className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm appearance-none cursor-pointer"
                 >
                   <option value="">Select Month</option>
+
                   {months.map((m) => (
                     <option key={m.value} value={m.value}>
                       {m.label}
@@ -257,6 +299,7 @@ const DealsTab = ({
                 <label className="text-[11px] font-bold text-slate-500 uppercase ml-1">
                   Deal Year
                 </label>
+
                 <select
                   required
                   value={formData.year || ""}
@@ -269,6 +312,7 @@ const DealsTab = ({
                   className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm appearance-none cursor-pointer"
                 >
                   <option value="">Select Year</option>
+
                   {years.map((y) => (
                     <option key={y} value={y}>
                       {y}
@@ -287,6 +331,7 @@ const DealsTab = ({
               >
                 Cancel
               </button>
+
               <button
                 type="submit"
                 disabled={saving}
@@ -295,6 +340,7 @@ const DealsTab = ({
                 {saving ? (
                   <>
                     <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+
                     {editingId ? "Updating..." : "Saving..."}
                   </>
                 ) : editingId ? (
@@ -308,7 +354,8 @@ const DealsTab = ({
         </div>
       )}
 
-      {/* ✅ STEP 3: BULK UPLOAD BUTTON SECTION */}
+      {/* BULK UPLOAD */}
+
       <div className="flex items-center justify-end gap-3">
         <input
           type="file"
@@ -335,7 +382,8 @@ const DealsTab = ({
         </button>
       </div>
 
-      {/* ================= FILTER BAR ================= */}
+      {/* FILTER BAR */}
+
       <div className="bg-white border border-slate-200 p-2 rounded-2xl shadow-sm">
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <div className="px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-widest border-r border-slate-100 mr-2">
@@ -348,11 +396,16 @@ const DealsTab = ({
               key: "industry",
               options: industries.map((i) => i.name),
             },
+
             {
               label: "All Events",
               key: "eventId",
-              options: events.map((e) => ({ label: e.name, value: e.id })),
+              options: events.map((e) => ({
+                label: e.name,
+                value: e.id,
+              })),
             },
+
             {
               label: "All Associations",
               key: "associationId",
@@ -361,11 +414,13 @@ const DealsTab = ({
                 value: a.id,
               })),
             },
+
             {
               label: "All Lead Types",
               key: "leadType",
               options: leadTypes.map((l) => l.name),
             },
+
             {
               label: "All Statuses",
               key: "dealStatus",
@@ -376,11 +431,16 @@ const DealsTab = ({
               key={filter.key}
               value={filters[filter.key] || ""}
               onChange={(e) =>
-                setFilters({ ...filters, [filter.key]: e.target.value })
+                setFilters({
+                  ...filters,
+                  [filter.key]: e.target.value,
+                  page: 1,
+                })
               }
               className="bg-slate-50 border-none rounded-lg px-4 py-2 text-xs font-semibold text-slate-600 focus:ring-2 focus:ring-indigo-500/10 cursor-pointer hover:bg-slate-100 transition-colors"
             >
               <option value="">{filter.label}</option>
+
               {filter.options.map((opt) => (
                 <option
                   key={typeof opt === "object" ? opt.value : opt}
@@ -396,24 +456,38 @@ const DealsTab = ({
             <select
               value={filters.month || ""}
               onChange={(e) =>
-                setFilters({ ...filters, month: e.target.value })
+                setFilters({
+                  ...filters,
+                  month: e.target.value,
+                  page: 1,
+                })
               }
               className="bg-transparent border-none text-xs font-semibold text-slate-600 focus:ring-0 py-2"
             >
               <option value="">Month</option>
+
               {monthShort.map((m) => (
                 <option key={m.value} value={m.value}>
                   {m.label}
                 </option>
               ))}
             </select>
+
             <div className="h-4 w-[1px] bg-slate-200" />
+
             <select
               value={filters.year || ""}
-              onChange={(e) => setFilters({ ...filters, year: e.target.value })}
+              onChange={(e) =>
+                setFilters({
+                  ...filters,
+                  year: e.target.value,
+                  page: 1,
+                })
+              }
               className="bg-transparent border-none text-xs font-semibold text-slate-600 focus:ring-0 py-2"
             >
               <option value="">Year</option>
+
               {years.map((y) => (
                 <option key={y} value={y}>
                   {y}
@@ -440,6 +514,8 @@ const DealsTab = ({
                   dealStatus: "",
                   month: "",
                   year: "",
+                  page: 1,
+                  limit: 20,
                 })
               }
               className="ml-auto px-4 py-2 text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors uppercase tracking-tight"
@@ -450,7 +526,8 @@ const DealsTab = ({
         </div>
       </div>
 
-      {/* ================= DATA TABLE ================= */}
+      {/* DATA TABLE */}
+
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -459,21 +536,27 @@ const DealsTab = ({
                 <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">
                   Agent Name
                 </th>
+
                 <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">
                   Agent Mail
                 </th>
+
                 <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">
                   Industry
                 </th>
+
                 <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">
                   Event
                 </th>
+
                 <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">
                   Association
                 </th>
+
                 <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">
                   Type
                 </th>
+
                 <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">
                   Status
                 </th>
@@ -481,6 +564,7 @@ const DealsTab = ({
                 <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">
                   Period
                 </th>
+
                 <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100 text-right">
                   Actions
                 </th>
@@ -496,28 +580,36 @@ const DealsTab = ({
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700 font-semibold">
                     {deal.employee?.fullName || deal.manualAgentName || "—"}
                   </td>
+
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-semibold text-slate-900">
                       {deal.clientEmail}
                     </div>
                   </td>
+
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
                     {deal.industry}
                   </td>
+
                   <td className="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">
                     {deal.eventName || "—"}
                   </td>
+
                   <td className="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">
                     {deal.associationName || "—"}
                   </td>
+
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="text-xs font-medium text-slate-600 bg-slate-100 px-2 py-1 rounded">
                       {deal.leadType}
                     </span>
                   </td>
+
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span
-                      className={`text-[10px] font-bold uppercase px-2.5 py-1 rounded-full border ${getStatusStyle(deal.dealStatus)}`}
+                      className={`text-[10px] font-bold uppercase px-2.5 py-1 rounded-full border ${getStatusStyle(
+                        deal.dealStatus,
+                      )}`}
                     >
                       {deal.dealStatus}
                     </span>
@@ -528,6 +620,7 @@ const DealsTab = ({
                       ? `${getMonthLabel(deal.month)} ${deal.year}`
                       : "—"}
                   </td>
+
                   <td className="px-6 py-4 whitespace-nowrap text-right">
                     <div className="flex justify-end gap-3">
                       <button
@@ -536,6 +629,7 @@ const DealsTab = ({
                       >
                         Edit
                       </button>
+
                       <button
                         onClick={() => handleDeleteDeal(deal.id)}
                         className="text-slate-300 hover:text-rose-600 text-xs font-bold uppercase tracking-wider transition-colors"
@@ -553,6 +647,7 @@ const DealsTab = ({
         {loading && (
           <div className="p-16 flex flex-col items-center justify-center gap-3">
             <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+
             <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
               Synchronizing Data...
             </span>
@@ -564,6 +659,44 @@ const DealsTab = ({
             <p className="text-sm text-slate-400 font-medium">
               No records found matching your criteria.
             </p>
+          </div>
+        )}
+
+        {/* PAGINATION */}
+
+        {!loading && deals.length > 0 && (
+          <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-white">
+            <div className="text-xs font-bold text-slate-400 uppercase tracking-[0.15em]">
+              Page {filters.page || 1}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() =>
+                  setFilters({
+                    ...filters,
+                    page: Math.max(1, (filters.page || 1) - 1),
+                  })
+                }
+                disabled={(filters.page || 1) <= 1}
+                className="px-4 py-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+
+              <button
+                onClick={() =>
+                  setFilters({
+                    ...filters,
+                    page: (filters.page || 1) + 1,
+                  })
+                }
+                disabled={deals.length < (filters.limit || 20)}
+                className="px-4 py-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
           </div>
         )}
       </div>
