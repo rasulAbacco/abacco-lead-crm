@@ -1,6 +1,7 @@
 // pages/DealUpdates.jsx
 import React, { useEffect, useState, useCallback } from "react";
 import * as XLSX from "xlsx";
+
 import DealsTab from "../components/deals/DealsTab";
 import DealSettings from "../components/deals/DealSettings";
 import DealAnalytics from "../components/deals/DealAnalytics";
@@ -11,28 +12,40 @@ const DealUpdates = () => {
   // Navigation & UI States
   const [activeTab, setActiveTab] = useState("analytics");
   const [showForm, setShowForm] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+
   const [editingId, setEditingId] = useState(null);
 
   // Data & Pagination States
   const [deals, setDeals] = useState([]);
-  const [meta, setMeta] = useState({ total: 0, page: 1, totalPages: 1 });
+
+  const [meta, setMeta] = useState({
+    total: 0,
+    page: 1,
+    totalPages: 1,
+  });
+
   const [industries, setIndustries] = useState([]);
   const [leadTypes, setLeadTypes] = useState([]);
   const [dealStatuses, setDealStatuses] = useState([]);
   const [events, setEvents] = useState([]);
   const [associations, setAssociations] = useState([]);
 
+  // NEW
+  const [availableYears, setAvailableYears] = useState([]);
+
   // Agent Fallback States
   const [showManualPopup, setShowManualPopup] = useState(false);
+
   const [manualAgent, setManualAgent] = useState({
     manualAgentName: "",
     manualAgentId: "",
   });
 
-  // Form & Filter States
+  // Form States
   const [formData, setFormData] = useState({
     clientEmail: "",
     industry: "",
@@ -45,36 +58,42 @@ const DealUpdates = () => {
     year: "",
   });
 
+  // FILTERS
   const [filters, setFilters] = useState({
-    industry: "",
-    industryId: "",
-    eventId: "",
-    associationId: "",
-    leadType: "",
-    dealStatus: "",
     month: "",
     year: "",
+    search: "",
     page: 1,
-    limit: 20, // Critical for server-side volume management
+    limit: 20,
   });
 
-  const [newMaster, setNewMaster] = useState({ type: "industries", value: "" });
+  const [newMaster, setNewMaster] = useState({
+    type: "industries",
+    value: "",
+  });
 
-  // Security & Utility
+  // AUTH
   const getAuthHeaders = () => {
     const token = localStorage.getItem("token");
+
     return {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(token
+        ? {
+            Authorization: `Bearer ${token}`,
+          }
+        : {}),
     };
   };
 
-  // Security Layer: Disable Inspection & Theft
+  // SECURITY
   useEffect(() => {
     const disableCopy = (e) => e.preventDefault();
+
     document.addEventListener("copy", disableCopy);
     document.addEventListener("cut", disableCopy);
     document.addEventListener("contextmenu", disableCopy);
+
     return () => {
       document.removeEventListener("copy", disableCopy);
       document.removeEventListener("cut", disableCopy);
@@ -88,15 +107,19 @@ const DealUpdates = () => {
         e.preventDefault();
       }
     };
+
     document.addEventListener("keydown", handleKeyDown);
+
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Data Fetching Logic
+  // FETCH ANALYTICS
   const fetchDeals = useCallback(async () => {
     try {
       setLoading(true);
+
       const queryParams = new URLSearchParams();
+
       Object.entries(filters).forEach(([key, value]) => {
         if (
           value !== undefined &&
@@ -108,7 +131,14 @@ const DealUpdates = () => {
         }
       });
 
-      const res = await fetch(`${API_BASE}/deals?${queryParams.toString()}`, {
+      // IMPORTANT:
+      // ANALYTICS API
+      const analyticsUrl =
+        activeTab === "analytics"
+          ? `${API_BASE}/deals/analytics?${queryParams.toString()}`
+          : `${API_BASE}/deals?${queryParams.toString()}`;
+
+      const res = await fetch(analyticsUrl, {
         headers: getAuthHeaders(),
       });
 
@@ -118,29 +148,53 @@ const DealUpdates = () => {
           window.location.href = "/login";
           return;
         }
+
         setDeals([]);
         return;
       }
 
       const data = await res.json();
 
-      // Handle Paginated Backend Structure
       if (data.deals) {
         setDeals(data.deals);
-        setMeta(data.meta);
+
+        setMeta(
+          data.meta || {
+            total: 0,
+            page: 1,
+            totalPages: 1,
+          },
+        );
       } else {
         setDeals(Array.isArray(data) ? data : []);
       }
     } catch (err) {
       console.error("Deal retrieval error:", err);
+
       setDeals([]);
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters, activeTab]);
+
+  // FETCH YEARS
+  const fetchAvailableYears = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/deals/years`, {
+        headers: getAuthHeaders(),
+      });
+
+      const data = await res.json();
+
+      setAvailableYears(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Years fetch error:", err);
+    }
+  };
 
   useEffect(() => {
     fetchMasters();
+    fetchAvailableYears();
   }, []);
 
   useEffect(() => {
@@ -149,15 +203,24 @@ const DealUpdates = () => {
     }
   }, [fetchDeals, activeTab]);
 
+  // PAGINATION
   const onPageChange = (newPage) => {
-    setFilters((prev) => ({ ...prev, page: newPage }));
+    setFilters((prev) => ({
+      ...prev,
+      page: newPage,
+    }));
   };
 
+  // FETCH MASTERS
   const fetchMasters = async () => {
     const request = async (url) => {
       try {
-        const res = await fetch(url, { headers: getAuthHeaders() });
+        const res = await fetch(url, {
+          headers: getAuthHeaders(),
+        });
+
         const data = await res.json();
+
         return Array.isArray(data) ? data : [];
       } catch {
         return [];
@@ -166,9 +229,13 @@ const DealUpdates = () => {
 
     const [i, l, s, e, a] = await Promise.all([
       request(`${API_BASE}/masters/industries`),
+
       request(`${API_BASE}/masters/lead-types`),
+
       request(`${API_BASE}/masters/deal-status`),
+
       request(`${API_BASE}/masters/events`),
+
       request(`${API_BASE}/masters/associations`),
     ]);
 
@@ -179,38 +246,56 @@ const DealUpdates = () => {
     setAssociations(a);
   };
 
-  // Action Handlers
+  // SAVE DEAL
   const handleSaveDeal = async (e) => {
     e.preventDefault();
+
     setSaving(true);
+
     const method = editingId ? "PUT" : "POST";
+
     const url = editingId
       ? `${API_BASE}/deals/${editingId}`
       : `${API_BASE}/deals`;
+
     const payload = {
       ...formData,
       ...manualAgent,
+
       month: Number(formData.month),
+
       year: Number(formData.year),
     };
 
     try {
       const res = await fetch(url, {
         method,
+
         headers: getAuthHeaders(),
+
         body: JSON.stringify(payload),
       });
+
       if (res.status === 400) {
         const data = await res.json();
+
         if (data.message?.includes("manual agent")) {
           setShowManualPopup(true);
+
           return;
         }
       }
+
       if (res.ok) {
         setEditingId(null);
+
         setShowForm(false);
-        setManualAgent({ manualAgentName: "", manualAgentId: "" });
+
+        setManualAgent({
+          manualAgentName: "",
+          manualAgentId: "",
+        });
+
         setFormData({
           clientEmail: "",
           industry: "",
@@ -222,6 +307,7 @@ const DealUpdates = () => {
           month: "",
           year: "",
         });
+
         fetchDeals();
       }
     } catch (err) {
@@ -231,45 +317,68 @@ const DealUpdates = () => {
     }
   };
 
+  // BULK UPLOAD
   const handleBulkUpload = async (file) => {
     try {
       setUploading(true);
+
       const data = await file.arrayBuffer();
+
+      const workbook = XLSX.read(data);
+
       const rows = XLSX.utils.sheet_to_json(
-        XLSX.read(data).Sheets[XLSX.read(data).SheetNames[0]],
+        workbook.Sheets[workbook.SheetNames[0]],
       );
 
       const formattedRows = rows.map((row) => {
         const normalized = {};
+
         Object.keys(row).forEach((k) => (normalized[k.trim()] = row[k]));
+
         return {
           clientEmail:
             normalized["Client Email"] ||
             normalized.clientEmail ||
             normalized.Email ||
             "",
+
           industry: normalized["Industry"] || normalized.industry || "",
+
           leadType: normalized["Lead Type"] || normalized.leadType || "",
+
           dealStatus: normalized["Status"] || normalized.dealStatus || "",
+
           month: normalized.month || "",
+
           year: Number(normalized.year) || "",
+
           eventName: normalized["Event"] || "",
+
           associationName: normalized["Association"] || "",
+
           manualAgentName: normalized["Agent Name"] || "",
+
           ...normalized,
         };
       });
 
       const res = await fetch(`${API_BASE}/deals/bulk-upload`, {
         method: "POST",
+
         headers: getAuthHeaders(),
-        body: JSON.stringify({ deals: formattedRows }),
+
+        body: JSON.stringify({
+          deals: formattedRows,
+        }),
       });
+
       const result = await res.json();
+
       if (res.ok) {
         alert(
           `Upload Complete. Records: ${result.totalUploaded}, Unresolved: ${result.unresolvedCount}`,
         );
+
         fetchDeals();
       }
     } catch {
@@ -288,8 +397,9 @@ const DealUpdates = () => {
               <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-xs">AT</span>
               </div>
+
               <h1 className="text-lg font-bold tracking-tight text-slate-900 hidden sm:block">
-                Deal Report{" "}
+                Deal Report
                 <span className="text-indigo-600 font-medium text-sm ml-2">
                   Abacco Tech
                 </span>
@@ -298,9 +408,20 @@ const DealUpdates = () => {
 
             <nav className="flex items-center bg-slate-50 border border-slate-200 p-1 rounded-full">
               {[
-                { id: "analytics", label: "Analytics" },
-                { id: "deals", label: "Deals" },
-                { id: "config", label: "Settings" },
+                {
+                  id: "analytics",
+                  label: "Analytics",
+                },
+
+                {
+                  id: "deals",
+                  label: "Deals",
+                },
+
+                {
+                  id: "config",
+                  label: "Settings",
+                },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -321,6 +442,7 @@ const DealUpdates = () => {
                 <button
                   onClick={() => {
                     setShowForm(!showForm);
+
                     setEditingId(null);
                   }}
                   className={`inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
@@ -347,6 +469,7 @@ const DealUpdates = () => {
               setFilters={setFilters}
               onPageChange={onPageChange}
               loading={loading}
+              availableYears={availableYears}
             />
           </div>
         )}
@@ -369,11 +492,13 @@ const DealUpdates = () => {
             setShowForm={setShowForm}
             handleSaveDeal={handleSaveDeal}
             handleDeleteDeal={(id) => {
-              if (window.confirm("Delete this deal?"))
+              if (window.confirm("Delete this deal?")) {
                 fetch(`${API_BASE}/deals/${id}`, {
                   method: "DELETE",
+
                   headers: getAuthHeaders(),
                 }).then(fetchDeals);
+              }
             }}
             loading={loading}
             saving={saving}
@@ -394,78 +519,34 @@ const DealUpdates = () => {
               setNewMaster={setNewMaster}
               handleAddMaster={() => {
                 if (!newMaster.value.trim()) return;
+
                 fetch(`${API_BASE}/masters/${newMaster.type}`, {
                   method: "POST",
+
                   headers: getAuthHeaders(),
-                  body: JSON.stringify({ name: newMaster.value }),
+
+                  body: JSON.stringify({
+                    name: newMaster.value,
+                  }),
                 }).then(() => {
-                  setNewMaster({ ...newMaster, value: "" });
+                  setNewMaster({
+                    ...newMaster,
+                    value: "",
+                  });
+
                   fetchMasters();
                 });
               }}
               handleDeleteMaster={(type, id) => {
-                if (window.confirm("Delete this item?"))
+                if (window.confirm("Delete this item?")) {
                   fetch(`${API_BASE}/masters/${type}/${id}`, {
                     method: "DELETE",
+
                     headers: getAuthHeaders(),
                   }).then(fetchMasters);
+                }
               }}
             />
-          </div>
-        )}
-
-        {showManualPopup && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl p-6 w-[400px] shadow-2xl space-y-4">
-              <h3 className="font-bold text-slate-700 uppercase text-xs tracking-wider">
-                Agent Registration Required
-              </h3>
-              <p className="text-xs text-slate-500">
-                The provided email is not in our directory. Please enter agent
-                credentials manually.
-              </p>
-              <input
-                type="text"
-                placeholder="Agent Name"
-                value={manualAgent.manualAgentName}
-                onChange={(e) =>
-                  setManualAgent({
-                    ...manualAgent,
-                    manualAgentName: e.target.value,
-                  })
-                }
-                className="w-full border rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500"
-              />
-              <input
-                type="text"
-                placeholder="Employee ID"
-                value={manualAgent.manualAgentId}
-                onChange={(e) =>
-                  setManualAgent({
-                    ...manualAgent,
-                    manualAgentId: e.target.value,
-                  })
-                }
-                className="w-full border rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500"
-              />
-              <div className="flex justify-end gap-3">
-                <button
-                  onClick={() => setShowManualPopup(false)}
-                  className="text-sm text-slate-400 hover:text-slate-600"
-                >
-                  Discard
-                </button>
-                <button
-                  onClick={() => {
-                    setShowManualPopup(false);
-                    handleSaveDeal(new Event("submit"));
-                  }}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700"
-                >
-                  Finalize & Save
-                </button>
-              </div>
-            </div>
           </div>
         )}
       </main>

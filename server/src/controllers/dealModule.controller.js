@@ -279,6 +279,317 @@ export const getDealYears = async (req, res) => {
 };
 
 // ===============================
+// GROUPED DEAL ANALYTICS
+// ===============================
+export const getDealAnalytics = async (req, res) => {
+  try {
+    const { month, year, page = 1, limit = 20, search = "" } = req.query;
+
+    // PAGINATION
+    const p = Math.max(1, Number(page) || 1);
+    const l = Math.max(1, Number(limit) || 20);
+
+    // MAIN WHERE
+    const where = {};
+
+    // FILTERS
+    if (month) {
+      where.month = Number(month);
+    }
+
+    if (year) {
+      where.year = Number(year);
+    }
+
+    // UNIVERSAL SEARCH
+    if (search && search.trim()) {
+      const cleanedSearch = search.trim().toLowerCase();
+
+      const monthMap = {
+        january: 1,
+        jan: 1,
+        february: 2,
+        feb: 2,
+        march: 3,
+        mar: 3,
+        april: 4,
+        apr: 4,
+        may: 5,
+        june: 6,
+        jun: 6,
+        july: 7,
+        jul: 7,
+        august: 8,
+        aug: 8,
+        september: 9,
+        sep: 9,
+        sept: 9,
+        october: 10,
+        oct: 10,
+        november: 11,
+        nov: 11,
+        december: 12,
+        dec: 12,
+      };
+
+      const searchConditions = [
+        {
+          clientEmail: {
+            contains: cleanedSearch,
+            mode: "insensitive",
+          },
+        },
+
+        {
+          industry: {
+            contains: cleanedSearch,
+            mode: "insensitive",
+          },
+        },
+
+        {
+          leadType: {
+            contains: cleanedSearch,
+            mode: "insensitive",
+          },
+        },
+
+        {
+          dealStatus: {
+            contains: cleanedSearch,
+            mode: "insensitive",
+          },
+        },
+
+        {
+          manualAgentName: {
+            contains: cleanedSearch,
+            mode: "insensitive",
+          },
+        },
+
+        {
+          manualAgentId: {
+            contains: cleanedSearch,
+            mode: "insensitive",
+          },
+        },
+
+        {
+          eventRef: {
+            name: {
+              contains: cleanedSearch,
+              mode: "insensitive",
+            },
+          },
+        },
+
+        {
+          associationRef: {
+            name: {
+              contains: cleanedSearch,
+              mode: "insensitive",
+            },
+          },
+        },
+      ];
+
+      // YEAR SEARCH
+      if (!isNaN(cleanedSearch)) {
+        const numericValue = Number(cleanedSearch);
+
+        if (numericValue >= 1900 && numericValue <= 3000) {
+          searchConditions.push({
+            year: numericValue,
+          });
+        }
+
+        if (numericValue >= 1 && numericValue <= 12) {
+          searchConditions.push({
+            month: numericValue,
+          });
+        }
+      }
+
+      // MONTH NAME SEARCH
+      if (monthMap[cleanedSearch]) {
+        searchConditions.push({
+          month: monthMap[cleanedSearch],
+        });
+      }
+
+      where.OR = searchConditions;
+    }
+
+    // FETCH ALL MATCHING DEALS
+    const deals = await prisma.dealInfo.findMany({
+      where,
+
+      include: {
+        employee: {
+          select: {
+            fullName: true,
+            employeeId: true,
+          },
+        },
+
+        industryRef: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+
+        eventRef: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+
+        associationRef: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+
+      orderBy: [
+        { createdAt: "desc" },
+      ],
+    });
+
+    // GROUPING
+    const groupedMap = {};
+
+    deals.forEach((deal) => {
+      const eventName =
+        deal.eventRef?.name ||
+        "General Entry";
+
+      if (!groupedMap[eventName]) {
+        groupedMap[eventName] = {
+          eventName,
+
+          totalDeals: 0,
+
+          statuses: new Set(),
+
+          periods: new Set(),
+
+          children: [],
+        };
+      }
+
+      groupedMap[eventName].totalDeals += 1;
+
+      if (deal.dealStatus) {
+        groupedMap[eventName].statuses.add(
+          deal.dealStatus
+        );
+      }
+
+      const monthName = deal.month
+        ? new Date(
+            2026,
+            deal.month - 1
+          ).toLocaleString("default", {
+            month: "short",
+          })
+        : null;
+
+      const period =
+        monthName && deal.year
+          ? `${monthName} ${deal.year}`
+          : deal.year
+          ? `${deal.year}`
+          : "—";
+
+      groupedMap[eventName].periods.add(period);
+
+      groupedMap[eventName].children.push({
+        id: deal.id,
+
+        industry:
+          deal.industryRef?.name ||
+          deal.industry ||
+          "—",
+
+        dealStatus:
+          deal.dealStatus || "—",
+
+        period,
+
+        month: deal.month,
+
+        year: deal.year,
+
+        agentName:
+          deal.employee?.fullName ||
+          deal.manualAgentName ||
+          "—",
+      });
+    });
+
+    // CONVERT MAP TO ARRAY
+    let groupedDeals = Object.values(groupedMap).map(
+      (item) => ({
+        ...item,
+
+        statuses: Array.from(
+          item.statuses
+        ),
+
+        periods: Array.from(
+          item.periods
+        ),
+      })
+    );
+
+    // SORT BY DEAL COUNT DESC
+    groupedDeals.sort(
+      (a, b) =>
+        b.totalDeals - a.totalDeals
+    );
+
+    // PAGINATION
+    const totalCount = groupedDeals.length;
+
+    const paginatedDeals =
+      groupedDeals.slice(
+        (p - 1) * l,
+        (p - 1) * l + l
+      );
+
+    // RESPONSE
+    res.json({
+      deals: paginatedDeals,
+
+      meta: {
+        total: totalCount,
+        page: p,
+        limit: l,
+        totalPages: Math.ceil(
+          totalCount / l
+        ),
+      },
+    });
+  } catch (error) {
+    console.error(
+      "Analytics fetch error:",
+      error
+    );
+
+    res.status(500).json({
+      message:
+        "Failed to fetch analytics",
+    });
+  }
+};
+
+
+// ===============================
 // CREATE DEAL
 // ===============================
 export const createDeal = async (req, res) => {

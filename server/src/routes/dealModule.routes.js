@@ -1,8 +1,10 @@
 // dealModule.routes.js
 import express from "express";
+
 import {
   getDeals,
   getDealYears,
+  getDealAnalytics,
   createDeal,
   bulkUploadDeals,
   updateDeal,
@@ -23,16 +25,26 @@ router.use(authenticate);
 // ===============================
 // DEAL ROUTES
 // ===============================
+
+// RAW DEAL RECORDS
 router.get("/deals", getDeals);
+
+// YEARS DROPDOWN
 router.get("/deals/years", getDealYears);
 
+// GROUPED ANALYTICS
+router.get("/deals/analytics", getDealAnalytics);
+
+// CREATE SINGLE DEAL
 router.post("/deals", createDeal);
 
-// ✅ NEW BULK UPLOAD ROUTE
+// BULK UPLOAD
 router.post("/deals/bulk-upload", bulkUploadDeals);
 
+// UPDATE DEAL
 router.put("/deals/:id", updateDeal);
 
+// DELETE DEAL
 router.delete("/deals/:id", deleteDeal);
 
 // ===============================

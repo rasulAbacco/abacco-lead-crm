@@ -1,219 +1,225 @@
 import React, { useEffect, useState } from "react";
 
 const P = {
-  white: "#ffffff",
-  mist: "#f8fafc",
-  fog: "#e2e8f0",
-  charcoal: "#1e293b",
-  graphite: "#475569",
+  textMain: "#1e293b",
+  textMuted: "#64748b",
   accent: "#4f46e5",
-  positive: "#16a34a",
-  pending: "#ca8a04",
-  danger: "#dc2626",
-  ash: "#64748b",
+  border: "#f1f5f9",
+  rowHover: "#f8fafc",
+  childBg: "#ffffff",
+  success: "#10b981",
+  pending: "#f59e0b",
+  danger: "#ef4444",
 };
 
 const STYLES = `
-  .da-container {
-    font-family: 'Inter', sans-serif;
-    color: ${P.charcoal};
+  .classic-container {
+    font-family: 'Inter', -apple-system, sans-serif;
+    color: ${P.textMain};
+    max-width: 1300px;
+    margin: 0 auto;
+    padding: 40px 20px;
   }
 
-  .da-filter-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 12px;
-    margin-bottom: 20px;
-    background: white;
-    padding: 16px;
-    border-radius: 12px;
-    border: 1px solid ${P.fog};
+  /* Header & Filters */
+  .classic-header {
+    margin-bottom: 32px;
+    border-bottom: 1px solid ${P.border};
+    padding-bottom: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 20px;
+    flex-wrap: wrap;
   }
 
-  .da-input {
-    width: 100%;
-    padding: 10px 12px;
-    border-radius: 8px;
-    border: 1px solid ${P.fog};
-    font-size: 13px;
-    outline: none;
-    transition: all .2s;
-    background: white;
+  .filter-group {
+    display: flex;
+    gap: 24px;
+    flex-grow: 1;
   }
 
-  .da-input:focus {
-    border-color: ${P.accent};
-    box-shadow: 0 0 0 3px rgba(79,70,229,.08);
+  .classic-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
 
-  .da-label {
-    display: block;
+  .classic-field label {
     font-size: 11px;
     font-weight: 700;
-    color: ${P.ash};
     text-transform: uppercase;
-    margin-bottom: 6px;
-    letter-spacing: .05em;
+    letter-spacing: 0.05em;
+    color: ${P.textMuted};
   }
 
-  .da-card {
-    background: ${P.white};
-    border: 1px solid ${P.fog};
-    border-radius: 14px;
-    overflow: hidden;
+  .classic-input {
+    border: none;
+    border-bottom: 2px solid ${P.border};
+    padding: 8px 0;
+    background: transparent;
+    font-size: 14px;
+    color: ${P.textMain};
+    outline: none;
+    transition: border-color 0.2s;
+    min-width: 150px;
   }
 
-  .da-table {
+  .classic-input:focus {
+    border-color: ${P.accent};
+  }
+
+  .btn-clear {
+    background: none;
+    border: none;
+    color: ${P.textMuted};
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 8px 0;
+    text-decoration: underline;
+    text-underline-offset: 4px;
+  }
+
+  /* Table Style */
+  .classic-table {
     width: 100%;
     border-collapse: collapse;
   }
 
-  .da-table th {
-    background: ${P.mist};
-    padding: 14px 20px;
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    color: ${P.ash};
-    border-bottom: 1px solid ${P.fog};
+  .classic-table th {
     text-align: left;
-    white-space: nowrap;
+    padding: 16px;
+    font-size: 12px;
+    font-weight: 600;
+    color: ${P.textMuted};
+    border-bottom: 1px solid ${P.border};
   }
 
-  .da-table td {
-    padding: 16px 20px;
-    font-size: 13px;
-    border-bottom: 1px solid ${P.mist};
-    white-space: nowrap;
+  .parent-row {
+    transition: background 0.2s;
+    cursor: pointer;
   }
 
-  .da-table tr:hover {
-    background: #fafafa;
+  .parent-row:hover {
+    background: ${P.rowHover};
   }
 
-  .da-badge {
-    padding: 5px 10px;
-    border-radius: 999px;
-    font-size: 11px;
-    font-weight: 700;
-    background: ${P.mist};
-    color: ${P.accent};
-    border: 1px solid ${P.fog};
+  .parent-row td {
+    padding: 24px 16px;
+    border-bottom: 1px solid ${P.border};
   }
 
-  .da-status {
-    padding: 5px 10px;
-    border-radius: 999px;
-    font-size: 11px;
-    font-weight: 700;
+  /* Child Identification Strategy */
+  .child-wrapper {
+    position: relative;
+    padding: 0 0 24px 64px; /* Big left indent */
+  }
+
+  /* The Visual Connector Line */
+  .child-wrapper::before {
+    content: "";
+    position: absolute;
+    left: 32px;
+    top: -24px;
+    bottom: 40px;
+    width: 2px;
+    background: ${P.border};
+  }
+
+  .child-item {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1.5fr 1fr;
+    align-items: center;
+    padding: 16px 24px;
+    background: ${P.childBg};
+    border: 1px solid ${P.border};
+    border-radius: 8px;
+    margin-bottom: 8px;
+    position: relative;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+  }
+
+  /* Small elbow line for each child */
+  .child-item::before {
+    content: "";
+    position: absolute;
+    left: -32px;
+    top: 50%;
+    width: 32px;
+    height: 2px;
+    background: ${P.border};
+  }
+
+  /* Status Badges */
+  .pill {
     display: inline-flex;
     align-items: center;
-  }
-
-  .da-pagination {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 16px 24px;
-    border-top: 1px solid ${P.fog};
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-
-  .da-btn {
-    padding: 10px 16px;
-    border-radius: 8px;
-    border: 1px solid ${P.fog};
-    background: white;
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: 600;
-  }
-
-  .da-btn:hover {
-    background: ${P.mist};
-  }
-
-  .da-btn:disabled {
-    opacity: .4;
-    cursor: not-allowed;
-  }
-
-  .da-reset-btn {
-    width: 100%;
-    height: 42px;
-    background: ${P.mist};
-    border: 1px solid ${P.fog};
-    border-radius: 8px;
-    font-size: 13px;
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 11px;
     font-weight: 700;
-    cursor: pointer;
-    color: ${P.graphite};
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
   }
 
-  .da-reset-btn:hover {
-    background: ${P.fog};
-  }
-
-  .da-loading-row {
-    text-align: center;
-    padding: 30px;
-    color: ${P.ash};
-    font-weight: 600;
-  }
-
-  .da-empty {
-    text-align: center;
-    padding: 50px;
-    color: ${P.ash};
+  /* Pagination */
+  .classic-pagination {
+    margin-top: 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: ${P.textMuted};
     font-size: 14px;
-    font-weight: 500;
+  }
+
+  .page-controls {
+    display: flex;
+    gap: 8px;
+  }
+
+  .page-btn {
+    padding: 8px 20px;
+    border: 1px solid ${P.border};
+    background: white;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+
+  .page-btn:hover:not(:disabled) {
+    border-color: ${P.accent};
+    color: ${P.accent};
+  }
+
+  .expand-arrow {
+    display: inline-block;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    margin-right: 12px;
+    font-size: 10px;
+    color: ${P.accent};
+  }
+
+  .is-open {
+    transform: rotate(90deg);
   }
 `;
 
-const getMonthName = (m) => {
-  if (!m) return "—";
-
-  return new Date(2026, m - 1).toLocaleString("default", {
-    month: "long",
-  });
-};
-
-const getStatusStyle = (status) => {
-  if (status === "Deal Closed" || status === "Deal") {
-    return {
-      background: "#dcfce7",
-      color: "#166534",
-    };
-  }
-
-  if (status === "Invoice Pending") {
-    return {
-      background: "#fef9c3",
-      color: "#854d0e",
-    };
-  }
-
-  if (status === "Invoice Cancelled") {
-    return {
-      background: "#fee2e2",
-      color: "#991b1b",
-    };
-  }
-
-  return {
-    background: "#f1f5f9",
-    color: "#334155",
-  };
+const getStatusStyles = (status) => {
+  const s = status?.toLowerCase() || "";
+  if (s.includes("closed") || s.includes("deal"))
+    return { backgroundColor: "#ecfdf5", color: P.success };
+  if (s.includes("pending"))
+    return { backgroundColor: "#fffbeb", color: P.pending };
+  if (s.includes("cancel"))
+    return { backgroundColor: "#fef2f2", color: P.danger };
+  return { backgroundColor: "#f8fafc", color: P.textMuted };
 };
 
 const DealAnalytics = ({
   deals = [],
-  meta = {
-    total: 0,
-    page: 1,
-    totalPages: 1,
-  },
+  meta = { total: 0, page: 1, totalPages: 1 },
   filters = {},
   setFilters,
   onPageChange,
@@ -221,275 +227,224 @@ const DealAnalytics = ({
   availableYears = [],
 }) => {
   const [searchInput, setSearchInput] = useState(filters?.search || "");
+  const [expandedRows, setExpandedRows] = useState({});
 
-  // SEARCH DEBOUNCE
   useEffect(() => {
     const timer = setTimeout(() => {
-      setFilters((prev) => ({
-        ...prev,
-        search: searchInput,
-        page: 1,
-      }));
+      setFilters((prev) => ({ ...prev, search: searchInput, page: 1 }));
     }, 400);
-
     return () => clearTimeout(timer);
   }, [searchInput]);
 
-  const handleFilterChange = (key, value) => {
-    setFilters((prev) => ({
-      ...prev,
-      [key]: value,
-      page: 1,
-    }));
+  const toggleRow = (name) => {
+    setExpandedRows((prev) => ({ ...prev, [name]: !prev[name] }));
   };
 
-  const displayRows = deals || [];
-
   return (
-    <div className="da-container">
+    <div className="classic-container">
       <style>{STYLES}</style>
 
-      {/* FILTERS */}
-
-      <div className="da-filter-grid">
-        {/* UNIVERSAL SEARCH */}
-
-        <div>
-          <label className="da-label">Universal Search</label>
-
-          <input
-            type="text"
-            className="da-input"
-            placeholder="Search anything..."
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-          />
+      {/* Elegant Header */}
+      <div className="classic-header">
+        <div className="filter-group">
+          <div className="classic-field">
+            <label>Search</label>
+            <input
+              className="classic-input"
+              placeholder="Filter by name..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+            />
+          </div>
+          <div className="classic-field">
+            <label>Month</label>
+            <select
+              className="classic-input"
+              value={filters?.month || ""}
+              onChange={(e) =>
+                setFilters((p) => ({ ...p, month: e.target.value, page: 1 }))
+              }
+            >
+              <option value="">All Months</option>
+              {[
+                "January",
+                "February",
+                "March",
+                "April",
+                "May",
+                "June",
+                "July",
+                "August",
+                "September",
+                "October",
+                "November",
+                "December",
+              ].map((m, i) => (
+                <option key={m} value={i + 1}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="classic-field">
+            <label>Year</label>
+            <select
+              className="classic-input"
+              value={filters?.year || ""}
+              onChange={(e) =>
+                setFilters((p) => ({ ...p, year: e.target.value, page: 1 }))
+              }
+            >
+              <option value="">Select Year</option>
+              {availableYears.map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-
-        {/* MONTH */}
-
-        <div>
-          <label className="da-label">Month</label>
-
-          <select
-            className="da-input"
-            value={filters?.month || ""}
-            onChange={(e) => handleFilterChange("month", e.target.value)}
-          >
-            <option value="">All Months</option>
-
-            {[...Array(12)].map((_, i) => (
-              <option key={i + 1} value={i + 1}>
-                {getMonthName(i + 1)}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* YEAR */}
-
-        <div>
-          <label className="da-label">Year</label>
-
-          <select
-            className="da-input"
-            value={filters?.year || ""}
-            onChange={(e) => handleFilterChange("year", e.target.value)}
-          >
-            <option value="">All Years</option>
-
-            {availableYears.map((year) => (
-              <option key={year} value={year}>
-                {year}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* RESET */}
-
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-end",
+        <button
+          className="btn-clear"
+          onClick={() => {
+            setSearchInput("");
+            setFilters({ page: 1, limit: 20, month: "", year: "", search: "" });
           }}
         >
-          <button
-            className="da-reset-btn"
-            onClick={() => {
-              setSearchInput("");
-
-              setFilters({
-                page: 1,
-                limit: 20,
-                month: "",
-                year: "",
-                search: "",
-              });
-            }}
-          >
-            Reset Filters
-          </button>
-        </div>
+          Reset Filters
+        </button>
       </div>
 
-      {/* TABLE */}
-
-      <div className="da-card">
-        <div style={{ overflowX: "auto" }}>
-          <table className="da-table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Expo / Event</th>
-                <th>Industry</th>
-                <th>Deals</th>
-                <th>Period</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan="6" className="da-loading-row">
-                    Loading deals...
+      {/* Minimal Table */}
+      <table className="classic-table">
+        <thead>
+          <tr>
+            <th style={{ width: "40px" }}>ID</th>
+            <th>EXHIBITION EVENT</th>
+            <th>DEAL VOLUME</th>
+            <th>LATEST STATUS</th>
+            <th>PERIOD</th>
+          </tr>
+        </thead>
+        <tbody>
+          {loading ? (
+            <tr>
+              <td colSpan="5" style={{ textAlign: "center", padding: "100px" }}>
+                Loading data...
+              </td>
+            </tr>
+          ) : (
+            deals.map((group, index) => (
+              <React.Fragment key={group.eventName}>
+                <tr
+                  className="parent-row"
+                  onClick={() => toggleRow(group.eventName)}
+                >
+                  <td style={{ color: P.textMuted, fontSize: "13px" }}>
+                    {String((meta.page - 1) * 20 + index + 1).padStart(2, "0")}
+                  </td>
+                  <td>
+                    <span
+                      className={`expand-arrow ${expandedRows[group.eventName] ? "is-open" : ""}`}
+                    >
+                      ▶
+                    </span>
+                    <span style={{ fontWeight: 700, fontSize: "16px" }}>
+                      {group.eventName}
+                    </span>
+                  </td>
+                  <td>
+                    <span style={{ fontWeight: 600 }}>
+                      {group.totalDeals} Units
+                    </span>
+                  </td>
+                  <td>
+                    <div style={{ display: "flex", gap: "6px" }}>
+                      {group.statuses?.slice(0, 1).map((s) => (
+                        <span
+                          key={s}
+                          className="pill"
+                          style={getStatusStyles(s)}
+                        >
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  </td>
+                  <td style={{ color: P.textMuted, fontSize: "13px" }}>
+                    {group.periods?.[0]}
                   </td>
                 </tr>
-              ) : displayRows.length > 0 ? (
-                displayRows.map((deal, index) => {
-                  const rowNum = (meta?.page - 1) * 20 + index + 1;
 
-                  return (
-                    <tr key={deal?.id || index}>
-                      <td
-                        style={{
-                          color: P.ash,
-                          fontFamily: "monospace",
-                          fontWeight: 700,
-                        }}
-                      >
-                        {rowNum}
-                      </td>
+                {/* Expanded Child Rows */}
+                {expandedRows[group.eventName] && (
+                  <tr>
+                    <td colSpan="5" style={{ padding: 0, border: "none" }}>
+                      <div className="child-wrapper">
+                        {group.children?.map((child, cIdx) => (
+                          <div key={cIdx} className="child-item">
+                            <div>
+                              <div style={{ fontWeight: 600 }}>
+                                {child.industry}
+                              </div>
+                              <div
+                                style={{ fontSize: "11px", color: P.textMuted }}
+                              >
+                                Agent: {child.agentName}
+                              </div>
+                            </div>
+                            <div style={{ fontWeight: 500, fontSize: "13px" }}>
+                              1 Deal
+                            </div>
+                            <div>
+                              <span
+                                className="pill"
+                                style={getStatusStyles(child.dealStatus)}
+                              >
+                                {child.dealStatus}
+                              </span>
+                            </div>
+                            <div
+                              style={{
+                                textAlign: "right",
+                                fontSize: "12px",
+                                color: P.textMuted,
+                              }}
+                            >
+                              {child.period}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
+            ))
+          )}
+        </tbody>
+      </table>
 
-                      <td>
-                        <div
-                          style={{
-                            fontWeight: 700,
-                            color: P.charcoal,
-                          }}
-                        >
-                          {deal?.eventName || "General Entry"}
-                        </div>
-                      </td>
-
-                      <td>
-                        <span
-                          style={{
-                            fontWeight: 600,
-                            color: P.graphite,
-                          }}
-                        >
-                          {deal?.industry || "—"}
-                        </span>
-                      </td>
-
-                      <td>
-                        <span className="da-badge">1 Deal</span>
-                      </td>
-
-                      <td>
-                        <div
-                          style={{
-                            display: "flex",
-                            flexDirection: "column",
-                          }}
-                        >
-                          <span
-                            style={{
-                              fontWeight: 700,
-                              color: P.charcoal,
-                            }}
-                          >
-                            {getMonthName(deal?.month)}
-                          </span>
-
-                          <span
-                            style={{
-                              fontSize: 11,
-                              color: P.ash,
-                              fontWeight: 600,
-                            }}
-                          >
-                            {deal?.year || "—"}
-                          </span>
-                        </div>
-                      </td>
-
-                      <td>
-                        <span
-                          className="da-status"
-                          style={getStatusStyle(deal?.dealStatus)}
-                        >
-                          {deal?.dealStatus || "—"}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })
-              ) : (
-                <tr>
-                  <td colSpan="6" className="da-empty">
-                    No records found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+      {/* Pagination */}
+      <div className="classic-pagination">
+        <div>
+          Showing <b>{deals.length}</b> records out of <b>{meta.total}</b>
         </div>
-
-        {/* PAGINATION */}
-
-        <div className="da-pagination">
-          <div
-            style={{
-              fontSize: 12,
-              fontWeight: 700,
-              color: P.ash,
-              textTransform: "uppercase",
-              letterSpacing: ".08em",
-            }}
+        <div className="page-controls">
+          <button
+            className="page-btn"
+            disabled={meta.page <= 1}
+            onClick={() => onPageChange(meta.page - 1)}
           >
-            Page {meta?.page || 1}
-            {" of "}
-            {meta?.totalPages || 1}
-            {" • "}
-            {meta?.total || 0}
-            {" Total Records"}
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              gap: 10,
-            }}
+            Previous
+          </button>
+          <button
+            className="page-btn"
+            disabled={meta.page >= meta.totalPages}
+            onClick={() => onPageChange(meta.page + 1)}
           >
-            <button
-              className="da-btn"
-              onClick={() => onPageChange?.(meta?.page - 1)}
-              disabled={(meta?.page || 1) <= 1}
-            >
-              Previous
-            </button>
-
-            <button
-              className="da-btn"
-              onClick={() => onPageChange?.(meta?.page + 1)}
-              disabled={(meta?.page || 1) >= (meta?.totalPages || 1)}
-            >
-              Next
-            </button>
-          </div>
+            Next
+          </button>
         </div>
       </div>
     </div>
