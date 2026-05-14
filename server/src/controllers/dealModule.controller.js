@@ -12,36 +12,171 @@ const parseNullableInt = (val) => {
 };
 
 // ===============================
-// GET DEALS
+// GET DEALS (UPDATED WITH PAGINATION & CHRONO SORT)
 // ===============================
 export const getDeals = async (req, res) => {
   try {
-    const {
-      industry,
-      leadType,
-      dealStatus,
-      month,
-      year,
-      industryId,
-      eventId,
-      associationId,
-    } = req.query;
+    const { month, year, page = 1, limit = 20, search = "" } = req.query;
 
+    // PAGINATION
+    const p = Math.max(1, Number(page) || 1);
+    const l = Math.max(1, Number(limit) || 20);
+    const skip = (p - 1) * l;
+
+    // MAIN WHERE
     const where = {};
 
-    if (industry) where.industry = industry;
-    if (leadType) where.leadType = leadType;
-    if (dealStatus) where.dealStatus = dealStatus;
+    // FILTERS
+    if (month) {
+      where.month = Number(month);
+    }
 
-    if (industryId) where.industryId = Number(industryId);
-    if (eventId) where.eventId = Number(eventId);
-    if (associationId) where.associationId = Number(associationId);
+    if (year) {
+      where.year = Number(year);
+    }
 
-    if (month) where.month = Number(month);
-    if (year) where.year = Number(year);
+    // UNIVERSAL SEARCH
+    if (search && search.trim()) {
+      const cleanedSearch = search.trim().toLowerCase();
 
+      const monthMap = {
+        january: 1,
+        jan: 1,
+
+        february: 2,
+        feb: 2,
+
+        march: 3,
+        mar: 3,
+
+        april: 4,
+        apr: 4,
+
+        may: 5,
+
+        june: 6,
+        jun: 6,
+
+        july: 7,
+        jul: 7,
+
+        august: 8,
+        aug: 8,
+
+        september: 9,
+        sep: 9,
+        sept: 9,
+
+        october: 10,
+        oct: 10,
+
+        november: 11,
+        nov: 11,
+
+        december: 12,
+        dec: 12,
+      };
+
+      const searchConditions = [
+        {
+          clientEmail: {
+            contains: cleanedSearch,
+            mode: "insensitive",
+          },
+        },
+
+        {
+          industry: {
+            contains: cleanedSearch,
+            mode: "insensitive",
+          },
+        },
+
+        {
+          leadType: {
+            contains: cleanedSearch,
+            mode: "insensitive",
+          },
+        },
+
+        {
+          dealStatus: {
+            contains: cleanedSearch,
+            mode: "insensitive",
+          },
+        },
+
+        {
+          manualAgentName: {
+            contains: cleanedSearch,
+            mode: "insensitive",
+          },
+        },
+
+        {
+          manualAgentId: {
+            contains: cleanedSearch,
+            mode: "insensitive",
+          },
+        },
+
+        {
+          eventRef: {
+            name: {
+              contains: cleanedSearch,
+              mode: "insensitive",
+            },
+          },
+        },
+
+        {
+          associationRef: {
+            name: {
+              contains: cleanedSearch,
+              mode: "insensitive",
+            },
+          },
+        },
+      ];
+
+      // YEAR SEARCH
+      if (!isNaN(cleanedSearch)) {
+        const numericValue = Number(cleanedSearch);
+
+        // YEAR
+        if (numericValue >= 1900 && numericValue <= 3000) {
+          searchConditions.push({
+            year: numericValue,
+          });
+        }
+
+        // MONTH
+        if (numericValue >= 1 && numericValue <= 12) {
+          searchConditions.push({
+            month: numericValue,
+          });
+        }
+      }
+
+      // MONTH NAME SEARCH
+      if (monthMap[cleanedSearch]) {
+        searchConditions.push({
+          month: monthMap[cleanedSearch],
+        });
+      }
+
+      where.OR = searchConditions;
+    }
+
+    // TOTAL COUNT
+    const totalCount = await prisma.dealInfo.count({
+      where,
+    });
+
+    // FETCH DATA
     const deals = await prisma.dealInfo.findMany({
       where,
+
       include: {
         employee: {
           select: {
@@ -49,29 +184,97 @@ export const getDeals = async (req, res) => {
             employeeId: true,
           },
         },
-        industryRef: true,
-        eventRef: true,
-        associationRef: true,
+
+        industryRef: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+
+        eventRef: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+
+        associationRef: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
-      orderBy: { createdAt: "desc" },
+
+      orderBy: [{ year: "desc" }, { month: "desc" }, { createdAt: "desc" }],
+
+      skip,
+      take: l,
     });
 
+    // FORMAT
     const formattedDeals = deals.map((deal) => ({
       ...deal,
-      industry: deal.industryRef?.name || deal.industry,
+
+      industry: deal.industryRef?.name || deal.industry || null,
+
       eventName: deal.eventRef?.name || null,
+
       associationName: deal.associationRef?.name || null,
+
       agentName: deal.employee?.fullName || deal.manualAgentName || null,
+
       agentEmployeeId: deal.employee?.employeeId || deal.manualAgentId || null,
+
       agentEmail: deal.employee
         ? null
         : deal.manualAgentEmail || deal.clientEmail,
     }));
 
-    res.json(formattedDeals);
+    // RESPONSE
+    res.json({
+      deals: formattedDeals,
+
+      meta: {
+        total: totalCount,
+        page: p,
+        limit: l,
+        totalPages: Math.ceil(totalCount / l),
+      },
+    });
   } catch (error) {
     console.error("Fetch deals error:", error);
-    res.status(500).json({ message: "Failed to fetch deals" });
+
+    res.status(500).json({
+      message: "Failed to fetch deals",
+    });
+  }
+};
+
+export const getDealYears = async (req, res) => {
+  try {
+    const years = await prisma.dealInfo.findMany({
+      select: {
+        year: true,
+      },
+
+      distinct: ["year"],
+
+      orderBy: {
+        year: "desc",
+      },
+    });
+
+    const formattedYears = years.map((item) => item.year).filter(Boolean);
+
+    res.json(formattedYears);
+  } catch (error) {
+    console.error("Fetch years error:", error);
+
+    res.status(500).json({
+      message: "Failed to fetch years",
+    });
   }
 };
 
@@ -118,12 +321,10 @@ export const createDeal = async (req, res) => {
       customFields: customFields || {},
     };
 
-    // ✅ Employee found
     if (emailRecord) {
       dealData.employeeId = emailRecord.employeeId;
       dealData.agentResolved = true;
     } else {
-      // ✅ Manual popup required only for single create
       if (!manualAgentName) {
         return res.status(400).json({
           message:
@@ -166,106 +367,56 @@ export const bulkUploadDeals = async (req, res) => {
 
     for (const row of deals) {
       const normalizedEmail = row.clientEmail?.toLowerCase().trim();
-
       if (!normalizedEmail) continue;
 
-      // ===============================
-      // FIND EMPLOYEE
-      // ===============================
       const emailRecord = await prisma.emailDomain.findFirst({
-        where: {
-          email: normalizedEmail,
-          isActive: true,
-        },
+        where: { email: normalizedEmail, isActive: true },
       });
 
-      // ===============================
-      // INDUSTRY LOOKUP / CREATE
-      // ===============================
       let industryId = null;
-
       if (row.industry) {
         const normalizedIndustry = row.industry.trim();
-
         let industry = await prisma.industryMaster.findFirst({
-          where: {
-            name: {
-              equals: normalizedIndustry,
-              mode: "insensitive",
-            },
-          },
+          where: { name: { equals: normalizedIndustry, mode: "insensitive" } },
         });
-
         if (!industry) {
           industry = await prisma.industryMaster.create({
-            data: {
-              name: normalizedIndustry,
-            },
+            data: { name: normalizedIndustry },
           });
         }
-
         industryId = industry.id;
       }
 
-      // ===============================
-      // EVENT LOOKUP / CREATE
-      // ===============================
       let eventId = null;
-
       if (row.eventName && row.eventName !== "-") {
         const normalizedEvent = row.eventName.trim();
-
         let event = await prisma.eventMaster.findFirst({
-          where: {
-            name: {
-              equals: normalizedEvent,
-              mode: "insensitive",
-            },
-          },
+          where: { name: { equals: normalizedEvent, mode: "insensitive" } },
         });
-
         if (!event) {
           event = await prisma.eventMaster.create({
-            data: {
-              name: normalizedEvent,
-            },
+            data: { name: normalizedEvent },
           });
         }
-
         eventId = event.id;
       }
 
-      // ===============================
-      // ASSOCIATION LOOKUP / CREATE
-      // ===============================
       let associationId = null;
-
       if (row.associationName && row.associationName !== "-") {
         const normalizedAssociation = row.associationName.trim();
-
         let association = await prisma.associationMaster.findFirst({
           where: {
-            name: {
-              equals: normalizedAssociation,
-              mode: "insensitive",
-            },
+            name: { equals: normalizedAssociation, mode: "insensitive" },
           },
         });
-
         if (!association) {
           association = await prisma.associationMaster.create({
-            data: {
-              name: normalizedAssociation,
-            },
+            data: { name: normalizedAssociation },
           });
         }
-
         associationId = association.id;
       }
 
-      // ===============================
-      // CUSTOM FIELDS
-      // ===============================
       const fixedFields = [
         "clientEmail",
         "industry",
@@ -282,67 +433,38 @@ export const bulkUploadDeals = async (req, res) => {
       ];
 
       const customFields = {};
-
       Object.keys(row).forEach((key) => {
         if (!fixedFields.includes(key)) {
           customFields[key] = row[key];
         }
       });
 
-      // ===============================
-      // DEAL DATA
-      // ===============================
       const dealData = {
         clientEmail: normalizedEmail,
-
         industry: row.industry || "",
         industryId,
-
         eventId,
-
         associationId,
-
         leadType: row.leadType || "",
-
         dealStatus: row.dealStatus || "",
-
         month: parseNullableInt(row.month),
-
         year: parseNullableInt(row.year),
-
         customFields,
       };
 
-      // ===============================
-      // EMPLOYEE FOUND
-      // ===============================
       if (emailRecord) {
         dealData.employeeId = emailRecord.employeeId;
         dealData.agentResolved = true;
+      } else if (row.manualAgentName) {
+        dealData.manualAgentName = row.manualAgentName;
+        dealData.manualAgentEmail = normalizedEmail;
+        dealData.agentResolved = true;
       } else {
-        // ===============================
-        // EXCEL AGENT FALLBACK
-        // ===============================
-        if (row.manualAgentName) {
-          dealData.manualAgentName = row.manualAgentName;
-
-          dealData.manualAgentEmail = normalizedEmail;
-
-          dealData.agentResolved = true;
-        } else {
-          // ===============================
-          // UNRESOLVED
-          // ===============================
-          dealData.agentResolved = false;
-
-          unresolvedDeals.push(normalizedEmail);
-        }
+        dealData.agentResolved = false;
+        unresolvedDeals.push(normalizedEmail);
       }
 
-      const created = await prisma.dealInfo.create({
-        data: dealData,
-      });
-
+      const created = await prisma.dealInfo.create({ data: dealData });
       createdDeals.push(created);
     }
 
@@ -354,20 +476,16 @@ export const bulkUploadDeals = async (req, res) => {
     });
   } catch (error) {
     console.error("Bulk upload error:", error);
-
-    res.status(500).json({
-      message: "Failed to upload deals",
-    });
+    res.status(500).json({ message: "Failed to upload deals" });
   }
 };
 
 // ===============================
-// UPDATE DEAL (FIXED)
+// UPDATE DEAL
 // ===============================
 export const updateDeal = async (req, res) => {
   try {
     const { id } = req.params;
-
     const {
       clientEmail,
       industry,
@@ -384,7 +502,6 @@ export const updateDeal = async (req, res) => {
     } = req.body;
 
     const normalizedEmail = clientEmail?.toLowerCase().trim();
-
     const emailRecord = normalizedEmail
       ? await prisma.emailDomain.findFirst({
           where: { email: normalizedEmail, isActive: true },
@@ -396,17 +513,14 @@ export const updateDeal = async (req, res) => {
       ...(industry && { industry }),
       ...(leadType && { leadType }),
       ...(dealStatus && { dealStatus }),
-
       industryId: parseNullableInt(industryId),
       eventId: parseNullableInt(eventId),
       associationId: parseNullableInt(associationId),
       month: parseNullableInt(month),
       year: parseNullableInt(year),
-
       ...(customFields && { customFields }),
     };
 
-    // ✅ Employee found
     if (emailRecord) {
       updateData.employeeId = emailRecord.employeeId;
       updateData.manualAgentName = null;
@@ -439,11 +553,7 @@ export const updateDeal = async (req, res) => {
 export const deleteDeal = async (req, res) => {
   try {
     const { id } = req.params;
-
-    await prisma.dealInfo.delete({
-      where: { id: Number(id) },
-    });
-
+    await prisma.dealInfo.delete({ where: { id: Number(id) } });
     res.json({ message: "Deal deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: "Failed to delete deal" });
@@ -451,7 +561,7 @@ export const deleteDeal = async (req, res) => {
 };
 
 // ===============================
-// MASTER MAP
+// MASTER CRUD (UNCHANGED)
 // ===============================
 const masterMap = {
   industries: prisma.industryMaster,
@@ -461,21 +571,15 @@ const masterMap = {
   associations: prisma.associationMaster,
 };
 
-// ===============================
-// MASTER CRUD
-// ===============================
 export const getMasters = async (req, res) => {
   try {
     const { type } = req.params;
-
     const table = masterMap[type];
     if (!table) return res.status(400).json({ message: "Invalid type" });
-
     const data = await table.findMany({
       where: { isActive: true },
-      orderBy: { createdAt: "desc" },
+      orderBy: { name: "asc" },
     });
-
     res.json(data);
   } catch (error) {
     res.status(500).json({ message: "Failed to fetch master data" });
@@ -486,33 +590,20 @@ export const createMaster = async (req, res) => {
   try {
     const { type } = req.params;
     const { name } = req.body;
-
     const table = masterMap[type];
     if (!table) return res.status(400).json({ message: "Invalid type" });
-
-    if (!name || !name.trim()) {
+    if (!name || !name.trim())
       return res.status(400).json({ message: "Name is required" });
-    }
 
     const cleanedName = name.trim();
-
     const existing = await table.findFirst({
-      where: {
-        name: { equals: cleanedName, mode: "insensitive" },
-      },
+      where: { name: { equals: cleanedName, mode: "insensitive" } },
     });
+    if (existing) return res.status(409).json({ message: "Already exists" });
 
-    if (existing) {
-      return res.status(409).json({ message: "Already exists" });
-    }
-
-    const data = await table.create({
-      data: { name: cleanedName },
-    });
-
+    const data = await table.create({ data: { name: cleanedName } });
     res.status(201).json(data);
   } catch (error) {
-    console.error("Create master error:", error);
     res.status(500).json({ message: "Failed to create master data" });
   }
 };
@@ -520,15 +611,12 @@ export const createMaster = async (req, res) => {
 export const deleteMaster = async (req, res) => {
   try {
     const { type, id } = req.params;
-
     const table = masterMap[type];
     if (!table) return res.status(400).json({ message: "Invalid type" });
-
     await table.update({
       where: { id: Number(id) },
       data: { isActive: false },
     });
-
     res.json({ message: "Deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: "Failed to delete master data" });
@@ -536,7 +624,7 @@ export const deleteMaster = async (req, res) => {
 };
 
 // ===============================
-// EMPLOYEE DEALS
+// EMPLOYEE DEALS (UPDATED WITH PAGINATION & CHRONO SORT)
 // ===============================
 export const getEmployeeDeals = async (req, res) => {
   try {
@@ -549,22 +637,26 @@ export const getEmployeeDeals = async (req, res) => {
       industryId,
       eventId,
       associationId,
+      page = 1,
+      limit = 20,
     } = req.query;
 
-    const where = {
-      employeeId: req.user.employeeId,
-    };
+    const p = Math.max(1, Number(page));
+    const l = Math.max(1, Number(limit));
+    const skip = (p - 1) * l;
+
+    const where = { employeeId: req.user.employeeId };
 
     if (industry) where.industry = industry;
     if (leadType) where.leadType = leadType;
     if (dealStatus) where.dealStatus = dealStatus;
-
     if (industryId) where.industryId = Number(industryId);
     if (eventId) where.eventId = Number(eventId);
     if (associationId) where.associationId = Number(associationId);
-
     if (month) where.month = Number(month);
     if (year) where.year = Number(year);
+
+    const totalCount = await prisma.dealInfo.count({ where });
 
     const deals = await prisma.dealInfo.findMany({
       where,
@@ -574,10 +666,20 @@ export const getEmployeeDeals = async (req, res) => {
         eventRef: true,
         associationRef: true,
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ year: "desc" }, { month: "desc" }, { createdAt: "desc" }],
+      skip: skip,
+      take: l,
     });
 
-    res.json(deals);
+    res.json({
+      deals,
+      meta: {
+        total: totalCount,
+        page: p,
+        limit: l,
+        totalPages: Math.ceil(totalCount / l),
+      },
+    });
   } catch (error) {
     console.error("Employee deals error:", error);
     res.status(500).json({ message: "Failed to fetch employee deals" });

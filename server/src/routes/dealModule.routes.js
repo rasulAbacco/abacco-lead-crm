@@ -2,6 +2,7 @@
 import express from "express";
 import {
   getDeals,
+  getDealYears,
   createDeal,
   bulkUploadDeals,
   updateDeal,
@@ -23,6 +24,7 @@ router.use(authenticate);
 // DEAL ROUTES
 // ===============================
 router.get("/deals", getDeals);
+router.get("/deals/years", getDealYears);
 
 router.post("/deals", createDeal);
 
