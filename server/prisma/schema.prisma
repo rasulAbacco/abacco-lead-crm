@@ -74,6 +74,13 @@ model Employee {
   //EmployeeLeadTarget EmployeeLeadTarget?
   leadTarget        EmployeeLeadTarget?
 
+  leadingTeams Team[] @relation("EmployeeLeadingTeams")
+
+  teamMemberships TeamMember[] @relation("EmployeeTeamMemberships")
+
+  teamReports       TeamMonthlyReport[]    @relation("EmployeeTeamReports")
+  dealAnnouncements TeamDealAnnouncement[]
+
   @@index([role])
   @@index([isActive])
   @@index([employeeId])
@@ -510,4 +517,112 @@ model AllowedIP {
 
   @@index([ipAddress])
   @@index([status])
+}
+
+model Team {
+  id Int @id @default(autoincrement())
+
+  name String
+
+  description String?
+
+  leaderId String
+
+  // ======================================================
+  // TEAM TARGET VALUE
+  // ======================================================
+
+  targetValue Float @default(0)
+
+  leader Employee @relation("EmployeeLeadingTeams", fields: [leaderId], references: [employeeId])
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  members TeamMember[]
+
+  reports TeamMonthlyReport[]
+
+  @@index([leaderId])
+  @@index([isActive])
+}
+
+model TeamMember {
+  id Int @id @default(autoincrement())
+
+  teamId Int
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  employeeId String
+
+  employee Employee @relation("EmployeeTeamMemberships", fields: [employeeId], references: [employeeId])
+
+  createdAt DateTime @default(now())
+
+  @@unique([teamId, employeeId])
+  @@index([employeeId])
+}
+
+model TeamMonthlyReport {
+  id Int @id @default(autoincrement())
+
+  teamId Int
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  employeeId String
+
+  employee Employee @relation("EmployeeTeamReports", fields: [employeeId], references: [employeeId])
+
+  month Int
+  year  Int
+
+  deal Int @default(0)
+
+  invoicePending Int @default(0)
+
+  invoiceCancel Int @default(0)
+
+  activeClients Int @default(0)
+
+  leaveOutClients Int @default(0)
+
+  noResponse Int @default(0)
+
+  totalLeads Int @default(0)
+
+  dealValue Float? @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([teamId])
+  @@index([employeeId])
+  @@index([month, year])
+}
+
+model TeamDealAnnouncement {
+  id Int @id @default(autoincrement())
+
+  employeeId String
+
+  month Int
+
+  year Int
+
+  amount Float @default(0)
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+
+  @@unique([employeeId, month, year])
+  @@index([employeeId])
+  @@index([month, year])
 }
