@@ -259,51 +259,9 @@ export const createMonthlyReport = async (req, res) => {
     // =========================================
 
     for (const report of reports) {
-      const existingReport = await prisma.teamMonthlyReport.findFirst({
+      await prisma.teamMonthlyReport.upsert({
         where: {
-          teamId: Number(teamId),
-          employeeId: report.employeeId,
-          month: Number(month),
-          year: Number(year),
-        },
-      });
-
-      // =========================================
-      // UPDATE EXISTING
-      // =========================================
-
-      if (existingReport) {
-        await prisma.teamMonthlyReport.update({
-          where: {
-            id: existingReport.id,
-          },
-
-          data: {
-            deal: Number(report.deal || 0),
-
-            invoicePending: Number(report.invoicePending || 0),
-
-            invoiceCancel: Number(report.invoiceCancel || 0),
-
-            activeClients: Number(report.activeClients || 0),
-
-            leaveOutClients: Number(report.leaveOutClients || 0),
-
-            noResponse: Number(report.noResponse || 0),
-
-            totalLeads: Number(report.totalLeads || 0),
-
-            dealValue: Number(report.dealValue || 0),
-          },
-        });
-      }
-
-      // =========================================
-      // CREATE NEW
-      // =========================================
-      else {
-        await prisma.teamMonthlyReport.create({
-          data: {
+          teamId_employeeId_month_year: {
             teamId: Number(teamId),
 
             employeeId: report.employeeId,
@@ -311,25 +269,61 @@ export const createMonthlyReport = async (req, res) => {
             month: Number(month),
 
             year: Number(year),
-
-            deal: Number(report.deal || 0),
-
-            invoicePending: Number(report.invoicePending || 0),
-
-            invoiceCancel: Number(report.invoiceCancel || 0),
-
-            activeClients: Number(report.activeClients || 0),
-
-            leaveOutClients: Number(report.leaveOutClients || 0),
-
-            noResponse: Number(report.noResponse || 0),
-
-            totalLeads: Number(report.totalLeads || 0),
-
-            dealValue: Number(report.dealValue || 0),
           },
-        });
-      }
+        },
+
+        // =========================================
+        // UPDATE EXISTING
+        // =========================================
+
+        update: {
+          deal: Number(report.deal || 0),
+
+          invoicePending: Number(report.invoicePending || 0),
+
+          invoiceCancel: Number(report.invoiceCancel || 0),
+
+          activeClients: Number(report.activeClients || 0),
+
+          leaveOutClients: Number(report.leaveOutClients || 0),
+
+          noResponse: Number(report.noResponse || 0),
+
+          totalLeads: Number(report.totalLeads || 0),
+
+          dealValue: Number(report.dealValue || 0),
+        },
+
+        // =========================================
+        // CREATE NEW
+        // =========================================
+
+        create: {
+          teamId: Number(teamId),
+
+          employeeId: report.employeeId,
+
+          month: Number(month),
+
+          year: Number(year),
+
+          deal: Number(report.deal || 0),
+
+          invoicePending: Number(report.invoicePending || 0),
+
+          invoiceCancel: Number(report.invoiceCancel || 0),
+
+          activeClients: Number(report.activeClients || 0),
+
+          leaveOutClients: Number(report.leaveOutClients || 0),
+
+          noResponse: Number(report.noResponse || 0),
+
+          totalLeads: Number(report.totalLeads || 0),
+
+          dealValue: Number(report.dealValue || 0),
+        },
+      });
     }
 
     return res.status(200).json({
@@ -659,28 +653,14 @@ export const updateTeam = async (req, res) => {
    SAVE DEAL ANNOUNCEMENTS
 ========================================================= */
 
-export const saveDealAnnouncements = async (
-  req,
-  res,
-) => {
+export const saveDealAnnouncements = async (req, res) => {
   try {
-    const {
-      month,
-      year,
-      announcements,
-    } = req.body;
+    const { month, year, announcements } = req.body;
 
-    if (
-      !month ||
-      !year ||
-      !Array.isArray(
-        announcements,
-      )
-    ) {
+    if (!month || !year || !Array.isArray(announcements)) {
       return res.status(400).json({
         success: false,
-        message:
-          "Invalid payload",
+        message: "Invalid payload",
       });
     }
 
@@ -689,67 +669,43 @@ export const saveDealAnnouncements = async (
     // ============================================
 
     for (const item of announcements) {
-      await prisma.teamDealAnnouncement.upsert(
-        {
-          where: {
-            employeeId_month_year:
-              {
-                employeeId:
-                  item.employeeId,
+      await prisma.teamDealAnnouncement.upsert({
+        where: {
+          employeeId_month_year: {
+            employeeId: item.employeeId,
 
-                month:
-                  Number(
-                    month,
-                  ),
+            month: Number(month),
 
-                year:
-                  Number(
-                    year,
-                  ),
-              },
-          },
-
-          update: {
-            amount:
-              Number(
-                item.amount,
-              ) || 0,
-          },
-
-          create: {
-            employeeId:
-              item.employeeId,
-
-            month:
-              Number(month),
-
-            year:
-              Number(year),
-
-            amount:
-              Number(
-                item.amount,
-              ) || 0,
+            year: Number(year),
           },
         },
-      );
+
+        update: {
+          amount: Number(item.amount) || 0,
+        },
+
+        create: {
+          employeeId: item.employeeId,
+
+          month: Number(month),
+
+          year: Number(year),
+
+          amount: Number(item.amount) || 0,
+        },
+      });
     }
 
     return res.status(200).json({
       success: true,
-      message:
-        "Deal announcements saved successfully",
+      message: "Deal announcements saved successfully",
     });
   } catch (error) {
-    console.error(
-      "SAVE DEAL ANNOUNCEMENT ERROR:",
-      error,
-    );
+    console.error("SAVE DEAL ANNOUNCEMENT ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message:
-        "Server error",
+      message: "Server error",
     });
   }
 };
@@ -758,65 +714,46 @@ export const saveDealAnnouncements = async (
    GET DEAL ANNOUNCEMENTS
 ========================================================= */
 
-export const getDealAnnouncements = async (
-  req,
-  res,
-) => {
+export const getDealAnnouncements = async (req, res) => {
   try {
-    const {
-      month,
-      year,
-    } = req.query;
+    const { month, year } = req.query;
 
-    const announcements =
-      await prisma.teamDealAnnouncement.findMany(
-        {
-          where: {
-            ...(month && {
-              month:
-                Number(
-                  month,
-                ),
-            }),
+    const announcements = await prisma.teamDealAnnouncement.findMany({
+      where: {
+        ...(month && {
+          month: Number(month),
+        }),
 
-            ...(year && {
-              year:
-                Number(
-                  year,
-                ),
-            }),
-          },
+        ...(year && {
+          year: Number(year),
+        }),
+      },
 
-          include: {
-            employee: {
-              select: {
-                employeeId: true,
-                fullName: true,
-                email: true,
-              },
-            },
-          },
-
-          orderBy: {
-            amount: "desc",
+      include: {
+        employee: {
+          select: {
+            employeeId: true,
+            fullName: true,
+            email: true,
           },
         },
-      );
+      },
+
+      orderBy: {
+        amount: "desc",
+      },
+    });
 
     return res.status(200).json({
       success: true,
       announcements,
     });
   } catch (error) {
-    console.error(
-      "GET DEAL ANNOUNCEMENTS ERROR:",
-      error,
-    );
+    console.error("GET DEAL ANNOUNCEMENTS ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message:
-        "Server error",
+      message: "Server error",
     });
   }
 };

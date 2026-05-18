@@ -600,6 +600,7 @@ model TeamMonthlyReport {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([teamId, employeeId, month, year])
   @@index([teamId])
   @@index([employeeId])
   @@index([month, year])

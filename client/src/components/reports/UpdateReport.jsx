@@ -1,28 +1,20 @@
 //src/components/reports/UpdateReport.jsx
-
 import React, { useEffect, useState } from "react";
 
 const UpdateReport = () => {
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
   const [loading, setLoading] = useState(false);
-
   const [teams, setTeams] = useState([]);
-
   const [selectedTeam, setSelectedTeam] = useState("");
-
   const [month, setMonth] = useState(new Date().getMonth() + 1);
-
   const [year, setYear] = useState(new Date().getFullYear());
-
   const [reportRows, setReportRows] = useState([]);
-
   const [lastUpdated, setLastUpdated] = useState("");
 
   // ======================================================
   // FETCH TEAMS
   // ======================================================
-
   const fetchTeams = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/team-reports/teams`, {
@@ -30,9 +22,7 @@ const UpdateReport = () => {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
       });
-
       const data = await res.json();
-
       setTeams(data.teams || []);
     } catch (err) {
       console.error(err);
@@ -46,26 +36,18 @@ const UpdateReport = () => {
   // ======================================================
   // HANDLE TEAM CHANGE
   // ======================================================
-
   const handleTeamChange = async (teamId) => {
     setSelectedTeam(teamId);
-
     const selected = teams.find((team) => team.id === Number(teamId));
-
     if (!selected) return;
 
     const rows = [];
 
-    // ============================================
     // TEAM LEADER
-    // ============================================
-
     if (selected.leader) {
       rows.push({
         employeeId: selected.leader.employeeId,
-
         fullName: `${selected.leader.fullName} (TL)`,
-
         deal: "",
         invoicePending: "",
         invoiceCancel: "",
@@ -77,16 +59,11 @@ const UpdateReport = () => {
       });
     }
 
-    // ============================================
     // TEAM MEMBERS
-    // ============================================
-
     selected.members.forEach((member) => {
       rows.push({
         employeeId: member.employee.employeeId,
-
         fullName: member.employee.fullName,
-
         deal: "",
         invoicePending: "",
         invoiceCancel: "",
@@ -98,10 +75,7 @@ const UpdateReport = () => {
       });
     });
 
-    // ============================================
     // FETCH EXISTING REPORTS
-    // ============================================
-
     try {
       const res = await fetch(
         `${API_BASE_URL}/api/team-reports/reports?teamId=${teamId}&month=${month}&year=${year}`,
@@ -113,13 +87,9 @@ const UpdateReport = () => {
       );
 
       const data = await res.json();
-
       const existingReports = data.reports || [];
 
-      // ============================================
       // MERGE EXISTING DATA
-      // ============================================
-
       const mergedRows = rows.map((row) => {
         const existing = existingReports.find(
           (report) => report.employeeId === row.employeeId,
@@ -129,30 +99,18 @@ const UpdateReport = () => {
 
         return {
           ...row,
-
           deal: existing.deal || "",
-
           invoicePending: existing.invoicePending || "",
-
           invoiceCancel: existing.invoiceCancel || "",
-
           activeClients: existing.activeClients || "",
-
           leaveOutClients: existing.leaveOutClients || "",
-
           noResponse: existing.noResponse || "",
-
           totalLeads: existing.totalLeads || "",
-
           dealValue: existing.dealValue || "",
         };
       });
 
       setReportRows(mergedRows);
-
-      // ============================================
-      // LAST UPDATED
-      // ============================================
 
       if (existingReports.length > 0) {
         setLastUpdated(new Date(existingReports[0].updatedAt).toLocaleString());
@@ -161,41 +119,28 @@ const UpdateReport = () => {
       }
     } catch (err) {
       console.error(err);
-
       setReportRows(rows);
     }
   };
 
-  // ======================================================
   // REFETCH ON MONTH/YEAR CHANGE
-  // ======================================================
-
   useEffect(() => {
     if (selectedTeam) {
       handleTeamChange(selectedTeam);
     }
   }, [month, year]);
 
-  // ======================================================
   // HANDLE INPUT CHANGE
-  // ======================================================
-
   const handleInputChange = (index, field, value) => {
     const updatedRows = [...reportRows];
-
     updatedRows[index][field] = value;
-
     setReportRows(updatedRows);
   };
 
-  // ======================================================
   // SAVE REPORTS
-  // ======================================================
-
   const handleSaveReports = async () => {
     try {
       setLoading(true);
-
       const payload = {
         teamId: selectedTeam,
         month,
@@ -207,33 +152,24 @@ const UpdateReport = () => {
         `${API_BASE_URL}/api/team-reports/create-report`,
         {
           method: "POST",
-
           headers: {
             "Content-Type": "application/json",
-
             Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
-
           body: JSON.stringify(payload),
         },
       );
 
       const data = await res.json();
-
       if (!res.ok) {
         throw new Error(data.message || "Failed to save reports");
       }
 
       setLastUpdated(new Date().toLocaleString());
-
       alert("Reports updated successfully");
-
-      // REFRESH DATA
-
       handleTeamChange(selectedTeam);
     } catch (err) {
       console.error(err);
-
       alert(err.message || "Something went wrong");
     } finally {
       setLoading(false);
@@ -241,220 +177,197 @@ const UpdateReport = () => {
   };
 
   return (
-    <div className="bg-white min-h-screen px-8 py-6">
+    <div className="w-full text-[#1D1D1F]">
       {/* ====================================================== */}
-      {/* HEADER */}
+      {/* STATUS RIBBON / LAST UPDATED AREA                     */}
       {/* ====================================================== */}
-
-      <div className="border-b border-gray-200 pb-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-semibold text-gray-900">
-            Update Reports
-          </h1>
-
-          <p className="text-sm text-gray-500 mt-1">
-            Update monthly team reports
+      {lastUpdated && (
+        <div className="mb-5 flex items-center justify-between bg-[#F5F5F7] border border-[#E8E8ED] rounded-lg px-4 py-2.5 transition-all">
+          <div className="flex items-center gap-2 text-xs font-medium text-[#6E6E73]">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#008060] animate-pulse"></span>
+            Sync status verified
+          </div>
+          <p className="text-[11px] font-medium text-[#86868B]">
+            Saved Stamp:{" "}
+            <span className="text-[#1D1D1F] font-semibold">{lastUpdated}</span>
           </p>
         </div>
+      )}
 
-        {/* LAST UPDATED TAG */}
+      {/* ====================================================== */}
+      {/* CONTROL ACTIONS PANEL                                  */}
+      {/* ====================================================== */}
+      <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-[#E8E8ED]">
+        <div className="flex flex-wrap items-center gap-4 flex-1 md:flex-initial">
+          {/* TEAM SELECT */}
+          <div className="flex flex-col gap-1.5 min-w-[200px]">
+            <label className="text-[11px] font-semibold text-[#86868B] uppercase tracking-wider">
+              Target Team
+            </label>
+            <select
+              value={selectedTeam}
+              onChange={(e) => handleTeamChange(e.target.value)}
+              className="w-full bg-[#F5F5F7] border border-[#E8E8ED] rounded-lg px-3 py-2 text-xs font-medium text-[#1D1D1F] outline-none transition-colors duration-200 focus:border-[#1D1D1F] cursor-pointer"
+            >
+              <option value="">Select Team target...</option>
+              {teams.map((team) => (
+                <option key={team.id} value={team.id}>
+                  {team.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        {lastUpdated && (
-          <div className="inline-flex items-center gap-2 bg-gray-100 border border-gray-200 px-4 py-2 rounded-full text-sm text-gray-700">
-            <span className="w-2 h-2 rounded-full bg-green-500"></span>
-            Last Updated At:
-            <span className="font-medium text-black">{lastUpdated}</span>
+          {/* MONTH SELECT */}
+          <div className="flex flex-col gap-1.5 min-w-[140px]">
+            <label className="text-[11px] font-semibold text-[#86868B] uppercase tracking-wider">
+              Billing Month
+            </label>
+            <select
+              value={month}
+              onChange={(e) => setMonth(Number(e.target.value))}
+              className="w-full bg-[#F5F5F7] border border-[#E8E8ED] rounded-lg px-3 py-2 text-xs font-medium text-[#1D1D1F] outline-none transition-colors duration-200 focus:border-[#1D1D1F] cursor-pointer"
+            >
+              {[
+                "January",
+                "February",
+                "March",
+                "April",
+                "May",
+                "June",
+                "July",
+                "August",
+                "September",
+                "October",
+                "November",
+                "December",
+              ].map((m, idx) => (
+                <option key={idx} value={idx + 1}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* YEAR INPUT */}
+          <div className="flex flex-col gap-1.5 w-[90px]">
+            <label className="text-[11px] font-semibold text-[#86868B] uppercase tracking-wider">
+              Year
+            </label>
+            <input
+              type="number"
+              value={year}
+              onChange={(e) => setYear(Number(e.target.value))}
+              className="w-full bg-[#F5F5F7] border border-[#E8E8ED] rounded-lg px-3 py-2 text-xs font-medium text-[#1D1D1F] outline-none transition-colors duration-200 focus:border-[#1D1D1F]"
+            />
+          </div>
+        </div>
+
+        {/* TOP CONTEXT ACTION BUTTON */}
+        {reportRows.length > 0 && (
+          <div className="pt-4 md:pt-0 self-end">
+            <button
+              onClick={handleSaveReports}
+              disabled={loading}
+              className="bg-[#1D1D1F] text-white px-5 py-2 rounded-lg text-xs font-medium tracking-wide hover:bg-[#323234] active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:pointer-events-none"
+            >
+              {loading ? "Writing Ledger..." : "Save Updates"}
+            </button>
           </div>
         )}
       </div>
 
       {/* ====================================================== */}
-      {/* FILTERS */}
+      {/* HIGH-DENSITY GRID REGISTER                            */}
       {/* ====================================================== */}
+      <div className="mt-6">
+        {reportRows.length > 0 ? (
+          <div className="border border-[#E8E8ED] rounded-xl overflow-hidden bg-white">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-[#F5F5F7] border-b border-[#E8E8ED]">
+                    <th className="px-4 py-2.5 text-xs font-semibold text-[#1D1D1F] whitespace-nowrap">
+                      Employee
+                    </th>
+                    <th className="px-3 py-2.5 text-xs font-semibold text-[#1D1D1F] text-center whitespace-nowrap w-[100px]">
+                      Deals
+                    </th>
+                    <th className="px-3 py-2.5 text-xs font-semibold text-[#1D1D1F] text-center whitespace-nowrap w-[110px]">
+                      Inv Pending
+                    </th>
+                    <th className="px-3 py-2.5 text-xs font-semibold text-[#1D1D1F] text-center whitespace-nowrap w-[110px]">
+                      Inv Cancel
+                    </th>
+                    <th className="px-3 py-2.5 text-xs font-semibold text-[#1D1D1F] text-center whitespace-nowrap w-[110px]">
+                      Active Clients
+                    </th>
+                    <th className="px-3 py-2.5 text-xs font-semibold text-[#1D1D1F] text-center whitespace-nowrap w-[100px]">
+                      Leave Out
+                    </th>
+                    <th className="px-3 py-2.5 text-xs font-semibold text-[#1D1D1F] text-center whitespace-nowrap w-[110px]">
+                      No Response
+                    </th>
+                    <th className="px-3 py-2.5 text-xs font-semibold text-[#1D1D1F] text-center whitespace-nowrap w-[100px]">
+                      Total Leads
+                    </th>
+                    <th className="px-3 py-2.5 text-xs font-semibold text-[#1D1D1F] text-center whitespace-nowrap w-[130px]">
+                      Deal Value (₹)
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E8E8ED] text-xs">
+                  {reportRows.map((row, index) => (
+                    <tr
+                      key={index}
+                      className="hover:bg-[#FBFBFD] transition-colors"
+                    >
+                      {/* EMPLOYEE NAME COLUMN */}
+                      <td className="px-4 py-2.5 font-medium text-[#1D1D1F] whitespace-nowrap max-w-[180px] truncate">
+                        {row.fullName}
+                      </td>
 
-      <div className="flex flex-wrap items-end gap-5 mt-8">
-        {/* TEAM */}
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Team
-          </label>
-
-          <select
-            value={selectedTeam}
-            onChange={(e) => handleTeamChange(e.target.value)}
-            className="min-w-[240px] border border-gray-300 rounded-xl px-4 py-3 outline-none focus:border-black"
-          >
-            <option value="">Select Team</option>
-
-            {teams.map((team) => (
-              <option key={team.id} value={team.id}>
-                {team.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* MONTH */}
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Month
-          </label>
-
-          <select
-            value={month}
-            onChange={(e) => setMonth(Number(e.target.value))}
-            className="border border-gray-300 rounded-xl px-4 py-3 outline-none focus:border-black"
-          >
-            <option value={1}>January</option>
-
-            <option value={2}>February</option>
-
-            <option value={3}>March</option>
-
-            <option value={4}>April</option>
-
-            <option value={5}>May</option>
-
-            <option value={6}>June</option>
-
-            <option value={7}>July</option>
-
-            <option value={8}>August</option>
-
-            <option value={9}>September</option>
-
-            <option value={10}>October</option>
-
-            <option value={11}>November</option>
-
-            <option value={12}>December</option>
-          </select>
-        </div>
-
-        {/* YEAR */}
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Year
-          </label>
-
-          <input
-            type="number"
-            value={year}
-            onChange={(e) => setYear(Number(e.target.value))}
-            className="w-[120px] border border-gray-300 rounded-xl px-4 py-3 outline-none focus:border-black"
-          />
-        </div>
-
-        {/* SAVE BUTTON */}
-
-        {reportRows.length > 0 && (
-          <button
-            onClick={handleSaveReports}
-            disabled={loading}
-            className="bg-black text-white px-6 py-3 rounded-xl text-sm font-medium hover:opacity-90 transition-all"
-          >
-            {loading ? "Saving..." : "Save Reports"}
-          </button>
+                      {/* DATA INPUT CELLS */}
+                      {[
+                        "deal",
+                        "invoicePending",
+                        "invoiceCancel",
+                        "activeClients",
+                        "leaveOutClients",
+                        "noResponse",
+                        "totalLeads",
+                        "dealValue",
+                      ].map((field) => (
+                        <td key={field} className="px-2 py-2 text-center">
+                          <input
+                            type="number"
+                            value={row[field]}
+                            placeholder="0"
+                            onChange={(e) =>
+                              handleInputChange(index, field, e.target.value)
+                            }
+                            className="w-full text-center bg-white border border-[#E8E8ED] rounded-md px-2 py-1 text-xs font-medium text-[#1D1D1F] transition-all duration-150 outline-none hover:border-[#CCCCCC] focus:border-[#1D1D1F] focus:bg-white focus:ring-1 focus:ring-[#1D1D1F]/10"
+                          />
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (
+          <div className="py-16 text-center border border-[#E8E8ED] rounded-xl bg-white">
+            <h3 className="text-sm font-semibold text-[#1D1D1F]">
+              Matrix Registry Dormant
+            </h3>
+            <p className="text-xs text-[#86868B] mt-1">
+              Select an active team to populate work rows and update performance
+              ledgers.
+            </p>
+          </div>
         )}
       </div>
-
-      {/* ====================================================== */}
-      {/* TABLE */}
-      {/* ====================================================== */}
-
-      {reportRows.length > 0 ? (
-        <div className="mt-8 overflow-x-auto border border-gray-200 rounded-2xl">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="bg-[#f8f8f8] border-b border-gray-200">
-                <th className="py-5 px-4 text-left text-sm font-semibold text-gray-700">
-                  Employee
-                </th>
-
-                <th className="py-5 px-4 text-center text-sm font-semibold text-gray-700">
-                  Deals
-                </th>
-
-                <th className="py-5 px-4 text-center text-sm font-semibold text-gray-700 whitespace-nowrap">
-                  Invoice Pending
-                </th>
-
-                <th className="py-5 px-4 text-center text-sm font-semibold text-gray-700 whitespace-nowrap">
-                  Invoice Cancel
-                </th>
-
-                <th className="py-5 px-4 text-center text-sm font-semibold text-gray-700 whitespace-nowrap">
-                  Active Clients
-                </th>
-
-                <th className="py-5 px-4 text-center text-sm font-semibold text-gray-700 whitespace-nowrap">
-                  Leave Out
-                </th>
-
-                <th className="py-5 px-4 text-center text-sm font-semibold text-gray-700 whitespace-nowrap">
-                  No Response
-                </th>
-
-                <th className="py-5 px-4 text-center text-sm font-semibold text-gray-700 whitespace-nowrap">
-                  Total Leads
-                </th>
-
-                <th className="py-5 px-4 text-center text-sm font-semibold text-gray-700 whitespace-nowrap">
-                  Deal Value
-                </th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {reportRows.map((row, index) => (
-                <tr
-                  key={index}
-                  className="border-b border-gray-100 hover:bg-gray-50"
-                >
-                  {/* EMPLOYEE */}
-
-                  <td className="py-4 px-4 font-medium text-gray-800 whitespace-nowrap">
-                    {row.fullName}
-                  </td>
-
-                  {[
-                    "deal",
-                    "invoicePending",
-                    "invoiceCancel",
-                    "activeClients",
-                    "leaveOutClients",
-                    "noResponse",
-                    "totalLeads",
-                    "dealValue",
-                  ].map((field) => (
-                    <td key={field} className="px-3 py-3">
-                      <input
-                        type="number"
-                        value={row[field]}
-                        onChange={(e) =>
-                          handleInputChange(index, field, e.target.value)
-                        }
-                        className="w-full min-w-[90px] border border-gray-300 rounded-lg px-3 py-2 outline-none focus:border-black"
-                      />
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <div className="py-24 text-center">
-          <h3 className="text-xl font-medium text-gray-700">
-            No Team Selected
-          </h3>
-
-          <p className="text-gray-500 mt-2">Select a team to update reports</p>
-        </div>
-      )}
     </div>
   );
 };

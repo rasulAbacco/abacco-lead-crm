@@ -1,7 +1,5 @@
 //src/components/reports/TeamsReport.jsx
-
 import React, { useState } from "react";
-
 import CreateTeam from "./CreateTeam";
 import UpdateReport from "./UpdateReport";
 import TeamReportTable from "./TeamReportTable";
@@ -11,85 +9,82 @@ const TeamsReport = () => {
   const [activeTab, setActiveTab] = useState("teamReport");
 
   const tabs = [
-    {
-      id: "teamReport",
-      label: "Team Report",
-    },
-    {
-      id: "updateReport",
-      label: "Update Report",
-    },
-    {
-      id: "dealAnnouncement",
-      label: "Deal Amount",
-    },
-    {
-      id: "createTeam",
-      label: "Create Team",
-    },
+    { id: "teamReport", label: "Team Report" },
+    { id: "updateReport", label: "Update Report" },
+    { id: "dealAnnouncement", label: "Deal Amount" },
+    { id: "createTeam", label: "Create Team" },
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#FBFBFD] text-[#1D1D1F] font-sans antialiased">
       {/* ======================================== */}
-      {/* CLASSIC NAVBAR */}
+      {/* PREMIUM HIGH-END MINIMALIST NAVBAR      */}
       {/* ======================================== */}
+      <header className="sticky top-0 z-40 w-full bg-white/80 backdrop-blur-md border-b border-[#E8E8ED]">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6">
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between pt-5 pb-0 gap-3">
+            {/* Title & Description */}
+            <div className="pb-1">
+              <h1 className="text-xl font-semibold tracking-tight text-[#1D1D1F]">
+                Teams Management
+              </h1>
+              <p className="text-xs text-[#86868B] mt-0.5 font-medium">
+                Manage your professional teams, track reports, and view
+                configurations.
+              </p>
+            </div>
 
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm">
-        <div className="px-6">
-          {/* Title */}
+            {/* Navigation Tabs */}
+            <nav className="relative -mb-px overflow-x-auto scrollbar-none whitespace-nowrap">
+              <div className="flex gap-6">
+                {tabs.map((tab) => {
+                  const isActive = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`relative pb-3 text-xs sm:text-sm font-medium tracking-wide transition-all duration-200 outline-none
+                        ${
+                          isActive
+                            ? "text-[#1D1D1F] font-semibold"
+                            : "text-[#6E6E73] hover:text-[#1D1D1F]"
+                        }
+                      `}
+                    >
+                      {tab.label}
 
-          <div className="pt-5 pb-3">
-            <h1 className="text-2xl font-bold text-gray-800">
-              Teams Management
-            </h1>
-
-            <p className="text-sm text-gray-500 mt-1">
-              Manage teams, reports and deal announcements
-            </p>
-          </div>
-
-          {/* Nav Tabs */}
-
-          <div className="flex items-center gap-8 overflow-x-auto">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`relative pb-4 pt-2 text-sm font-semibold whitespace-nowrap transition-all duration-200
-                  ${
-                    activeTab === tab.id
-                      ? "text-indigo-600"
-                      : "text-gray-500 hover:text-gray-800"
-                  }
-                `}
-              >
-                {tab.label}
-
-                {/* Active Line */}
-
-                {activeTab === tab.id && (
-                  <span className="absolute left-0 bottom-0 w-full h-[3px] bg-indigo-600 rounded-full"></span>
-                )}
-              </button>
-            ))}
+                      {/* Active Indicator */}
+                      {isActive && (
+                        <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#1D1D1F] rounded-full" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </nav>
           </div>
         </div>
-      </div>
+      </header>
 
       {/* ======================================== */}
-      {/* PAGE CONTENT */}
+      {/* SINGLE UNIFIED WORKSPACE BOX            */}
       {/* ======================================== */}
-
-      <div className="w-full">
-        {activeTab === "teamReport" && <TeamReportTable />}
-
-        {activeTab === "updateReport" && <UpdateReport />}
-
-        {activeTab === "dealAnnouncement" && <DealAnnouncement />}
-
-        {activeTab === "createTeam" && <CreateTeam />}
-      </div>
+      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 py-5">
+        {/* All content renders inside this single, optimized canvas wrapper */}
+        <div className="w-full bg-white rounded-xl border border-[#E8E8ED] shadow-[0_1px_2px_rgba(0,0,0,0.01)] overflow-hidden">
+          {/* 
+            Optimized, tighter padding container. 
+            This forces all dynamic child data/tables to look cohesive, 
+            preventing them from nesting multiple distinct boxes inside.
+          */}
+          <div className="p-4 sm:p-5 text-sm">
+            {activeTab === "teamReport" && <TeamReportTable />}
+            {activeTab === "updateReport" && <UpdateReport />}
+            {activeTab === "dealAnnouncement" && <DealAnnouncement />}
+            {activeTab === "createTeam" && <CreateTeam />}
+          </div>
+        </div>
+      </main>
     </div>
   );
 };
