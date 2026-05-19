@@ -22,6 +22,7 @@ import Domain from "./src/routes/Domain.js";
 import adminEmailDomains from "./src/routes/adminEmailDomains.js";
 import dealModuleRoutes from "./src/routes/dealModule.routes.js";
 import teamReports from "./src/routes/teamReport.routes.js";
+import employeeReports from "./src/routes/employeeTeam.routes.js";
 
 console.log("🕐 Server time (UTC):", new Date().toISOString());
 console.log("🇺🇸 US (New York) time:", getUSADateTime());
@@ -64,6 +65,7 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/admin", dealModuleRoutes);
 app.use("/api/team-reports", teamReports);
+app.use("/api/employee-team", employeeReports);
 
 app.use("/api/email-domains", Domain);
 app.use("/api/admin-mail", adminEmailDomains);
