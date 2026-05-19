@@ -382,7 +382,7 @@ const EmployeeMyPerformance = () => {
           >
             <RefreshCw size={11} /> Sync Sheet
           </button>
-          <button
+          {/* <button
             onClick={() => {
               localStorage.clear();
               window.location.href = "/login";
@@ -390,7 +390,7 @@ const EmployeeMyPerformance = () => {
             className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-[#D02E2E] hover:text-[#A01E1E] transition-colors"
           >
             <LogOut size={11} /> End Session
-          </button>
+          </button> */}
         </div>
       </div>
     </div>
