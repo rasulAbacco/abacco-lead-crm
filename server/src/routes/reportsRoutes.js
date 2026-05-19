@@ -333,9 +333,9 @@ router.get("/employee/:employeeId", authenticate, async (req, res) => {
     const { employeeId } = req.params;
     const currentUser = req.user;
 
-    console.log("=== REPORT FETCH DEBUG ===");
-    console.log("Requested employeeId:", employeeId);
-    console.log("Current user:", currentUser);
+    // console.log("=== REPORT FETCH DEBUG ===");
+    // console.log("Requested employeeId:", employeeId);
+    // console.log("Current user:", currentUser);
 
     // Check if user is requesting their own data or is an admin
     const isOwner = currentUser.employeeId === employeeId;
@@ -352,7 +352,7 @@ router.get("/employee/:employeeId", authenticate, async (req, res) => {
       });
     }
 
-    console.log("Access granted, fetching employee details...");
+    // console.log("Access granted, fetching employee details..."); 
 
     // Get employee details
     const employee = await prisma.employee.findUnique({
