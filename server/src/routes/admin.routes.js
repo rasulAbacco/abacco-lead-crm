@@ -17,6 +17,7 @@ import { PrismaClient } from "@prisma/client";
 import {
   addAllowedIP,
   getAllowedIPs,
+  editAllowedIP,
   toggleAllowedIP,
   removeAllowedIP,
 } from "../controllers/allowedIPController.js";
@@ -55,6 +56,7 @@ router.delete("/lead-status/:id", deleteLeadStatus);
 // ===============================
 router.post("/allowed-ips", addAllowedIP);
 router.get("/allowed-ips", getAllowedIPs);
+router.put("/allowed-ips/:id", editAllowedIP); // 🔹 NEW: edit IP address / label
 router.patch("/allowed-ips/:id/status", toggleAllowedIP);
 router.delete("/allowed-ips/:id", removeAllowedIP);
 
