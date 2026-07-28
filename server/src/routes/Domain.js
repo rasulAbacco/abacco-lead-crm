@@ -7,57 +7,78 @@ router.get("/:employeeId", async (req, res) => {
   try {
     const { employeeId } = req.params;
 
+    console.log("Employee ID:", employeeId);
+
+    // Fetch employee domains
     const domains = await prisma.emailDomain.findMany({
       where: { employeeId },
       orderBy: { createdAt: "desc" },
     });
 
+    if (domains.length === 0) {
+      return res.json({ domains: [] });
+    }
+
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
-    const domainsWithCounts = await Promise.all(
-      domains.map(async (domain) => {
-        const normalizedEmail = domain.email?.trim().toLowerCase();
+    // Normalize email list
+    const emails = domains.map((d) => d.email.trim().toLowerCase());
 
-        // ✅ Total Leads (match employeeId also)
-        const totalCount = await prisma.lead.count({
-          where: {
-            employeeId: employeeId,
-            leadEmail: {
-              equals: normalizedEmail,
-              mode: "insensitive", // 🔥 important
-            },
-          },
-        });
+    // Fetch all leads in ONE query
+    const leads = await prisma.lead.findMany({
+      where: {
+        employeeId,
+        leadEmail: {
+          in: emails,
+        },
+      },
+      select: {
+        leadEmail: true,
+        date: true,
+      },
+    });
 
-        // ✅ Current Month Leads
-        const currentMonthCount = await prisma.lead.count({
-          where: {
-            employeeId: employeeId,
-            leadEmail: {
-              equals: normalizedEmail,
-              mode: "insensitive",
-            },
-            date: {
-              gte: startOfMonth,
-              lt: endOfMonth,
-            },
-          },
-        });
+    // Count leads in memory
+    const leadCounts = {};
 
-        return {
-          ...domain,
-          totalCount,
-          currentMonthCount,
+    for (const lead of leads) {
+      const email = lead.leadEmail.trim().toLowerCase();
+
+      if (!leadCounts[email]) {
+        leadCounts[email] = {
+          totalCount: 0,
+          currentMonthCount: 0,
         };
-      }),
-    );
+      }
 
-    res.json({ domains: domainsWithCounts });
+      leadCounts[email].totalCount++;
+
+      if (lead.date >= startOfMonth && lead.date < endOfMonth) {
+        leadCounts[email].currentMonthCount++;
+      }
+    }
+
+    // Merge counts into domains
+    const domainsWithCounts = domains.map((domain) => {
+      const email = domain.email.trim().toLowerCase();
+
+      return {
+        ...domain,
+        totalCount: leadCounts[email]?.totalCount || 0,
+        currentMonthCount: leadCounts[email]?.currentMonthCount || 0,
+      };
+    });
+
+    res.json({
+      domains: domainsWithCounts,
+    });
   } catch (error) {
     console.error("Error fetching domains:", error);
-    res.status(500).json({ error: "Failed to fetch domains" });
+    res.status(500).json({
+      error: "Failed to fetch domains",
+    });
   }
 });
 
