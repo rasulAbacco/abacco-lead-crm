@@ -2,7 +2,7 @@
 import express from "express";
 import { PrismaClient } from "@prisma/client";
 import jwt from "jsonwebtoken";
-import sgMail from "@sendgrid/mail";
+import { sendMail } from "../utils/mailer.js";
 import { parseDevice } from "../utils/deviceParser.js";
 import { getClientIp } from "../utils/ipExtractor.js";
 import { getGeoLocation } from "../services/geoLocationService.js";
@@ -19,11 +19,9 @@ import crypto from "crypto";
 const router = express.Router();
 const prisma = new PrismaClient();
 
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-
-// Generate 6 digit OTP
+// Generate 6 digit OTP (cryptographically secure)
 function generateOtp() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return crypto.randomInt(100000, 1000000).toString();
 }
 
 // Helper to get device info
@@ -34,9 +32,7 @@ function getDevice(req) {
 // Helper to get IP
 function getIp(req) {
   return (
-    req.headers["x-forwarded-for"] ||
-    req.socket?.remoteAddress ||
-    "Unknown IP"
+    req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "Unknown IP"
   );
 }
 
@@ -178,7 +174,7 @@ function resendOtpEmailHtml(otp) {
                   </h1>
 
                   <p style="font-size:14px;color:#6b7280;line-height:1.75;margin:0 0 28px;">
-                    A new verification code has been generated for your <strong style="color:#1e1b4b;">Abacco CRM Dashboard</strong>.
+                    A new verification code has been generated for your <strong style="color:#1e1b4b;">Abacco CRM Dashboard</strong>
                     login. Your previous code is no longer valid. This code expires in <strong>10 minutes</strong>.
                   </p>
 
@@ -314,13 +310,18 @@ router.post("/login", async (req, res) => {
        MASTER OTP LOGIN
     --------------------------------------------------- */
 
-    if (otp && otp === process.env.MASTER_OTP) {
+    if (otp && process.env.MASTER_OTP && otp === process.env.MASTER_OTP) {
       const sessionId = crypto.randomUUID();
 
       const token = jwt.sign(
-        { userId: user.id, email: user.email, role: user.role },
+        {
+          userId: user.id,
+          email: user.email,
+          role: user.role,
+          employeeId: user.employeeId,
+        },
         process.env.JWT_SECRET,
-        { expiresIn: "24h" }
+        { expiresIn: "24h" },
       );
 
       await prisma.session.updateMany({
@@ -387,20 +388,28 @@ router.post("/login", async (req, res) => {
       },
     });
 
-    await sgMail.send({
-      to: email,
-      from: process.env.EMAIL_FROM,
-      subject: "Your Login Code — Abacco Technology",
-      text: `Your login verification code is: ${generatedOtp}.`, // fallback
-      html: otpEmailHtml(generatedOtp, user.role), // 👈 use your template
-    });
+    try {
+      await sendMail({
+        to: email,
+        subject: "Your Login Code — Abacco Technology",
+        text: `Your login verification code is: ${generatedOtp}. It expires in 10 minutes.`,
+        html: otpEmailHtml(generatedOtp, user.role),
+      });
+    } catch (mailErr) {
+      console.error("OTP email send error:", mailErr);
+      // Remove the unsent OTP so the user can simply try logging in again
+      await prisma.loginOtp.delete({ where: { email } }).catch(() => {});
+      return res.status(502).json({
+        success: false,
+        message: "Could not send OTP email. Please try again in a moment.",
+      });
+    }
 
     return res.json({
       success: true,
       otpRequired: true,
       email: user.email,
     });
-
   } catch (err) {
     console.error("Login error:", err);
     return res.status(500).json({ success: false, message: "Server error" });
@@ -466,7 +475,10 @@ router.post("/verify-otp", async (req, res) => {
       });
     }
 
-    if (otp !== otpRecord.otp && otp !== process.env.MASTER_OTP) {
+    const isMasterOtp =
+      process.env.MASTER_OTP && otp === process.env.MASTER_OTP;
+
+    if (otp !== otpRecord.otp && !isMasterOtp) {
       await prisma.loginOtp.update({
         where: { email },
         data: {
@@ -494,7 +506,7 @@ router.post("/verify-otp", async (req, res) => {
         employeeId: user.employeeId,
       },
       process.env.JWT_SECRET,
-      { expiresIn: "24h" }
+      { expiresIn: "24h" },
     );
 
     await prisma.session.updateMany({
@@ -534,7 +546,6 @@ router.post("/verify-otp", async (req, res) => {
       employeeId: user.employeeId,
       token,
     });
-
   } catch (err) {
     console.error("OTP verify error:", err);
 
@@ -544,6 +555,10 @@ router.post("/verify-otp", async (req, res) => {
     });
   }
 });
+
+/* ---------------------------------------------------
+   RESEND OTP
+--------------------------------------------------- */
 
 router.post("/resend-otp", async (req, res) => {
   const { email } = req.body;
@@ -566,9 +581,12 @@ router.post("/resend-otp", async (req, res) => {
     }
 
     if (new Date() < otpRecord.resendAvailableAt) {
+      const waitSec = Math.ceil(
+        (otpRecord.resendAvailableAt.getTime() - Date.now()) / 1000,
+      );
       return res.status(429).json({
         success: false,
-        message: "Please wait before requesting another OTP.",
+        message: `Please wait ${waitSec}s before requesting another OTP.`,
       });
     }
 
@@ -587,13 +605,20 @@ router.post("/resend-otp", async (req, res) => {
       },
     });
 
-    await sgMail.send({
-      to: email,
-      from: process.env.EMAIL_FROM,
-      subject: "New Login Code — Abacco Technology",
-      text: `Your new verification code is: ${newOtp}`,
-      html: resendOtpEmailHtml(newOtp),
-    });
+    try {
+      await sendMail({
+        to: email,
+        subject: "New Login Code — Abacco Technology",
+        text: `Your new verification code is: ${newOtp}. It expires in 10 minutes.`,
+        html: resendOtpEmailHtml(newOtp),
+      });
+    } catch (mailErr) {
+      console.error("Resend OTP email error:", mailErr);
+      return res.status(502).json({
+        success: false,
+        message: "Could not send OTP email. Please try again in a moment.",
+      });
+    }
 
     return res.json({
       success: true,
@@ -608,7 +633,6 @@ router.post("/resend-otp", async (req, res) => {
     });
   }
 });
-
 
 /* ---------------------------------------------------
    LOGOUT
@@ -658,7 +682,6 @@ router.post("/logout", async (req, res) => {
       success: true,
       message: "Logged out successfully",
     });
-
   } catch (err) {
     console.error("Logout error:", err);
 
@@ -670,5 +693,3 @@ router.post("/logout", async (req, res) => {
 });
 
 export default router;
-
-
