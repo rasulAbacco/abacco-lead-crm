@@ -3,7 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import Layout from "./components/Layout";
 import { Spinner } from "./components/ui";
 import { getSession } from "./lib/session";
-import Login from "./pages/Login";
+import Login from "../src/pages/Login";
 
 // Pages load on demand so the first screen is small and fast.
 const EmployeeDashboard = lazy(() => import("./pages/employee/EmployeeDashboard"));
