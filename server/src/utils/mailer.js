@@ -1,41 +1,43 @@
-// utils/mailer.js - SMTP mail transport (replaces SendGrid)
+// SMTP mailer. The transport is created lazily so .env values are always loaded first.
 import nodemailer from "nodemailer";
 
-const port = Number(process.env.SMTP_PORT) || 465;
+let transporter = null;
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST, // e.g. smtp.gmail.com / smtp.zoho.in / smtp.office365.com
-  port,
-  secure: process.env.SMTP_SECURE
-    ? process.env.SMTP_SECURE === "true"
-    : port === 465, // 465 = SSL, 587 = STARTTLS
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS, // for Gmail: a 16-char App Password, not your normal password
-  },
-  pool: true, // reuse connections instead of opening one per email
-  maxConnections: 3,
-  maxMessages: 100,
-});
+function getTransporter() {
+  if (transporter) return transporter;
+  const port = Number(process.env.SMTP_PORT) || 465;
+  transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port,
+    secure: process.env.SMTP_SECURE ? process.env.SMTP_SECURE === "true" : port === 465,
+    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+    pool: true,
+    maxConnections: 3,
+    maxMessages: 100,
+  });
+  return transporter;
+}
 
-// Check SMTP credentials once at startup so misconfiguration shows up in logs immediately
-transporter
-  .verify()
-  .then(() => console.log("✅ SMTP server ready to send emails"))
-  .catch((err) => console.error("❌ SMTP connection failed:", err.message));
+export async function verifyMailer() {
+  try {
+    await getTransporter().verify();
+    console.log("✅ SMTP ready");
+  } catch (err) {
+    console.error("❌ SMTP connection failed:", err.message);
+  }
+}
 
 /**
- * Send an email over SMTP.
- * @param {{ to: string, subject: string, text?: string, html?: string }} options
+ * @param {{ to: string, subject: string, text?: string, html?: string,
+ *           attachments?: {filename: string, content: Buffer}[] }} options
  */
-export async function sendMail({ to, subject, text, html }) {
-  return transporter.sendMail({
-    from: process.env.EMAIL_FROM, // e.g. "Abacco CRM <noreply@abaccotech.com>"
+export async function sendMail({ to, subject, text, html, attachments }) {
+  return getTransporter().sendMail({
+    from: process.env.EMAIL_FROM || process.env.SMTP_USER,
     to,
     subject,
     text,
     html,
+    attachments,
   });
 }
-
-export default transporter;

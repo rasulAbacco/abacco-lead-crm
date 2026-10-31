@@ -1,78 +1,64 @@
-// server/index.js
+// Abacco Lead CRM — API server v2
+import "dotenv/config"; // must be first so every module sees .env values
 import express from "express";
 import cors from "cors";
-import { PrismaClient } from "@prisma/client";
-import dotenv from "dotenv";
-import webpush from "web-push";
-import authRoutes from "./src/routes/authRoutes.js";
-import employeeRoutes from "./src/routes/employeeRoutes.js";
-import leadsRoutes from "./src/routes/leadsRoutes.js";
-import targetRoutes from "./src/routes/targetRoutes.js";
-import industryRouter from "./src/routes/industryRouter.js";
-import employeesDeatails from "./src/routes/employees.js";
-import { getUSADateTime } from "./src/utils/timezone.js";
-import linksRouter from "./src/routes/linksRouter.js";
-import reportsRoutes from "./src/routes/reportsRoutes.js";
-import incentiveRoutes from "./src/routes/incentiveRoutes.js";
-import leaderboardRoutes from "./src/routes/leaderboardRoutes.js";
-import quoteRoutes from "./src/routes/quoteRoutes.js";
-import notificationRoutes from "./src/routes/notificationRoutes.js";
+import compression from "compression";
+import { config } from "./src/config.js";
+import prisma from "./src/prismaClient.js";
+import authRoutes from "./src/routes/auth.routes.js";
+import leadsRoutes from "./src/routes/leads.routes.js";
+import employeesRoutes from "./src/routes/employees.routes.js";
+import incentivesRoutes from "./src/routes/incentives.routes.js";
+import reportsRoutes from "./src/routes/reports.routes.js";
+import teamsRoutes from "./src/routes/teams.routes.js";
 import adminRoutes from "./src/routes/admin.routes.js";
-import Domain from "./src/routes/Domain.js";
-import adminEmailDomains from "./src/routes/adminEmailDomains.js";
-import dealModuleRoutes from "./src/routes/dealModule.routes.js";
-import teamReports from "./src/routes/teamReport.routes.js";
-import employeeReports from "./src/routes/employeeTeam.routes.js";
+import systemRoutes, { ensureReleaseDate } from "./src/routes/system.routes.js";
+import attendanceRoutes from "./src/routes/attendance.routes.js";
+import notificationsRoutes from "./src/routes/notifications.routes.js";
+import { startMaintenanceScheduler } from "./src/jobs/maintenance.js";
+import { verifyMailer } from "./src/utils/mailer.js";
 
-console.log("🕐 Server time (UTC):", new Date().toISOString());
-console.log("🇺🇸 US (New York) time:", getUSADateTime());
-
-process.env.TZ = "America/Chicago";
-
-dotenv.config();
-webpush.setVapidDetails(
-  "mailto:support.tech@abaccotech.com",
-  process.env.VAPID_PUBLIC_KEY,
-  process.env.VAPID_PRIVATE_KEY,
-);
-const prisma = new PrismaClient();
 const app = express();
+app.set("trust proxy", true); // Render sits behind a proxy (needed for client IPs)
+app.disable("x-powered-by");
 
-// Middleware
-app.use(
-  cors({
-    origin: ["http://localhost:5173", "https://leadcrm.abaccotech.com"],
-    credentials: true, // allow cookies/auth headers
-  }),
-);
+app.use(cors({ origin: config.corsOrigins, credentials: true }));
+app.use(compression());
+app.use(express.json({ limit: "2mb" }));
 
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ limit: "50mb", extended: true }));
+app.get("/api/health", (req, res) => res.json({ ok: true, version: "3.0.0" }));
 
-// Routes
 app.use("/api/auth", authRoutes);
-app.use("/api/employees", employeeRoutes);
 app.use("/api/leads", leadsRoutes);
-app.use("/api/targets", targetRoutes);
-app.use("/api/industry", industryRouter);
-app.use("/api/all-employees", employeesDeatails);
-app.use("/api/links", linksRouter);
+app.use("/api/employees", employeesRoutes);
+app.use("/api/incentives", incentivesRoutes);
 app.use("/api/reports", reportsRoutes);
-app.use("/api/incentives", incentiveRoutes);
-app.use("/api/employee", leaderboardRoutes);
-app.use("/api/quotes", quoteRoutes);
-app.use("/api/notifications", notificationRoutes);
+app.use("/api/teams", teamsRoutes);
 app.use("/api/admin", adminRoutes);
-app.use("/api/admin", dealModuleRoutes);
-app.use("/api/team-reports", teamReports);
-app.use("/api/employee-team", employeeReports);
+app.use("/api/system", systemRoutes);
+app.use("/api/attendance", attendanceRoutes);
+app.use("/api/notifications", notificationsRoutes);
 
-app.use("/api/email-domains", Domain);
-app.use("/api/admin-mail", adminEmailDomains);
+app.use("/api", (req, res) => res.status(404).json({ message: "Not found" }));
 
-// Add JWT secret to environment
-process.env.JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
+// Central error handler
+app.use((err, req, res, next) => {
+  if (err?.code === "P2025") return res.status(404).json({ message: "Record not found" });
+  console.error(`💥 ${req.method} ${req.originalUrl}:`, err);
+  res.status(500).json({ message: "Server error" });
+});
 
-// Start server
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+const server = app.listen(config.port, async () => {
+  console.log(`✅ Lead CRM API on port ${config.port}`);
+  await ensureReleaseDate().catch((e) => console.error("Release date error:", e.message));
+  verifyMailer();
+  if (process.env.DISABLE_SCHEDULER !== "true") startMaintenanceScheduler();
+});
+
+async function shutdown() {
+  server.close();
+  await prisma.$disconnect();
+  process.exit(0);
+}
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);

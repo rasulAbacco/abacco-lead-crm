@@ -1,27 +1,21 @@
-// main.jsx
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
+import { ToastProvider } from "./components/ui";
 import "./index.css";
-// ✅ REGISTER SERVICE WORKER (ONE TIME)
+
+// v1 registered a push-notification service worker; remove it from browsers.
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker
-      .register("/sw.js")
-      .then(() => {
-        console.log("✅ Service Worker registered");
-      })
-      .catch((err) => {
-        console.error("❌ Service Worker registration failed", err);
-      });
-  });
+  navigator.serviceWorker.getRegistrations?.().then((regs) => regs.forEach((r) => r.unregister()));
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <BrowserRouter>
-      <App />
+      <ToastProvider>
+        <App />
+      </ToastProvider>
     </BrowserRouter>
-  </React.StrictMode>
+  </React.StrictMode>,
 );

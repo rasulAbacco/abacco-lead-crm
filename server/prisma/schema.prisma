@@ -1,3 +1,7 @@
+// Abacco Lead CRM — v2 schema
+// Removed in v2: Sales CRM forwarding, sales employees, share links, quotes,
+// email domains, deal updates, push notifications, legacy industry table.
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -17,184 +21,98 @@ enum LoginStatus {
   FAILED
 }
 
-model Lead {
-  id                 Int      @id @default(autoincrement())
-  employeeId         String
-  agentName          String?
-  clientEmail        String
-  leadEmail          String
-  ccEmail            String? // Keep original name
-  subjectLine        String
-  emailPitch         String
-  emailResponce      String?
-  website            String?
-  phone              String? // Keep original name
-  country            String?
-  leadType           String
-  date               DateTime
-  createdAt          DateTime @default(now())
-  employee           Employee @relation(fields: [employeeId], references: [employeeId])
-  link               String
-  isEdited           Boolean? @default(false)
-  forwarded          Boolean  @default(false)
-  qualified          Boolean?
-  attendeesCount     Int? // New field
-  salesEmployeeId    Int?
-  salesEmployeeName  String?
-  salesEmployeeEmail String?
-  statusId           Int?
+/// Status an admin gives to a lead. New leads start as PENDING.
+enum LeadStatus {
+  PENDING
+  ACTIVE
+  NO_RESPONSE
+  LEAVE_OUT
+}
 
-  forwardedToSales Boolean        @default(false)
-  forwardedAt      DateTime?
-  status           LeadStatus?    @relation(fields: [statusId], references: [id], onDelete: SetNull)
-  salesEmployee    SalesEmployee? @relation(fields: [salesEmployeeId], references: [id], onDelete: SetNull)
+/// Lifecycle of a monthly data-retention run.
+enum RetentionStatus {
+  PENDING // month expired, report not yet emailed
+  NOTIFIED // report emailed + 48h notice running
+  DELETED // leads of that month permanently deleted
+}
+
+model Lead {
+  id              Int        @id @default(autoincrement())
+  employeeId      String
+  agentName       String?
+  clientEmail     String
+  leadEmail       String
+  ccEmail         String?
+  subjectLine     String
+  emailPitch      String
+  emailResponce   String?
+  website         String?
+  phone           String?
+  country         String?
+  leadType        String
+  link            String
+  attendeesCount  Int?
+  date            DateTime // contact date chosen on the upload form
+  createdAt       DateTime   @default(now()) // upload date: used for retention + duplicates
+  isEdited        Boolean?   @default(false)
+  status          LeadStatus @default(PENDING)
+  statusUpdatedAt DateTime?
+
+  employee Employee @relation(fields: [employeeId], references: [employeeId])
+
+  @@index([employeeId, date])
+  @@index([date])
+  @@index([createdAt])
+  @@index([clientEmail, createdAt])
+  @@index([status])
 }
 
 model Employee {
-  id                Int                 @id @default(autoincrement())
-  employeeId        String              @unique
-  fullName          String
-  email             String              @unique
-  password          String
-  role              String              @default("EMPLOYEE")
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime?           @updatedAt
-  target            Int                 @default(0)
-  joiningDate       DateTime
-  isActive          Boolean             @default(true)
+  id          Int       @id @default(autoincrement())
+  employeeId  String    @unique
+  fullName    String
+  email       String    @unique
+  password    String // bcrypt hash
+  role        String    @default("EMPLOYEE")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime? @updatedAt
+  target      Int       @default(0)
+  joiningDate DateTime
+  isActive    Boolean   @default(true)
+
   leads             Lead[]
   sessions          Session[]
   loginHistory      LoginHistory[]
-  mailDomains       EmailDomain[]
-  sharedLinks       SharedLink[]        @relation("CreatedLinks") // Links created by admin
-  receivedLinks     ReceivedLink[]      @relation("ReceivedByEmployee") // Links received by employee
-  Notification      Notification[]
-  pushSubscriptions PushSubscription[]
-  dealInfos         DealInfo[]
-  //EmployeeLeadTarget EmployeeLeadTarget?
   leadTarget        EmployeeLeadTarget?
-
-  leadingTeams Team[] @relation("EmployeeLeadingTeams")
-
-  teamMemberships TeamMember[] @relation("EmployeeTeamMemberships")
-
+  leadingTeams      Team[]                 @relation("EmployeeLeadingTeams")
+  teamMemberships   TeamMember[]           @relation("EmployeeTeamMemberships")
   teamReports       TeamMonthlyReport[]    @relation("EmployeeTeamReports")
   dealAnnouncements TeamDealAnnouncement[]
 
+  /// Which Saturdays this person works (attendance report)
+  saturdayRule      SaturdayRule           @default(ALTERNATE)
+  workSessions      WorkSession[]
+  biometricMappings BiometricMapping[]
+  punches           BiometricPunch[]
+  notifications     Notification[]
+
   @@index([role])
   @@index([isActive])
-  @@index([employeeId])
 }
 
-model Quote {
-  id       Int     @id @default(autoincrement())
-  text     String  @db.Text
-  author   String?
-  isActive Boolean @default(true)
+model EmployeeLeadTarget {
+  id Int @id @default(autoincrement())
+
+  employeeId String   @unique
+  employee   Employee @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+
+  associationPercent     Int @default(0)
+  attendeesPercent       Int @default(0)
+  industryPercent        Int @default(0)
+  memberAttendeesPercent Int @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  @@index([isActive])
-  @@index([createdAt])
-}
-
-model SharedLink {
-  id Int @id @default(autoincrement())
-
-  /// OLD FIELD (kept to avoid data loss)
-  /// ✨ You will remove this *after* migrating old data safely.
-  link String? @db.Text
-
-  linkType String
-  country  String
-
-  message           String? @db.Text // ⭐ NEW FIELD (THIS IS THE CORE)
-  sharedEmployeeIds String? // "12,15,22"
-
-  createdAt DateTime  @default(now())
-  updatedAt DateTime? @updatedAt
-
-  createdById Int
-  createdBy   Employee @relation("CreatedLinks", fields: [createdById], references: [id], onDelete: Cascade)
-
-  // NEW MULTI-URL RELATION
-  urls SharedLinkUrl[] @relation("SharedLink_Urls")
-
-  // Existing recipients
-  recipients ReceivedLink[] @relation("LinkRecipients")
-
-  @@index([createdById])
-  @@index([linkType])
-  @@index([country])
-  @@index([createdAt])
-}
-
-model SharedLinkUrl {
-  id           Int    @id @default(autoincrement())
-  url          String @db.Text
-  sharedLinkId Int
-
-  sharedLink SharedLink @relation("SharedLink_Urls", fields: [sharedLinkId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-}
-
-model ReceivedLink {
-  id Int @id @default(autoincrement())
-
-  sharedLinkId Int
-  sharedLink   SharedLink @relation("LinkRecipients", fields: [sharedLinkId], references: [id], onDelete: Cascade)
-
-  recipientId Int
-  recipient   Employee @relation("ReceivedByEmployee", fields: [recipientId], references: [id], onDelete: Cascade)
-
-  receivedDate DateTime @default(now())
-
-  isSeen Boolean   @default(false)
-  isRead Boolean   @default(false)
-  seenAt DateTime?
-
-  isOpen   Boolean   @default(false)
-  openedAt DateTime?
-
-  @@unique([sharedLinkId, recipientId])
-  @@index([recipientId])
-  @@index([sharedLinkId])
-  @@index([receivedDate])
-}
-
-model Industry {
-  id           Int      @id @default(autoincrement())
-  employeeId   String
-  fullName     String
-  createdAt    DateTime @default(now())
-  industryName String
-  leadType     String
-  countryName  String
-}
-
-model Notification {
-  id      Int     @id @default(autoincrement())
-  userId  Int
-  title   String
-  message String?
-  link    String?
-  type    String  @default("info")
-
-  isRead Boolean @default(false)
-
-  // 🔒 NEW FIELDS (SAFE)
-  isDismissed Boolean   @default(false) // ⭐ important
-  dismissedAt DateTime?
-
-  createdAt DateTime  @default(now())
-  readAt    DateTime?
-
-  user Employee @relation(fields: [userId], references: [id])
-
-  @@index([userId])
-  @@index([isDismissed])
 }
 
 model IncentivePlan {
@@ -234,173 +152,6 @@ model IncentiveRule {
   createdAt DateTime @default(now())
 }
 
-model PushSubscription {
-  id        Int      @id @default(autoincrement())
-  userId    Int
-  endpoint  String   @db.Text
-  p256dh    String
-  auth      String
-  createdAt DateTime @default(now())
-
-  user Employee @relation(fields: [userId], references: [id])
-
-  @@index([userId])
-}
-
-model SalesEmployee {
-  id       Int     @id @default(autoincrement())
-  fullName String
-  email    String  @unique
-  phone    String?
-  isActive Boolean @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relation
-  leads Lead[]
-
-  @@index([isActive])
-}
-
-model EmailDomain {
-  id         Int      @id @default(autoincrement())
-  employeeId String
-  email      String
-  domain     String
-  isActive   Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  employee Employee @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
-
-  @@index([employeeId])
-  @@index([isActive])
-}
-
-model LeadStatus {
-  id        Int      @id @default(autoincrement())
-  name      String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  leads Lead[]
-}
-
-model DealInfo {
-  id Int @id @default(autoincrement())
-
-  clientEmail String
-
-  // OLD (keep for backward compatibility)
-  industry   String
-  leadType   String
-  dealStatus String
-
-  // ✅ INDEPENDENT RELATIONS
-  industryId    Int?
-  eventId       Int?
-  associationId Int?
-
-  industryRef    IndustryMaster?    @relation(fields: [industryId], references: [id])
-  eventRef       EventMaster?       @relation(fields: [eventId], references: [id])
-  associationRef AssociationMaster? @relation(fields: [associationId], references: [id])
-
-  month Int?
-  year  Int?
-
-  employeeId String?
-  employee   Employee? @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
-
-  manualAgentName  String?
-  manualAgentId    String?
-  manualAgentEmail String?
-
-  // ✅ NEW
-  agentResolved Boolean @default(false)
-
-  // ✅ NEW
-  customFields Json?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([clientEmail])
-  @@index([employeeId])
-  @@index([createdAt])
-  @@index([industryId])
-  @@index([eventId])
-  @@index([associationId])
-  @@index([agentResolved])
-  // ✅ OPTIONAL BUT RECOMMENDED
-  @@index([month, year])
-  // ✅ OPTIONAL BUT GOOD FOR FILTERING
-  @@index([dealStatus])
-}
-
-model IndustryMaster {
-  id       Int     @id @default(autoincrement())
-  name     String  @unique
-  isActive Boolean @default(true)
-
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  DealInfo    DealInfo[]
-  EventMaster EventMaster[]
-
-  @@index([isActive])
-}
-
-model EventMaster {
-  id       Int     @id @default(autoincrement())
-  name     String  @unique
-  isActive Boolean @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  deals            DealInfo[]
-  IndustryMaster   IndustryMaster? @relation(fields: [industryMasterId], references: [id])
-  industryMasterId Int?
-
-  @@index([isActive])
-}
-
-model AssociationMaster {
-  id       Int     @id @default(autoincrement())
-  name     String  @unique
-  isActive Boolean @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  deals DealInfo[]
-
-  @@index([isActive])
-}
-
-model LeadTypeMaster {
-  id       Int     @id @default(autoincrement())
-  name     String  @unique
-  isActive Boolean @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([isActive])
-}
-
-model DealStatusMaster {
-  id       Int     @id @default(autoincrement())
-  name     String  @unique
-  isActive Boolean @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([isActive])
-}
-
 model LoginOtp {
   id Int @id @default(autoincrement())
 
@@ -416,23 +167,6 @@ model LoginOtp {
   updatedAt DateTime @updatedAt
 
   @@index([expiresAt])
-}
-
-model EmployeeLeadTarget {
-  id Int @id @default(autoincrement())
-
-  employeeId String   @unique
-  employee   Employee @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
-
-  associationPercent     Int @default(0)
-  attendeesPercent       Int @default(0)
-  industryPercent        Int @default(0)
-  memberAttendeesPercent Int @default(0) // 👈 NEW FIELD
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([employeeId])
 }
 
 model Session {
@@ -455,10 +189,10 @@ model Session {
   updatedAt DateTime @updatedAt
 
   @@index([userId])
-  @@index([token])
   @@index([isActive])
 }
 
+/// Kept for 7 days only (cleaned automatically).
 model LoginHistory {
   id String @id @default(uuid())
 
@@ -479,7 +213,7 @@ model LoginHistory {
   browser        String?
   browserVersion String?
   os             String?
-  deviceType     String? // desktop / mobile / tablet
+  deviceType     String?
   deviceId       String?
 
   sessionId String?
@@ -487,25 +221,20 @@ model LoginHistory {
   loginTime  DateTime  @default(now())
   logoutTime DateTime?
 
-  sessionDuration Int? // seconds
+  sessionDuration Int?
 
   status LoginStatus
 
   otpVerified Boolean @default(false)
+  loginMethod String?
 
-  loginMethod String? // Password + OTP
-
-  attemptCount Int @default(1)
-
+  attemptCount   Int     @default(1)
   suspiciousFlag Boolean @default(false)
 
   createdAt DateTime @default(now())
 
-  @@index([userId])
-  @@index([employeeId])
-  @@index([email])
   @@index([loginTime])
-  @@index([status])
+  @@index([sessionId])
 }
 
 model AllowedIP {
@@ -515,35 +244,25 @@ model AllowedIP {
   status    Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  @@index([ipAddress])
   @@index([status])
 }
 
 model Team {
   id Int @id @default(autoincrement())
 
-  name String
-
+  name        String
   description String?
-
-  leaderId String
-
-  // ======================================================
-  // TEAM TARGET VALUE
-  // ======================================================
-
-  targetValue Float @default(0)
+  leaderId    String
+  targetValue Float   @default(0)
 
   leader Employee @relation("EmployeeLeadingTeams", fields: [leaderId], references: [employeeId])
 
   isActive Boolean @default(true)
 
   createdAt DateTime @default(now())
-
   updatedAt DateTime @updatedAt
 
   members TeamMember[]
-
   reports TeamMonthlyReport[]
 
   @@index([leaderId])
@@ -554,12 +273,10 @@ model TeamMember {
   id Int @id @default(autoincrement())
 
   teamId Int
-
-  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  team   Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   employeeId String
-
-  employee Employee @relation("EmployeeTeamMemberships", fields: [employeeId], references: [employeeId])
+  employee   Employee @relation("EmployeeTeamMemberships", fields: [employeeId], references: [employeeId])
 
   createdAt DateTime @default(now())
 
@@ -571,38 +288,28 @@ model TeamMonthlyReport {
   id Int @id @default(autoincrement())
 
   teamId Int
-
-  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  team   Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   employeeId String
-
-  employee Employee @relation("EmployeeTeamReports", fields: [employeeId], references: [employeeId])
+  employee   Employee @relation("EmployeeTeamReports", fields: [employeeId], references: [employeeId])
 
   month Int
   year  Int
 
-  deal Int @default(0)
-
-  invoicePending Int @default(0)
-
-  invoiceCancel Int @default(0)
-
-  activeClients Int @default(0)
-
-  leaveOutClients Int @default(0)
-
-  noResponse Int @default(0)
-
-  totalLeads Int @default(0)
-
-  dealValue Float? @default(0)
+  deal            Int    @default(0)
+  invoicePending  Int    @default(0)
+  invoiceCancel   Int    @default(0)
+  activeClients   Int    @default(0)
+  leaveOutClients Int    @default(0)
+  noResponse      Int    @default(0)
+  totalLeads      Int    @default(0)
+  dealValue       Float? @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([teamId, employeeId, month, year])
   @@index([teamId])
-  @@index([employeeId])
   @@index([month, year])
 }
 
@@ -610,20 +317,145 @@ model TeamDealAnnouncement {
   id Int @id @default(autoincrement())
 
   employeeId String
-
-  month Int
-
-  year Int
-
-  amount Float @default(0)
+  month      Int
+  year       Int
+  amount     Float  @default(0)
 
   createdAt DateTime @default(now())
-
   updatedAt DateTime @updatedAt
 
   employee Employee @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
 
   @@unique([employeeId, month, year])
-  @@index([employeeId])
   @@index([month, year])
+}
+
+/// One row per calendar month that has expired (4-month retention).
+model RetentionRun {
+  id    Int @id @default(autoincrement())
+  year  Int
+  month Int // 1-12
+
+  rangeStart DateTime // start of month, US Central, stored as UTC
+  rangeEnd   DateTime // start of next month
+
+  leadCount Int             @default(0)
+  status    RetentionStatus @default(PENDING)
+
+  emailedAt    DateTime?
+  emailError   String?
+  deleteAfter  DateTime?
+  deletedAt    DateTime?
+  deletedCount Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([year, month])
+  @@index([status])
+}
+
+/// Small key/value store (e.g. release date for the "What's new" popup).
+model AppMeta {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+/// WORKING = every Saturday is a working day, OFF = Saturdays off,
+/// ALTERNATE = 1st/3rd/5th Saturday working, 2nd + 4th off.
+enum SaturdayRule {
+  WORKING
+  OFF
+  ALTERNATE
+}
+
+/// System clock-in / clock-out (independent of website login/logout).
+/// Kept for 2 months.
+model WorkSession {
+  id         Int       @id @default(autoincrement())
+  employeeId String
+  employee   Employee  @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  workDate   String // yyyy-MM-dd, US Central date of the clock-in
+  clockIn    DateTime
+  clockOut   DateTime?
+  /// true when nobody clocked out and the system closed it at 4:30 AM IST
+  autoClosed Boolean   @default(false)
+  clockInIp  String?
+  clockOutIp String?
+  createdAt  DateTime  @default(now())
+
+  @@index([employeeId, workDate])
+  @@index([clockOut])
+  @@index([workDate])
+}
+
+/// Biometric machine registered in the CRM (punches from unknown machines are ignored).
+model BiometricDevice {
+  id         Int      @id @default(autoincrement())
+  deviceCode String
+  serialNo   String
+  deviceName String?
+  location   String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  punches BiometricPunch[]
+
+  @@unique([deviceCode, location])
+}
+
+/// Card / enrollment ID on the machine -> employee.
+model BiometricMapping {
+  id            Int       @id @default(autoincrement())
+  enrollmentId  String
+  employeeId    String
+  employee      Employee  @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  location      String
+  isActive      Boolean   @default(true)
+  assignedAt    DateTime  @default(now())
+  deactivatedAt DateTime?
+
+  punches BiometricPunch[]
+
+  @@index([enrollmentId, location, isActive])
+  @@index([employeeId])
+}
+
+/// Raw punch from a biometric machine. Kept for 2 months.
+model BiometricPunch {
+  id           Int               @id @default(autoincrement())
+  enrollmentId String
+  deviceId     Int?
+  device       BiometricDevice?  @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  mappingId    Int?
+  mapping      BiometricMapping? @relation(fields: [mappingId], references: [id], onDelete: SetNull)
+  employeeId   String?
+  employee     Employee?         @relation(fields: [employeeId], references: [employeeId], onDelete: SetNull)
+  location     String?
+  punchTime    DateTime
+  punchMode    String?
+  createdAt    DateTime          @default(now())
+
+  @@index([employeeId, punchTime])
+  @@index([punchTime])
+  @@index([enrollmentId, punchTime])
+}
+
+/// In-app notifications (bell). Kept 30 days.
+model Notification {
+  id         Int       @id @default(autoincrement())
+  employeeId String
+  employee   Employee  @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  type       String // lead_status | retention | attendance | clock | incentive | system
+  title      String
+  body       String?
+  link       String?
+  refKey     String? // used to update instead of duplicate (e.g. one per lead)
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([employeeId, readAt])
+  @@index([employeeId, refKey])
+  @@index([createdAt])
 }

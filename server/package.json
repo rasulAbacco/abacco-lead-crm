@@ -1,34 +1,43 @@
 {
-  "name": "server",
-  "version": "1.0.0",
+  "name": "abacco-lead-crm-server",
+  "version": "3.0.0",
   "main": "index.js",
   "type": "module",
-  "scripts": {
-    "postinstall": "npx prisma generate",
-    "start": "cross-env TZ=America/Chicago nodemon server.js",
-    "dev": "cross-env TZ=America/Chicago nodemon server.js"
+  "private": true,
+  "engines": {
+    "node": ">=20"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "scripts": {
+    "postinstall": "prisma generate",
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "db:push": "prisma db push",
+    "upgrade:v2": "node scripts/upgrade-v2.js",
+    "create-admin": "node scripts/create-admin.js",
+    "retention:run": "node scripts/run-maintenance.js",
+    "seed": "node prisma/seed.js",
+    "db:upgrade": "node scripts/upgrade-v2.js"
+  },
   "dependencies": {
     "@prisma/client": "^6.16.2",
-    "@sendgrid/mail": "^8.1.6",
+    "bcryptjs": "^3.0.2",
+    "compression": "^1.8.1",
     "cors": "^2.8.5",
+    "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
     "node-cache": "^5.1.2",
     "nodemailer": "^10.0.15",
-    "nodemon": "^3.1.10",
     "prisma": "^6.16.2",
     "ua-parser-js": "^2.0.9",
-    "web-push": "^3.6.7",
     "xlsx-js-style": "^1.2.0"
   },
   "devDependencies": {
-    "cross-env": "^10.1.0"
+    "nodemon": "^3.1.10"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
   }
 }

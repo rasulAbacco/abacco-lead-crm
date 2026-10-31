@@ -1,109 +1,93 @@
-// admin.routes.js
+// Admin security tools: allowed IPs and login history (last 7 days).
 import express from "express";
-import {
-  createSalesEmployee,
-  getSalesEmployees,
-  updateSalesEmployee,
-  toggleSalesEmployeeStatus,
-  assignSalesAndForwardLead,
-  createLeadStatus,
-  getLeadStatuses,
-  deleteLeadStatus,
-} from "../controllers/admin.controller.js";
-
-import { authenticate } from "../middlewares/auth.js";
-import { PrismaClient } from "@prisma/client";
-
-import {
-  addAllowedIP,
-  getAllowedIPs,
-  editAllowedIP,
-  toggleAllowedIP,
-  removeAllowedIP,
-} from "../controllers/allowedIPController.js";
-
+import prisma from "../prismaClient.js";
+import { authenticate, requireAdmin, ah } from "../middlewares/auth.js";
 import { getClientIp } from "../utils/ipExtractor.js";
+import { createAllowedIP, getAllAllowedIPs, updateAllowedIP, updateIPStatus, deleteAllowedIP } from "../services/ipWhitelistService.js";
 
-const prisma = new PrismaClient();
 const router = express.Router();
+router.use(authenticate, requireAdmin);
 
-// 🔒 All routes below are ADMIN only
-router.use(authenticate);
+const isIp = (s) => /^(\d{1,3}\.){3}\d{1,3}$/.test(s) || /^[0-9a-f:]+$/i.test(s);
 
-// ===============================
-// SALES EMPLOYEE
-// ===============================
-router.post("/sales-employees", createSalesEmployee);
-router.get("/sales-employees", getSalesEmployees);
-router.put("/sales-employees/:id", updateSalesEmployee);
-router.patch("/sales-employees/:id/status", toggleSalesEmployeeStatus);
+router.get("/my-ip", (req, res) => res.json({ ip: getClientIp(req) }));
 
-// ===============================
-// LEAD ASSIGNMENT
-// ===============================
-router.post("/leads/:leadId/assign-sales", assignSalesAndForwardLead);
-router.put("/leads/:leadId/assign-sales", assignSalesAndForwardLead);
+router.get("/allowed-ips", ah(async (req, res) => res.json(await getAllAllowedIPs())));
 
-// ===============================
-// LEAD STATUS
-// ===============================
-router.post("/lead-status", createLeadStatus);
-router.get("/lead-status", getLeadStatuses);
-router.delete("/lead-status/:id", deleteLeadStatus);
+router.post(
+  "/allowed-ips",
+  ah(async (req, res) => {
+    const ipAddress = String(req.body.ipAddress || "").trim();
+    if (!isIp(ipAddress)) return res.status(400).json({ message: "Enter a valid IP address" });
+    try {
+      res.status(201).json(await createAllowedIP({ ipAddress, label: req.body.label?.trim() || null }));
+    } catch (e) {
+      if (e.code === "P2002") return res.status(400).json({ message: "This IP is already in the list" });
+      throw e;
+    }
+  }),
+);
 
-// ===============================
-// ALLOWED IP MANAGEMENT
-// ===============================
-router.post("/allowed-ips", addAllowedIP);
-router.get("/allowed-ips", getAllowedIPs);
-router.put("/allowed-ips/:id", editAllowedIP); // 🔹 NEW: edit IP address / label
-router.patch("/allowed-ips/:id/status", toggleAllowedIP);
-router.delete("/allowed-ips/:id", removeAllowedIP);
+router.put(
+  "/allowed-ips/:id",
+  ah(async (req, res) => {
+    const ipAddress = String(req.body.ipAddress || "").trim();
+    if (!isIp(ipAddress)) return res.status(400).json({ message: "Enter a valid IP address" });
+    try {
+      res.json(await updateAllowedIP(req.params.id, { ipAddress, label: req.body.label?.trim() || null }));
+    } catch (e) {
+      if (e.code === "P2002") return res.status(400).json({ message: "This IP is already in the list" });
+      throw e;
+    }
+  }),
+);
 
-// ===============================
-// UTIL: GET CLIENT IP
-// ===============================
-router.get("/my-ip", (req, res) => {
-  const ip = getClientIp(req);
+router.patch(
+  "/allowed-ips/:id/status",
+  ah(async (req, res) => {
+    if (typeof req.body.status !== "boolean") return res.status(400).json({ message: "status must be true or false" });
+    // never lock everyone out: keep at least one active IP
+    if (req.body.status === false) {
+      const active = await prisma.allowedIP.count({ where: { status: true } });
+      if (active <= 1) return res.status(400).json({ message: "At least one IP must stay enabled" });
+    }
+    res.json(await updateIPStatus(req.params.id, req.body.status));
+  }),
+);
 
-  res.json({
-    success: true,
-    ip,
-  });
-});
+router.delete(
+  "/allowed-ips/:id",
+  ah(async (req, res) => {
+    const active = await prisma.allowedIP.count({ where: { status: true } });
+    const ip = await prisma.allowedIP.findUnique({ where: { id: req.params.id } });
+    if (ip?.status && active <= 1) return res.status(400).json({ message: "At least one IP must stay enabled" });
+    await deleteAllowedIP(req.params.id);
+    res.json({ success: true });
+  }),
+);
 
-// ===============================
-// LOGIN HISTORY
-// ===============================
-router.get("/login-history", async (req, res) => {
-  try {
-    const { page = 1, limit = 50 } = req.query;
-
-    const skip = (page - 1) * limit;
-
-    const history = await prisma.loginHistory.findMany({
-      orderBy: { loginTime: "desc" },
-      skip: Number(skip),
-      take: Number(limit),
-    });
-
-    const total = await prisma.loginHistory.count();
-
-    res.json({
-      success: true,
-      total,
-      page: Number(page),
-      limit: Number(limit),
-      data: history,
-    });
-  } catch (error) {
-    console.error("Login history fetch error:", error);
-
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch login history",
-    });
-  }
-});
+router.get(
+  "/login-history",
+  ah(async (req, res) => {
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(10, Number(req.query.limit) || 50));
+    const where = {};
+    if (req.query.status === "SUCCESS" || req.query.status === "FAILED") where.status = req.query.status;
+    if (req.query.search?.trim()) {
+      const s = req.query.search.trim();
+      where.OR = [
+        { employeeName: { contains: s, mode: "insensitive" } },
+        { employeeId: { contains: s, mode: "insensitive" } },
+        { email: { contains: s, mode: "insensitive" } },
+        { ipAddress: { contains: s } },
+      ];
+    }
+    const [data, total] = await Promise.all([
+      prisma.loginHistory.findMany({ where, orderBy: { loginTime: "desc" }, skip: (page - 1) * limit, take: limit }),
+      prisma.loginHistory.count({ where }),
+    ]);
+    res.json({ data, total, page, limit, totalPages: Math.max(1, Math.ceil(total / limit)) });
+  }),
+);
 
 export default router;
