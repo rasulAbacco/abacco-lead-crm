@@ -5,7 +5,8 @@ import { LEAD_TYPES } from "../lib/format";
 import { formatInTimeZone } from "date-fns-tz";
 import { Button, Field, Input, Modal, Select, Textarea, useToast } from "./ui";
 
-const toInputDate = (d) => (d ? formatInTimeZone(new Date(d), "America/Chicago", "yyyy-MM-dd") : "");
+const toInputDate = (d) =>
+  d ? formatInTimeZone(new Date(d), "America/Chicago", "yyyy-MM-dd") : "";
 
 export default function LeadEditModal({ lead, onClose, onSaved }) {
   const toast = useToast();
@@ -27,7 +28,6 @@ export default function LeadEditModal({ lead, onClose, onSaved }) {
       attendeesCount: lead.attendeesCount ?? "",
       subjectLine: lead.subjectLine || "",
       emailPitch: lead.emailPitch || "",
-      emailResponce: lead.emailResponce || "",
       date: toInputDate(lead.date),
     });
   }, [lead]);
@@ -50,32 +50,88 @@ export default function LeadEditModal({ lead, onClose, onSaved }) {
     }
   }
 
-  const types = LEAD_TYPES.includes(f.leadType) ? LEAD_TYPES : [f.leadType, ...LEAD_TYPES];
+  const types = LEAD_TYPES.includes(f.leadType)
+    ? LEAD_TYPES
+    : [f.leadType, ...LEAD_TYPES];
   return (
     <Modal
       open
       onClose={onClose}
       title={`Edit lead #${lead.id}`}
       width="max-w-3xl"
-      footer={<><Button onClick={onClose}>Cancel</Button><Button variant="primary" loading={busy} onClick={save}>Save changes</Button></>}
+      footer={
+        <>
+          <Button onClick={onClose}>Cancel</Button>
+          <Button variant="primary" loading={busy} onClick={save}>
+            Save changes
+          </Button>
+        </>
+      }
     >
       <div className="grid sm:grid-cols-2 gap-4">
-        <Field label="Client name"><Input value={f.agentName} onChange={set("agentName")} /></Field>
-        <Field label="Lead type">
-          <Select value={f.leadType} onChange={set("leadType")}>{types.map((t) => <option key={t}>{t}</option>)}</Select>
+        <Field label="Client name">
+          <Input value={f.agentName} onChange={set("agentName")} />
         </Field>
-        <Field label="Client email"><Input type="email" value={f.clientEmail} onChange={set("clientEmail")} /></Field>
-        <Field label="Lead email"><Input type="email" value={f.leadEmail} onChange={set("leadEmail")} /></Field>
-        <Field label="CC emails" hint="Separate with commas"><Input value={f.ccEmail} onChange={set("ccEmail")} /></Field>
-        <Field label="Phone numbers" hint="Separate with commas"><Input value={f.phone} onChange={set("phone")} /></Field>
-        <Field label="Country"><Input value={f.country} onChange={set("country")} /></Field>
-        <Field label="Contact date"><Input type="date" value={f.date} max={toInputDate(new Date())} onChange={set("date")} /></Field>
-        <Field label="Website"><Input value={f.website} onChange={set("website")} /></Field>
-        <Field label="Association / expo link"><Input value={f.link} onChange={set("link")} /></Field>
-        {/attend/i.test(f.leadType) && <Field label="Attendees count"><Input type="number" min="0" value={f.attendeesCount} onChange={set("attendeesCount")} /></Field>}
-        <Field label="Subject line" className="sm:col-span-2"><Input value={f.subjectLine} onChange={set("subjectLine")} /></Field>
-        <Field label="Email pitch" className="sm:col-span-2"><Textarea rows={5} value={f.emailPitch} onChange={set("emailPitch")} /></Field>
-        <Field label="Email response" className="sm:col-span-2"><Textarea rows={4} value={f.emailResponce} onChange={set("emailResponce")} /></Field>
+        <Field label="Lead type">
+          <Select value={f.leadType} onChange={set("leadType")}>
+            {types.map((t) => (
+              <option key={t}>{t}</option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Client email">
+          <Input
+            type="email"
+            value={f.clientEmail}
+            onChange={set("clientEmail")}
+          />
+        </Field>
+        <Field label="Lead email">
+          <Input type="email" value={f.leadEmail} onChange={set("leadEmail")} />
+        </Field>
+        <Field label="CC emails" hint="Separate with commas">
+          <Input value={f.ccEmail} onChange={set("ccEmail")} />
+        </Field>
+        <Field label="Phone numbers" hint="Separate with commas">
+          <Input value={f.phone} onChange={set("phone")} />
+        </Field>
+        <Field label="Country">
+          <Input value={f.country} onChange={set("country")} />
+        </Field>
+        <Field label="Contact date">
+          <Input
+            type="date"
+            value={f.date}
+            max={toInputDate(new Date())}
+            onChange={set("date")}
+          />
+        </Field>
+        <Field label="Website">
+          <Input value={f.website} onChange={set("website")} />
+        </Field>
+        <Field label="Association / expo link">
+          <Input value={f.link} onChange={set("link")} />
+        </Field>
+        {/attend/i.test(f.leadType) && (
+          <Field label="Attendees count">
+            <Input
+              type="number"
+              min="0"
+              value={f.attendeesCount}
+              onChange={set("attendeesCount")}
+            />
+          </Field>
+        )}
+        <Field label="Subject line" className="sm:col-span-2">
+          <Input value={f.subjectLine} onChange={set("subjectLine")} />
+        </Field>
+        <Field label="Email pitch" className="sm:col-span-2">
+          <Textarea
+            rows={5}
+            value={f.emailPitch}
+            onChange={set("emailPitch")}
+          />
+        </Field>
       </div>
     </Modal>
   );
