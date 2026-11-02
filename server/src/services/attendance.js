@@ -15,16 +15,39 @@
 // 4:30 AM IST are marked "Not clocked out" and their hours are NOT counted.
 import prisma from "../prismaClient.js";
 import { config } from "../config.js";
-import { monthRange, monthDays, dateKey, formatIST, formatCentral, dayRangeKey, MONTH_NAMES } from "../utils/time.js";
+import {
+  monthRange,
+  monthDays,
+  dateKey,
+  formatIST,
+  formatCentral,
+  dayRangeKey,
+  MONTH_NAMES,
+} from "../utils/time.js";
 
 export const STATUS_CODE = {
-  PRESENT: "P", HALF_DAY: "HD", MISSING_OUT: "MP", IN: "IN", ABSENT: "A", WEEK_OFF: "WO", HOLIDAY: "H",
+  PRESENT: "P",
+  HALF_DAY: "HD",
+  MISSING_OUT: "MP",
+  IN: "IN",
+  ABSENT: "A",
+  WEEK_OFF: "WO",
+  HOLIDAY: "H",
 };
 export const STATUS_LABEL = {
-  PRESENT: "Present", HALF_DAY: "Half day", MISSING_OUT: "Missing punch-out", IN: "Working now",
-  ABSENT: "Absent", WEEK_OFF: "Week off", HOLIDAY: "Holiday",
+  PRESENT: "Present",
+  HALF_DAY: "Half day",
+  MISSING_OUT: "Missing punch-out",
+  IN: "Working now",
+  ABSENT: "Absent",
+  WEEK_OFF: "Week off",
+  HOLIDAY: "Holiday",
 };
-export const SATURDAY_LABEL = { WORKING: "Every Saturday", OFF: "Saturday off", ALTERNATE: "Alternate (2nd & 4th off)" };
+export const SATURDAY_LABEL = {
+  WORKING: "Every Saturday",
+  OFF: "Saturday off",
+  ALTERNATE: "Alternate (2nd & 4th off)",
+};
 
 export function isWorkingDay(day, saturdayRule = "ALTERNATE") {
   if (day.weekday === 0) return false;
@@ -35,30 +58,48 @@ export function isWorkingDay(day, saturdayRule = "ALTERNATE") {
   return true;
 }
 
-export const fmtMinutes = (m) => (m == null ? null : `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m`);
+export const fmtMinutes = (m) =>
+  m == null
+    ? null
+    : `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m`;
 
 function dayFromKey(key) {
   const [y, m, d] = key.split("-").map(Number);
   const weekday = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
-  return { date: key, day: d, weekday, nthWeekday: Math.floor((d - 1) / 7) + 1 };
+  return {
+    date: key,
+    day: d,
+    weekday,
+    nthWeekday: Math.floor((d - 1) / 7) + 1,
+  };
 }
 
 /** Status of one employee on one day */
-export function evaluateDay(day, { punches = [], sessions = [], saturdayRule, joiningKey, todayKey }) {
+export function evaluateDay(
+  day,
+  { punches = [], sessions = [], saturdayRule, joiningKey, todayKey },
+) {
   const working = isWorkingDay(day, saturdayRule);
   const future = day.date > todayKey;
   const beforeJoin = joiningKey && day.date < joiningKey;
   const isToday = day.date === todayKey;
 
   let status = null;
-  let first = null, last = null, minutes = null;
+  let first = null,
+    last = null,
+    minutes = null;
   if (punches.length) {
     first = punches[0];
     last = punches[punches.length - 1];
     const span = last.getTime() - first.getTime();
     if (punches.length >= 2 && span > 0) {
       minutes = Math.floor(span / 60000);
-      status = minutes >= config.fullDayHours * 60 ? "PRESENT" : isToday ? "IN" : "HALF_DAY";
+      status =
+        minutes >= config.fullDayHours * 60
+          ? "PRESENT"
+          : isToday
+            ? "IN"
+            : "HALF_DAY";
     } else {
       status = isToday ? "IN" : "MISSING_OUT";
       last = null;
@@ -71,7 +112,11 @@ export function evaluateDay(day, { punches = [], sessions = [], saturdayRule, jo
   }
 
   // system clock-in
-  let sysMinutes = 0, sysOpen = false, notClockedOut = false, firstIn = null, lastOut = null;
+  let sysMinutes = 0,
+    sysOpen = false,
+    notClockedOut = false,
+    firstIn = null,
+    lastOut = null;
   for (const s of sessions) {
     if (!firstIn || s.clockIn < firstIn) firstIn = s.clockIn;
     if (s.autoClosed) notClockedOut = true;
@@ -120,16 +165,29 @@ async function loadMonth(year, month, employeeId) {
   const [employees, punches, sessions] = await Promise.all([
     prisma.employee.findMany({
       where: employeeId ? { employeeId } : { isActive: true },
-      select: { employeeId: true, fullName: true, role: true, joiningDate: true, saturdayRule: true, isActive: true },
+      select: {
+        employeeId: true,
+        fullName: true,
+        role: true,
+        joiningDate: true,
+        saturdayRule: true,
+        isActive: true,
+      },
       orderBy: { fullName: "asc" },
     }),
     prisma.biometricPunch.findMany({
-      where: { employeeId: employeeId || { not: null }, punchTime: { gte: r.start, lt: r.end } },
+      where: {
+        employeeId: employeeId || { not: null },
+        punchTime: { gte: r.start, lt: r.end },
+      },
       select: { employeeId: true, punchTime: true },
       orderBy: { punchTime: "asc" },
     }),
     prisma.workSession.findMany({
-      where: { workDate: { startsWith: prefix }, ...(employeeId && { employeeId }) },
+      where: {
+        workDate: { startsWith: prefix },
+        ...(employeeId && { employeeId }),
+      },
       orderBy: { clockIn: "asc" },
     }),
   ]);
@@ -137,15 +195,22 @@ async function loadMonth(year, month, employeeId) {
 }
 
 function index(punches, sessions) {
-  const p = {}, s = {};
-  for (const x of punches) ((p[x.employeeId] ||= {})[dateKey(x.punchTime)] ||= []).push(x.punchTime);
-  for (const x of sessions) ((s[x.employeeId] ||= {})[x.workDate] ||= []).push(x);
+  const p = {},
+    s = {};
+  for (const x of punches)
+    ((p[x.employeeId] ||= {})[dateKey(x.punchTime)] ||= []).push(x.punchTime);
+  for (const x of sessions)
+    ((s[x.employeeId] ||= {})[x.workDate] ||= []).push(x);
   return { p, s };
 }
 
 /** Full month report for every active employee (or one) */
 export async function monthlyAttendance(year, month, { employeeId } = {}) {
-  const { employees, punches, sessions } = await loadMonth(year, month, employeeId);
+  const { employees, punches, sessions } = await loadMonth(
+    year,
+    month,
+    employeeId,
+  );
   const { p, s } = index(punches, sessions);
   const days = monthDays(year, month);
   const todayKey = dateKey(new Date());
@@ -154,13 +219,34 @@ export async function monthlyAttendance(year, month, { employeeId } = {}) {
   const hasSessions = new Set(sessions.map((x) => x.employeeId));
   const rows = employees
     // admins only appear if they actually punched or clocked in
-    .filter((e) => e.role !== "ADMIN" || hasPunches.has(e.employeeId) || hasSessions.has(e.employeeId))
+    .filter(
+      (e) =>
+        e.role !== "ADMIN" ||
+        hasPunches.has(e.employeeId) ||
+        hasSessions.has(e.employeeId),
+    )
     .map((e) => {
       const joiningKey = e.joiningDate ? dateKey(e.joiningDate) : null;
       const list = days.map((d) =>
-        evaluateDay(d, { punches: p[e.employeeId]?.[d.date] || [], sessions: s[e.employeeId]?.[d.date] || [], saturdayRule: e.saturdayRule, joiningKey, todayKey }),
+        evaluateDay(d, {
+          punches: p[e.employeeId]?.[d.date] || [],
+          sessions: s[e.employeeId]?.[d.date] || [],
+          saturdayRule: e.saturdayRule,
+          joiningKey,
+          todayKey,
+        }),
       );
-      const sum = { present: 0, halfDay: 0, absent: 0, missingOut: 0, weekOff: 0, holiday: 0, offDayWork: 0, minutes: 0, workingDays: 0 };
+      const sum = {
+        present: 0,
+        halfDay: 0,
+        absent: 0,
+        missingOut: 0,
+        weekOff: 0,
+        holiday: 0,
+        offDayWork: 0,
+        minutes: 0,
+        workingDays: 0,
+      };
       const sys = { days: 0, minutes: 0, notClockedOut: 0 };
       for (const d of list) {
         if (d.status === "PRESENT") sum.present++;
@@ -186,6 +272,13 @@ export async function monthlyAttendance(year, month, { employeeId } = {}) {
         employeeId: e.employeeId,
         name: e.fullName,
         saturdayRule: e.saturdayRule,
+        role: e.role,
+        team:
+          e.role === "DEVELOPER"
+            ? "Developer"
+            : e.role === "ADMIN"
+              ? "Admin"
+              : "Marketing",
         hasBiometric: hasPunches.has(e.employeeId),
         days: list,
         summary: sum,
@@ -205,17 +298,31 @@ export async function monthlyAttendance(year, month, { employeeId } = {}) {
 
 /** Today + yesterday for one employee (employee dashboard) */
 export async function recentDays(employeeId, n = 2) {
-  const emp = await prisma.employee.findUnique({ where: { employeeId }, select: { saturdayRule: true, joiningDate: true } });
+  const emp = await prisma.employee.findUnique({
+    where: { employeeId },
+    select: { saturdayRule: true, joiningDate: true },
+  });
   const todayKey = dateKey(new Date());
-  const keys = Array.from({ length: n }, (_, i) => dateKey(new Date(Date.now() - i * 86400000)));
+  const keys = Array.from({ length: n }, (_, i) =>
+    dateKey(new Date(Date.now() - i * 86400000)),
+  );
   const start = dayRangeKey(keys[keys.length - 1]).start;
   const [punches, sessions] = await Promise.all([
-    prisma.biometricPunch.findMany({ where: { employeeId, punchTime: { gte: start } }, orderBy: { punchTime: "asc" }, select: { punchTime: true } }),
-    prisma.workSession.findMany({ where: { employeeId, workDate: { in: keys } }, orderBy: { clockIn: "asc" } }),
+    prisma.biometricPunch.findMany({
+      where: { employeeId, punchTime: { gte: start } },
+      orderBy: { punchTime: "asc" },
+      select: { punchTime: true },
+    }),
+    prisma.workSession.findMany({
+      where: { employeeId, workDate: { in: keys } },
+      orderBy: { clockIn: "asc" },
+    }),
   ]);
   return keys.map((k) =>
     evaluateDay(dayFromKey(k), {
-      punches: punches.filter((x) => dateKey(x.punchTime) === k).map((x) => x.punchTime),
+      punches: punches
+        .filter((x) => dateKey(x.punchTime) === k)
+        .map((x) => x.punchTime),
       sessions: sessions.filter((x) => x.workDate === k),
       saturdayRule: emp?.saturdayRule,
       joiningKey: emp?.joiningDate ? dateKey(emp.joiningDate) : null,

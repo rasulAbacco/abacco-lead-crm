@@ -4,8 +4,20 @@ import prisma from "../prismaClient.js";
 import { config } from "../config.js";
 import { authenticate, requireAdmin, ah } from "../middlewares/auth.js";
 import { getClientIp } from "../utils/ipExtractor.js";
-import { dateKey, parseDeviceTime, centralParts, formatIST, formatCentral, dayRangeKey } from "../utils/time.js";
-import { monthlyAttendance, recentDays, fmtMinutes, SATURDAY_LABEL } from "../services/attendance.js";
+import {
+  dateKey,
+  parseDeviceTime,
+  centralParts,
+  formatIST,
+  formatCentral,
+  dayRangeKey,
+} from "../utils/time.js";
+import {
+  monthlyAttendance,
+  recentDays,
+  fmtMinutes,
+  SATURDAY_LABEL,
+} from "../services/attendance.js";
 import { attendanceWorkbookBuffer } from "../utils/attendanceExcel.js";
 import { emailAttendanceReport } from "../jobs/attendanceJobs.js";
 import { sendXlsx } from "../utils/excel.js";
@@ -19,34 +31,66 @@ const router = express.Router();
      { EnrollmentId, DevicesId | DeviceId, SerialNo, PunchMode, PunchDateAndTime: "2026-06-26 21:15:00" (IST) }
    Optional: BIOMETRIC_DEVICE_KEY env -> machine must send ?key=… or header x-device-key.
 ===================================================================== */
-router.get("/device/test", (req, res) => res.json({ success: true, message: "Lead CRM biometric API working" }));
+router.get("/device/test", (req, res) =>
+  res.json({ success: true, message: "Lead CRM biometric API working" }),
+);
 
 router.post(
   "/device/punch",
   ah(async (req, res) => {
-    if (config.deviceKey && (req.query.key || req.headers["x-device-key"]) !== config.deviceKey) {
-      return res.status(401).json({ success: false, message: "Invalid device key" });
+    if (
+      config.deviceKey &&
+      (req.query.key || req.headers["x-device-key"]) !== config.deviceKey
+    ) {
+      return res
+        .status(401)
+        .json({ success: false, message: "Invalid device key" });
     }
     const records = Array.isArray(req.body) ? req.body : [req.body];
-    let inserted = 0, skipped = 0, unknownDevice = 0;
-    const devices = await prisma.biometricDevice.findMany({ where: { isActive: true } });
+    let inserted = 0,
+      skipped = 0,
+      unknownDevice = 0;
+    const devices = await prisma.biometricDevice.findMany({
+      where: { isActive: true },
+    });
 
     for (const item of records.slice(0, 5000)) {
-      const enrollmentId = String(item?.EnrollmentId ?? item?.EnrollmentID ?? item?.enrollmentId ?? "").trim();
-      const deviceCode = String(item?.DevicesId ?? item?.DeviceId ?? item?.deviceCode ?? "").trim();
+      const enrollmentId = String(
+        item?.EnrollmentId ?? item?.EnrollmentID ?? item?.enrollmentId ?? "",
+      ).trim();
+      const deviceCode = String(
+        item?.DevicesId ?? item?.DeviceId ?? item?.deviceCode ?? "",
+      ).trim();
       const serialNo = String(item?.SerialNo ?? item?.serialNo ?? "").trim();
-      const punchTime = parseDeviceTime(item?.PunchDateAndTime ?? item?.punchDateTime);
-      if (!enrollmentId || !punchTime) { skipped++; continue; }
+      const punchTime = parseDeviceTime(
+        item?.PunchDateAndTime ?? item?.punchDateTime,
+      );
+      if (!enrollmentId || !punchTime) {
+        skipped++;
+        continue;
+      }
 
-      const device = devices.find((d) => d.deviceCode === deviceCode && (!serialNo || d.serialNo === serialNo));
-      if (!device) { unknownDevice++; continue; } // only registered machines are accepted
+      const device = devices.find(
+        (d) =>
+          d.deviceCode === deviceCode && (!serialNo || d.serialNo === serialNo),
+      );
+      if (!device) {
+        unknownDevice++;
+        continue;
+      } // only registered machines are accepted
 
       const mapping = await prisma.biometricMapping.findFirst({
         where: { enrollmentId, location: device.location, isActive: true },
         select: { id: true, employeeId: true },
       });
-      const exists = await prisma.biometricPunch.findFirst({ where: { enrollmentId, punchTime, deviceId: device.id }, select: { id: true } });
-      if (exists) { skipped++; continue; }
+      const exists = await prisma.biometricPunch.findFirst({
+        where: { enrollmentId, punchTime, deviceId: device.id },
+        select: { id: true },
+      });
+      if (exists) {
+        skipped++;
+        continue;
+      }
 
       await prisma.biometricPunch.create({
         data: {
@@ -72,8 +116,14 @@ router.use(authenticate);
 async function clockState(employeeId) {
   const todayKey = dateKey(new Date());
   const [open, today] = await Promise.all([
-    prisma.workSession.findFirst({ where: { employeeId, clockOut: null }, orderBy: { clockIn: "desc" } }),
-    prisma.workSession.findMany({ where: { employeeId, workDate: todayKey }, orderBy: { clockIn: "asc" } }),
+    prisma.workSession.findFirst({
+      where: { employeeId, clockOut: null },
+      orderBy: { clockIn: "desc" },
+    }),
+    prisma.workSession.findMany({
+      where: { employeeId, workDate: todayKey },
+      orderBy: { clockIn: "asc" },
+    }),
   ]);
   let minutes = 0;
   for (const s of today) {
@@ -87,22 +137,43 @@ async function clockState(employeeId) {
     todayMinutes: minutes,
     todayHours: fmtMinutes(minutes),
     sessions: today.map((s) => ({
-      id: s.id, clockIn: s.clockIn, clockOut: s.clockOut, autoClosed: s.autoClosed,
-      clockInIST: formatIST(s.clockIn), clockOutIST: s.autoClosed ? null : formatIST(s.clockOut),
+      id: s.id,
+      clockIn: s.clockIn,
+      clockOut: s.clockOut,
+      autoClosed: s.autoClosed,
+      clockInIST: formatIST(s.clockIn),
+      clockOutIST: s.autoClosed ? null : formatIST(s.clockOut),
     })),
   };
 }
 
-router.get("/clock", ah(async (req, res) => res.json(await clockState(req.user.employeeId))));
+router.get(
+  "/clock",
+  ah(async (req, res) => res.json(await clockState(req.user.employeeId))),
+);
 
 router.post(
   "/clock/in",
   ah(async (req, res) => {
     const employeeId = req.user.employeeId;
-    const open = await prisma.workSession.findFirst({ where: { employeeId, clockOut: null } });
-    if (open) return res.status(400).json({ message: `You are already clocked in since ${formatIST(open.clockIn)} IST` });
+    const open = await prisma.workSession.findFirst({
+      where: { employeeId, clockOut: null },
+    });
+    if (open)
+      return res
+        .status(400)
+        .json({
+          message: `You are already clocked in since ${formatIST(open.clockIn)} IST`,
+        });
     const now = new Date();
-    await prisma.workSession.create({ data: { employeeId, workDate: dateKey(now), clockIn: now, clockInIp: getClientIp(req) } });
+    await prisma.workSession.create({
+      data: {
+        employeeId,
+        workDate: dateKey(now),
+        clockIn: now,
+        clockInIp: getClientIp(req),
+      },
+    });
     res.json(await clockState(employeeId));
   }),
 );
@@ -111,9 +182,16 @@ router.post(
   "/clock/out",
   ah(async (req, res) => {
     const employeeId = req.user.employeeId;
-    const open = await prisma.workSession.findFirst({ where: { employeeId, clockOut: null }, orderBy: { clockIn: "desc" } });
-    if (!open) return res.status(400).json({ message: "You are not clocked in" });
-    await prisma.workSession.update({ where: { id: open.id }, data: { clockOut: new Date(), clockOutIp: getClientIp(req) } });
+    const open = await prisma.workSession.findFirst({
+      where: { employeeId, clockOut: null },
+      orderBy: { clockIn: "desc" },
+    });
+    if (!open)
+      return res.status(400).json({ message: "You are not clocked in" });
+    await prisma.workSession.update({
+      where: { id: open.id },
+      data: { clockOut: new Date(), clockOutIp: getClientIp(req) },
+    });
     res.json(await clockState(employeeId));
   }),
 );
@@ -124,9 +202,16 @@ router.get(
   ah(async (req, res) => {
     const [days, mapping] = await Promise.all([
       recentDays(req.user.employeeId, 2),
-      prisma.biometricMapping.findFirst({ where: { employeeId: req.user.employeeId, isActive: true }, select: { id: true } }),
+      prisma.biometricMapping.findFirst({
+        where: { employeeId: req.user.employeeId, isActive: true },
+        select: { id: true },
+      }),
     ]);
-    res.json({ days, hasBiometric: !!mapping, fullDayHours: config.fullDayHours });
+    res.json({
+      days,
+      hasBiometric: !!mapping,
+      fullDayHours: config.fullDayHours,
+    });
   }),
 );
 
@@ -152,7 +237,11 @@ admin.get(
   ah(async (req, res) => {
     const { year, month } = ym(req.query);
     const report = await monthlyAttendance(year, month);
-    sendXlsx(res, attendanceWorkbookBuffer(report), `attendance-${year}-${String(month).padStart(2, "0")}.xlsx`);
+    sendXlsx(
+      res,
+      attendanceWorkbookBuffer(report),
+      `attendance-${year}-${String(month).padStart(2, "0")}.xlsx`,
+    );
   }),
 );
 
@@ -161,8 +250,30 @@ admin.post(
   ah(async (req, res) => {
     const { year, month } = ym(req.body || {});
     const ok = await emailAttendanceReport(year, month, { force: true });
-    if (!ok) return res.status(502).json({ message: "Email could not be sent. Check the SMTP settings." });
+    if (!ok)
+      return res
+        .status(502)
+        .json({ message: "Email could not be sent. Check the SMTP settings." });
     res.json({ success: true, to: config.attendanceReportEmail });
+  }),
+);
+
+/* People who can have a biometric card: marketing employees + developers */
+admin.get(
+  "/people",
+  ah(async (req, res) => {
+    const rows = await prisma.employee.findMany({
+      where: { isActive: true, role: { in: ["EMPLOYEE", "DEVELOPER"] } },
+      select: { employeeId: true, fullName: true, role: true },
+      orderBy: { fullName: "asc" },
+    });
+    res.json(
+      rows.map((e) => ({
+        employeeId: e.employeeId,
+        name: e.fullName,
+        role: e.role,
+      })),
+    );
   }),
 );
 
@@ -173,9 +284,23 @@ admin.get(
     const todayKey = dateKey(new Date());
     const { start, end } = dayRangeKey(todayKey);
     const [employees, punches, sessions] = await Promise.all([
-      prisma.employee.findMany({ where: { isActive: true, role: "EMPLOYEE" }, select: { employeeId: true, fullName: true }, orderBy: { fullName: "asc" } }),
-      prisma.biometricPunch.findMany({ where: { punchTime: { gte: start, lt: end }, employeeId: { not: null } }, orderBy: { punchTime: "asc" }, select: { employeeId: true, punchTime: true } }),
-      prisma.workSession.findMany({ where: { workDate: todayKey }, orderBy: { clockIn: "asc" } }),
+      prisma.employee.findMany({
+        where: { isActive: true, role: "EMPLOYEE" },
+        select: { employeeId: true, fullName: true },
+        orderBy: { fullName: "asc" },
+      }),
+      prisma.biometricPunch.findMany({
+        where: {
+          punchTime: { gte: start, lt: end },
+          employeeId: { not: null },
+        },
+        orderBy: { punchTime: "asc" },
+        select: { employeeId: true, punchTime: true },
+      }),
+      prisma.workSession.findMany({
+        where: { workDate: todayKey },
+        orderBy: { clockIn: "asc" },
+      }),
     ]);
     res.json({
       date: todayKey,
@@ -187,7 +312,8 @@ admin.get(
           employeeId: e.employeeId,
           name: e.fullName,
           firstPunchIST: formatIST(p[0]?.punchTime),
-          lastPunchIST: p.length > 1 ? formatIST(p[p.length - 1].punchTime) : null,
+          lastPunchIST:
+            p.length > 1 ? formatIST(p[p.length - 1].punchTime) : null,
           clockedIn: !!open,
           clockInIST: formatIST(s[0]?.clockIn),
         };
@@ -212,24 +338,48 @@ admin.get(
     }
     const [rows, total] = await Promise.all([
       prisma.biometricPunch.findMany({
-        where, orderBy: { punchTime: "desc" }, skip: (page - 1) * limit, take: limit,
-        include: { employee: { select: { fullName: true } }, device: { select: { deviceName: true, deviceCode: true } } },
+        where,
+        orderBy: { punchTime: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          employee: { select: { fullName: true } },
+          device: { select: { deviceName: true, deviceCode: true } },
+        },
       }),
       prisma.biometricPunch.count({ where }),
     ]);
     res.json({
       rows: rows.map((r) => ({
-        id: r.id, enrollmentId: r.enrollmentId, employeeId: r.employeeId, name: r.employee?.fullName || null,
-        location: r.location, device: r.device?.deviceName || r.device?.deviceCode || null, punchMode: r.punchMode,
-        punchTime: r.punchTime, timeIST: formatIST(r.punchTime, "MMM d, hh:mm a"), workDate: formatCentral(r.punchTime, "MMM d"),
+        id: r.id,
+        enrollmentId: r.enrollmentId,
+        employeeId: r.employeeId,
+        name: r.employee?.fullName || null,
+        location: r.location,
+        device: r.device?.deviceName || r.device?.deviceCode || null,
+        punchMode: r.punchMode,
+        punchTime: r.punchTime,
+        timeIST: formatIST(r.punchTime, "MMM d, hh:mm a"),
+        workDate: formatCentral(r.punchTime, "MMM d"),
       })),
-      total, page, totalPages: Math.max(1, Math.ceil(total / limit)),
+      total,
+      page,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
     });
   }),
 );
 
 /* Devices */
-admin.get("/devices", ah(async (req, res) => res.json(await prisma.biometricDevice.findMany({ orderBy: [{ location: "asc" }, { id: "asc" }] }))));
+admin.get(
+  "/devices",
+  ah(async (req, res) =>
+    res.json(
+      await prisma.biometricDevice.findMany({
+        orderBy: [{ location: "asc" }, { id: "asc" }],
+      }),
+    ),
+  ),
+);
 
 admin.post(
   "/devices",
@@ -237,11 +387,32 @@ admin.post(
     const deviceCode = String(req.body.deviceCode || "").trim();
     const serialNo = String(req.body.serialNo || "").trim();
     const location = String(req.body.location || "").trim();
-    if (!deviceCode || !serialNo || !location) return res.status(400).json({ message: "Device code, serial number and location are required" });
+    if (!deviceCode || !serialNo || !location)
+      return res
+        .status(400)
+        .json({
+          message: "Device code, serial number and location are required",
+        });
     try {
-      res.status(201).json(await prisma.biometricDevice.create({ data: { deviceCode, serialNo, location, deviceName: req.body.deviceName?.trim() || null } }));
+      res
+        .status(201)
+        .json(
+          await prisma.biometricDevice.create({
+            data: {
+              deviceCode,
+              serialNo,
+              location,
+              deviceName: req.body.deviceName?.trim() || null,
+            },
+          }),
+        );
     } catch (e) {
-      if (e.code === "P2002") return res.status(400).json({ message: `Device ${deviceCode} is already registered at ${location}` });
+      if (e.code === "P2002")
+        return res
+          .status(400)
+          .json({
+            message: `Device ${deviceCode} is already registered at ${location}`,
+          });
       throw e;
     }
   }),
@@ -250,9 +421,16 @@ admin.post(
 admin.patch(
   "/devices/:id/toggle",
   ah(async (req, res) => {
-    const d = await prisma.biometricDevice.findUnique({ where: { id: Number(req.params.id) } });
+    const d = await prisma.biometricDevice.findUnique({
+      where: { id: Number(req.params.id) },
+    });
     if (!d) return res.status(404).json({ message: "Device not found" });
-    res.json(await prisma.biometricDevice.update({ where: { id: d.id }, data: { isActive: !d.isActive } }));
+    res.json(
+      await prisma.biometricDevice.update({
+        where: { id: d.id },
+        data: { isActive: !d.isActive },
+      }),
+    );
   }),
 );
 
@@ -262,10 +440,20 @@ admin.get(
   ah(async (req, res) => {
     const rows = await prisma.biometricMapping.findMany({
       where: req.query.all === "true" ? {} : { isActive: true },
-      include: { employee: { select: { fullName: true, saturdayRule: true } }, _count: { select: { punches: true } } },
+      include: {
+        employee: { select: { fullName: true, saturdayRule: true } },
+        _count: { select: { punches: true } },
+      },
       orderBy: [{ isActive: "desc" }, { assignedAt: "desc" }],
     });
-    res.json(rows.map((m) => ({ ...m, name: m.employee?.fullName, saturdayRule: SATURDAY_LABEL[m.employee?.saturdayRule], punches: m._count.punches })));
+    res.json(
+      rows.map((m) => ({
+        ...m,
+        name: m.employee?.fullName,
+        saturdayRule: SATURDAY_LABEL[m.employee?.saturdayRule],
+        punches: m._count.punches,
+      })),
+    );
   }),
 );
 
@@ -275,16 +463,42 @@ admin.post(
     const employeeId = String(req.body.employeeId || "").trim();
     const enrollmentId = String(req.body.enrollmentId || "").trim();
     const location = String(req.body.location || "").trim();
-    if (!employeeId || !enrollmentId || !location) return res.status(400).json({ message: "Employee, card / enrollment ID and location are required" });
-    const emp = await prisma.employee.findUnique({ where: { employeeId }, select: { fullName: true } });
+    if (!employeeId || !enrollmentId || !location)
+      return res
+        .status(400)
+        .json({
+          message: "Employee, card / enrollment ID and location are required",
+        });
+    const emp = await prisma.employee.findUnique({
+      where: { employeeId },
+      select: { fullName: true },
+    });
     if (!emp) return res.status(404).json({ message: "Employee not found" });
-    if (await prisma.biometricMapping.findFirst({ where: { employeeId, isActive: true } })) {
-      return res.status(400).json({ message: `${emp.fullName} already has an active card. Remove it first.` });
+    if (
+      await prisma.biometricMapping.findFirst({
+        where: { employeeId, isActive: true },
+      })
+    ) {
+      return res
+        .status(400)
+        .json({
+          message: `${emp.fullName} already has an active card. Remove it first.`,
+        });
     }
-    if (await prisma.biometricMapping.findFirst({ where: { enrollmentId, location, isActive: true } })) {
-      return res.status(400).json({ message: `Card ${enrollmentId} is already assigned at ${location}` });
+    if (
+      await prisma.biometricMapping.findFirst({
+        where: { enrollmentId, location, isActive: true },
+      })
+    ) {
+      return res
+        .status(400)
+        .json({
+          message: `Card ${enrollmentId} is already assigned at ${location}`,
+        });
     }
-    const mapping = await prisma.biometricMapping.create({ data: { employeeId, enrollmentId, location } });
+    const mapping = await prisma.biometricMapping.create({
+      data: { employeeId, enrollmentId, location },
+    });
     // link punches that arrived before the card was assigned
     const { count } = await prisma.biometricPunch.updateMany({
       where: { enrollmentId, location, mappingId: null },
@@ -297,9 +511,16 @@ admin.post(
 admin.patch(
   "/mappings/:id/deactivate",
   ah(async (req, res) => {
-    const m = await prisma.biometricMapping.findUnique({ where: { id: Number(req.params.id) } });
+    const m = await prisma.biometricMapping.findUnique({
+      where: { id: Number(req.params.id) },
+    });
     if (!m) return res.status(404).json({ message: "Mapping not found" });
-    res.json(await prisma.biometricMapping.update({ where: { id: m.id }, data: { isActive: false, deactivatedAt: new Date() } }));
+    res.json(
+      await prisma.biometricMapping.update({
+        where: { id: m.id },
+        data: { isActive: false, deactivatedAt: new Date() },
+      }),
+    );
   }),
 );
 
@@ -307,11 +528,21 @@ admin.patch(
 admin.patch(
   "/sessions/:id/close",
   ah(async (req, res) => {
-    const s = await prisma.workSession.findUnique({ where: { id: Number(req.params.id) } });
+    const s = await prisma.workSession.findUnique({
+      where: { id: Number(req.params.id) },
+    });
     if (!s) return res.status(404).json({ message: "Session not found" });
     const out = req.body.clockOut ? new Date(req.body.clockOut) : new Date();
-    if (isNaN(out) || out <= s.clockIn) return res.status(400).json({ message: "Clock-out must be after clock-in" });
-    res.json(await prisma.workSession.update({ where: { id: s.id }, data: { clockOut: out, autoClosed: false } }));
+    if (isNaN(out) || out <= s.clockIn)
+      return res
+        .status(400)
+        .json({ message: "Clock-out must be after clock-in" });
+    res.json(
+      await prisma.workSession.update({
+        where: { id: s.id },
+        data: { clockOut: out, autoClosed: false },
+      }),
+    );
   }),
 );
 

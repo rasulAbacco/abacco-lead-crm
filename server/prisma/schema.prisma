@@ -443,12 +443,20 @@ model BiometricPunch {
 }
 
 /// In-app notifications (bell). Kept 30 days.
+/// In-app notifications (bell). Kept 30 days.
 model Notification {
   id         Int       @id @default(autoincrement())
-  employeeId String?
-  employee   Employee? @relation(fields: [employeeId], references: [employeeId], onDelete: SetNull)
-  type       String
+  employeeId String
+  employee   Employee  @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  type       String // lead_status | retention | attendance | clock | incentive | system
   title      String
   body       String?
+  link       String?
+  refKey     String? // used to update instead of duplicate (e.g. one per lead)
+  readAt     DateTime?
   createdAt  DateTime  @default(now())
+
+  @@index([employeeId, readAt])
+  @@index([employeeId, refKey])
+  @@index([createdAt])
 }
