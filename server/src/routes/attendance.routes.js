@@ -160,11 +160,9 @@ router.post(
       where: { employeeId, clockOut: null },
     });
     if (open)
-      return res
-        .status(400)
-        .json({
-          message: `You are already clocked in since ${formatIST(open.clockIn)} IST`,
-        });
+      return res.status(400).json({
+        message: `You are already clocked in since ${formatIST(open.clockIn)} IST`,
+      });
     const now = new Date();
     await prisma.workSession.create({
       data: {
@@ -336,32 +334,63 @@ admin.get(
       const r = dayRangeKey(req.query.date);
       where.punchTime = { gte: r.start, lt: r.end };
     }
-    const [rows, total] = await Promise.all([
-      prisma.biometricPunch.findMany({
-        where,
-        orderBy: { punchTime: "desc" },
-        skip: (page - 1) * limit,
-        take: limit,
-        include: {
-          employee: { select: { fullName: true } },
-          device: { select: { deviceName: true, deviceCode: true } },
-        },
-      }),
-      prisma.biometricPunch.count({ where }),
-    ]);
+
+    const allPunches = await prisma.biometricPunch.findMany({
+      where,
+      orderBy: { punchTime: "asc" },
+      include: {
+        employee: { select: { fullName: true } },
+        device: { select: { deviceName: true, deviceCode: true } },
+      },
+    });
+
+    const groups = {};
+    for (const r of allPunches) {
+      const wd = dateKey(r.punchTime);
+      const key = `${wd}_${r.enrollmentId}`;
+      if (!groups[key]) {
+        groups[key] = {
+          id: r.id, // using first punch ID as unique key for React
+          enrollmentId: r.enrollmentId,
+          employeeId: r.employeeId,
+          name: r.employee?.fullName || null,
+          location: r.location,
+          device: r.device?.deviceName || r.device?.deviceCode || null,
+          workDateSort: wd,
+          workDate: formatCentral(r.punchTime, "MMM d"),
+          punches: [],
+        };
+      }
+      groups[key].punches.push(r.punchTime);
+    }
+
+    // Sort by most recent work date first, then by employee name
+    const groupedList = Object.values(groups).sort((a, b) => {
+      if (a.workDateSort > b.workDateSort) return -1;
+      if (a.workDateSort < b.workDateSort) return 1;
+      return (a.name || "").localeCompare(b.name || "");
+    });
+
+    const total = groupedList.length;
+    const paged = groupedList.slice((page - 1) * limit, page * limit);
+
     res.json({
-      rows: rows.map((r) => ({
-        id: r.id,
-        enrollmentId: r.enrollmentId,
-        employeeId: r.employeeId,
-        name: r.employee?.fullName || null,
-        location: r.location,
-        device: r.device?.deviceName || r.device?.deviceCode || null,
-        punchMode: r.punchMode,
-        punchTime: r.punchTime,
-        timeIST: formatIST(r.punchTime, "MMM d, hh:mm a"),
-        workDate: formatCentral(r.punchTime, "MMM d"),
-      })),
+      rows: paged.map((g) => {
+        const inPunch = g.punches[0];
+        const outPunch =
+          g.punches.length > 1 ? g.punches[g.punches.length - 1] : null;
+        return {
+          id: g.id,
+          enrollmentId: g.enrollmentId,
+          employeeId: g.employeeId,
+          name: g.name,
+          location: g.location,
+          device: g.device,
+          workDate: g.workDate,
+          inPunchIST: formatIST(inPunch, "MMM d, hh:mm a"),
+          outPunchIST: outPunch ? formatIST(outPunch, "MMM d, hh:mm a") : null,
+        };
+      }),
       total,
       page,
       totalPages: Math.max(1, Math.ceil(total / limit)),
@@ -388,31 +417,25 @@ admin.post(
     const serialNo = String(req.body.serialNo || "").trim();
     const location = String(req.body.location || "").trim();
     if (!deviceCode || !serialNo || !location)
-      return res
-        .status(400)
-        .json({
-          message: "Device code, serial number and location are required",
-        });
+      return res.status(400).json({
+        message: "Device code, serial number and location are required",
+      });
     try {
-      res
-        .status(201)
-        .json(
-          await prisma.biometricDevice.create({
-            data: {
-              deviceCode,
-              serialNo,
-              location,
-              deviceName: req.body.deviceName?.trim() || null,
-            },
-          }),
-        );
+      res.status(201).json(
+        await prisma.biometricDevice.create({
+          data: {
+            deviceCode,
+            serialNo,
+            location,
+            deviceName: req.body.deviceName?.trim() || null,
+          },
+        }),
+      );
     } catch (e) {
       if (e.code === "P2002")
-        return res
-          .status(400)
-          .json({
-            message: `Device ${deviceCode} is already registered at ${location}`,
-          });
+        return res.status(400).json({
+          message: `Device ${deviceCode} is already registered at ${location}`,
+        });
       throw e;
     }
   }),
@@ -464,11 +487,9 @@ admin.post(
     const enrollmentId = String(req.body.enrollmentId || "").trim();
     const location = String(req.body.location || "").trim();
     if (!employeeId || !enrollmentId || !location)
-      return res
-        .status(400)
-        .json({
-          message: "Employee, card / enrollment ID and location are required",
-        });
+      return res.status(400).json({
+        message: "Employee, card / enrollment ID and location are required",
+      });
     const emp = await prisma.employee.findUnique({
       where: { employeeId },
       select: { fullName: true },
@@ -479,22 +500,18 @@ admin.post(
         where: { employeeId, isActive: true },
       })
     ) {
-      return res
-        .status(400)
-        .json({
-          message: `${emp.fullName} already has an active card. Remove it first.`,
-        });
+      return res.status(400).json({
+        message: `${emp.fullName} already has an active card. Remove it first.`,
+      });
     }
     if (
       await prisma.biometricMapping.findFirst({
         where: { enrollmentId, location, isActive: true },
       })
     ) {
-      return res
-        .status(400)
-        .json({
-          message: `Card ${enrollmentId} is already assigned at ${location}`,
-        });
+      return res.status(400).json({
+        message: `Card ${enrollmentId} is already assigned at ${location}`,
+      });
     }
     const mapping = await prisma.biometricMapping.create({
       data: { employeeId, enrollmentId, location },

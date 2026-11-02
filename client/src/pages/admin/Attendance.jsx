@@ -116,7 +116,7 @@ function EmployeeMonth({ row, report, onClose }) {
             key={d.date}
             className={cx(
               "rounded-lg border p-1.5 sm:p-2 min-h-[78px] text-left",
-              d.code ? CODE_STYLE[d.code] : "border-line bg-white",
+              d.code ? CODE_STYLE[d.code] : "border-white bg-white/60",
             )}
           >
             <div className="flex items-center justify-between">
@@ -342,7 +342,7 @@ function MonthlyReport() {
                   {rows.map((r) => (
                     <tr
                       key={r.employeeId}
-                      className="hover:bg-[#f9fbfe] cursor-pointer"
+                      className="hover:bg-white/55 cursor-pointer"
                       onClick={() => setOpen(r)}
                     >
                       <TD>
@@ -481,8 +481,9 @@ function PunchLog({ employees }) {
             <thead>
               <tr>
                 <TH>Employee</TH>
-                <TH className="w-28">Card ID</TH>
-                <TH className="w-44">Time (IST)</TH>
+                <TH className="w-24">Card ID</TH>
+                <TH className="w-36">In Punch (IST)</TH>
+                <TH className="w-36">Out Punch (IST)</TH>
                 <TH className="hidden md:table-cell w-28">US workday</TH>
                 <TH className="hidden lg:table-cell">Machine</TH>
               </tr>
@@ -500,7 +501,12 @@ function PunchLog({ employees }) {
                     )}
                   </TD>
                   <TD className="num">{r.enrollmentId}</TD>
-                  <TD className="num">{r.timeIST}</TD>
+                  <TD className="num text-active font-medium">
+                    {r.inPunchIST}
+                  </TD>
+                  <TD className="num text-leave font-medium">
+                    {r.outPunchIST || "—"}
+                  </TD>
                   <TD className="num hidden md:table-cell text-ink-soft">
                     {r.workDate}
                   </TD>
@@ -633,10 +639,10 @@ function Machines({ employees }) {
             ))}
           </ul>
         )}
-        <div className="p-5 text-[13px] text-ink-soft bg-[#f9fbfe] rounded-b-[14px]">
+        <div className="p-5 text-[13px] text-ink-soft bg-white/40 rounded-b-[22px]">
           <div className="font-semibold text-ink mb-1">Machine setup</div>
           Point the machine (or its sync software) to:
-          <code className="block mt-1.5 mb-1.5 break-all rounded-lg bg-white border border-line px-3 py-2 text-[12px] text-ink">
+          <code className="block mt-1.5 mb-1.5 break-all rounded-xl bg-white/80 border border-white px-3 py-2 text-[12px] text-ink">
             POST {endpoint}
           </code>
           Same format as the HR CRM: EnrollmentId, DevicesId, SerialNo,
@@ -843,6 +849,7 @@ export default function Attendance() {
     <>
       <PageHeader
         title="Attendance"
+        emoji="🗓️"
         subtitle={`Biometric punches and system clock-in. Day = US workday, times in IST. ${fmtDate(new Date(), "MMMM yyyy")}`}
       />
       <Tabs
