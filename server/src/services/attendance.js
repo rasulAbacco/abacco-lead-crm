@@ -18,6 +18,7 @@ import { config } from "../config.js";
 import {
   monthRange,
   monthDays,
+  lastIstCutoff,
   dateKey,
   formatIST,
   formatCentral,
@@ -58,12 +59,41 @@ export function isWorkingDay(day, saturdayRule = "ALTERNATE") {
   return true;
 }
 
+/* ---------------------------------------------------------------------
+   Duplicate / re-sent punch protection.
+   The machine (or its sync software) often re-sends old records, or the
+   same card is tapped twice within seconds. Any punches of the same card
+   closer than PUNCH_GAP are ONE punch, so an old 12:00 can never turn
+   into a "punch out". Applied on ingest AND on every calculation, so
+   duplicates that are already in the database are ignored too.
+   Set PUNCH_DEBOUNCE_SECONDS in .env to change (default 120 s).
+--------------------------------------------------------------------- */
+export const PUNCH_GAP_MS =
+  (Number(process.env.PUNCH_DEBOUNCE_SECONDS) || 120) * 1000;
+
+export function collapsePunches(times, gap = PUNCH_GAP_MS) {
+  const sorted = [...times].sort((a, b) => a - b);
+  const out = [];
+  for (const t of sorted)
+    if (!out.length || t - out[out.length - 1] >= gap) out.push(t);
+  return out;
+}
+
+/** Is the shift of this US date over? Past days: yes. Today: yes once the
+ *  auto clock-out time (4:30 AM IST) has passed. Future: no. */
+export function dayIsClosed(key, now = new Date()) {
+  const todayKey = dateKey(now);
+  if (key < todayKey) return true;
+  if (key > todayKey) return false;
+  return dateKey(lastIstCutoff(now, config.autoClockOutIst)) >= todayKey;
+}
+
 export const fmtMinutes = (m) =>
   m == null
     ? null
     : `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m`;
 
-function dayFromKey(key) {
+export function dayFromKey(key) {
   const [y, m, d] = key.split("-").map(Number);
   const weekday = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
   return {
@@ -77,12 +107,22 @@ function dayFromKey(key) {
 /** Status of one employee on one day */
 export function evaluateDay(
   day,
-  { punches = [], sessions = [], saturdayRule, joiningKey, todayKey },
+  {
+    punches = [],
+    sessions = [],
+    saturdayRule,
+    joiningKey,
+    todayKey,
+    todayClosed = false,
+  },
 ) {
+  punches = collapsePunches(punches); // ignore re-sent / double punches
   const working = isWorkingDay(day, saturdayRule);
   const future = day.date > todayKey;
   const beforeJoin = joiningKey && day.date < joiningKey;
-  const isToday = day.date === todayKey;
+  // "today" only runs until the auto clock-out time passes; after that the
+  // day is final (no punch = ABSENT, one punch = MISSING_OUT)
+  const isToday = day.date === todayKey && !todayClosed;
 
   let status = null;
   let first = null,
@@ -214,6 +254,7 @@ export async function monthlyAttendance(year, month, { employeeId } = {}) {
   const { p, s } = index(punches, sessions);
   const days = monthDays(year, month);
   const todayKey = dateKey(new Date());
+  const todayClosed = dayIsClosed(todayKey);
 
   const hasPunches = new Set(punches.map((x) => x.employeeId));
   const hasSessions = new Set(sessions.map((x) => x.employeeId));
@@ -234,6 +275,7 @@ export async function monthlyAttendance(year, month, { employeeId } = {}) {
           saturdayRule: e.saturdayRule,
           joiningKey,
           todayKey,
+          todayClosed,
         }),
       );
       const sum = {
@@ -327,6 +369,7 @@ export async function recentDays(employeeId, n = 2) {
       saturdayRule: emp?.saturdayRule,
       joiningKey: emp?.joiningDate ? dateKey(emp.joiningDate) : null,
       todayKey,
+      todayClosed: dayIsClosed(todayKey),
     }),
   );
 }

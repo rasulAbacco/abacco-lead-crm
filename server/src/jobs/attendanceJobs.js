@@ -17,7 +17,7 @@ import {
   dateKey,
   dayRangeKey,
 } from "../utils/time.js";
-import { monthlyAttendance } from "../services/attendance.js";
+import { monthlyAttendance, collapsePunches } from "../services/attendance.js";
 import { attendanceWorkbookBuffer } from "../utils/attendanceExcel.js";
 import { attendanceReportEmailHtml } from "../utils/emailTemplates.js";
 import { sendMail } from "../utils/mailer.js";
@@ -62,8 +62,11 @@ export async function autoClockOut(now = new Date()) {
   }
 
   let missedBiometricCount = 0;
-  for (const [empId, pList] of Object.entries(empPunches)) {
-    // If they only punched once all day, they forgot to punch out at the end of their shift
+  for (const [empId, rawList] of Object.entries(empPunches)) {
+    // re-sent / double punches count as one; one real punch = forgot to punch out
+    const pList = collapsePunches(rawList.map((p) => p.punchTime)).map((t) => ({
+      punchTime: t,
+    }));
     if (pList.length === 1) {
       missedBiometricCount++;
       await notify(empId, {

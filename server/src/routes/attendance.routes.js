@@ -17,8 +17,17 @@ import {
   recentDays,
   fmtMinutes,
   SATURDAY_LABEL,
+  STATUS_LABEL,
+  PUNCH_GAP_MS,
+  collapsePunches,
+  dayIsClosed,
+  dayFromKey,
+  evaluateDay,
 } from "../services/attendance.js";
-import { attendanceWorkbookBuffer } from "../utils/attendanceExcel.js";
+import {
+  attendanceWorkbookBuffer,
+  punchGridWorkbookBuffer,
+} from "../utils/attendanceExcel.js";
 import { emailAttendanceReport } from "../jobs/attendanceJobs.js";
 import { sendXlsx } from "../utils/excel.js";
 
@@ -35,6 +44,119 @@ router.get("/device/test", (req, res) =>
   res.json({ success: true, message: "Lead CRM biometric API working" }),
 );
 
+/* Serialise ingestion so two overlapping requests (machine retry, double
+   click on "send") can never both pass the duplicate check. */
+let ingestLock = Promise.resolve();
+const withIngestLock = (fn) => {
+  const run = ingestLock.then(fn, fn);
+  ingestLock = run.catch(() => {});
+  return run;
+};
+
+async function ingestPunches(records) {
+  let inserted = 0,
+    skipped = 0,
+    unknownDevice = 0;
+  const [devices, mappings] = await Promise.all([
+    prisma.biometricDevice.findMany({ where: { isActive: true } }),
+    prisma.biometricMapping.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        employeeId: true,
+        enrollmentId: true,
+        location: true,
+      },
+    }),
+  ]);
+  const mappingIndex = new Map(
+    mappings.map((m) => [`${m.enrollmentId}|${m.location}`, m]),
+  );
+
+  // 1. validate + resolve machine / card
+  const valid = [];
+  for (const item of records.slice(0, 5000)) {
+    const enrollmentId = String(
+      item?.EnrollmentId ?? item?.EnrollmentID ?? item?.enrollmentId ?? "",
+    ).trim();
+    const deviceCode = String(
+      item?.DevicesId ?? item?.DeviceId ?? item?.deviceCode ?? "",
+    ).trim();
+    const serialNo = String(item?.SerialNo ?? item?.serialNo ?? "").trim();
+    const punchTime = parseDeviceTime(
+      item?.PunchDateAndTime ?? item?.punchDateTime,
+    );
+    if (!enrollmentId || !punchTime) {
+      skipped++;
+      continue;
+    }
+    const device = devices.find(
+      (d) =>
+        d.deviceCode === deviceCode && (!serialNo || d.serialNo === serialNo),
+    );
+    if (!device) {
+      unknownDevice++;
+      continue; // only registered machines are accepted
+    }
+    valid.push({
+      enrollmentId,
+      device,
+      mapping: mappingIndex.get(`${enrollmentId}|${device.location}`) || null,
+      punchTime,
+      punchMode: item?.PunchMode != null ? String(item.PunchMode) : null,
+    });
+  }
+  if (!valid.length) return { inserted, skipped, unknownDevice };
+
+  // 2. load what is already stored around these punches (one query)
+  valid.sort((x, y) => x.punchTime - y.punchTime);
+  const ids = [...new Set(valid.map((v) => v.enrollmentId))];
+  const existing = await prisma.biometricPunch.findMany({
+    where: {
+      enrollmentId: { in: ids },
+      punchTime: {
+        gte: new Date(valid[0].punchTime.getTime() - PUNCH_GAP_MS),
+        lte: new Date(
+          valid[valid.length - 1].punchTime.getTime() + PUNCH_GAP_MS,
+        ),
+      },
+    },
+    select: { enrollmentId: true, punchTime: true },
+  });
+  const seen = new Map(); // enrollmentId -> [ms, ...] stored or accepted so far
+  for (const e of existing) {
+    if (!seen.has(e.enrollmentId)) seen.set(e.enrollmentId, []);
+    seen.get(e.enrollmentId).push(e.punchTime.getTime());
+  }
+
+  // 3. skip exact repeats AND anything within PUNCH_GAP of a punch we already have
+  const toCreate = [];
+  for (const v of valid) {
+    const ms = v.punchTime.getTime();
+    const list = seen.get(v.enrollmentId) || [];
+    if (list.some((t) => Math.abs(t - ms) < PUNCH_GAP_MS)) {
+      skipped++;
+      continue;
+    }
+    list.push(ms);
+    seen.set(v.enrollmentId, list);
+    toCreate.push({
+      enrollmentId: v.enrollmentId,
+      deviceId: v.device.id,
+      mappingId: v.mapping?.id || null,
+      employeeId: v.mapping?.employeeId || null,
+      location: v.device.location,
+      punchTime: v.punchTime,
+      punchMode: v.punchMode,
+    });
+  }
+  if (toCreate.length) {
+    await prisma.biometricPunch.createMany({ data: toCreate });
+    inserted = toCreate.length;
+  }
+  return { inserted, skipped, unknownDevice };
+}
+
 router.post(
   "/device/punch",
   ah(async (req, res) => {
@@ -47,65 +169,8 @@ router.post(
         .json({ success: false, message: "Invalid device key" });
     }
     const records = Array.isArray(req.body) ? req.body : [req.body];
-    let inserted = 0,
-      skipped = 0,
-      unknownDevice = 0;
-    const devices = await prisma.biometricDevice.findMany({
-      where: { isActive: true },
-    });
-
-    for (const item of records.slice(0, 5000)) {
-      const enrollmentId = String(
-        item?.EnrollmentId ?? item?.EnrollmentID ?? item?.enrollmentId ?? "",
-      ).trim();
-      const deviceCode = String(
-        item?.DevicesId ?? item?.DeviceId ?? item?.deviceCode ?? "",
-      ).trim();
-      const serialNo = String(item?.SerialNo ?? item?.serialNo ?? "").trim();
-      const punchTime = parseDeviceTime(
-        item?.PunchDateAndTime ?? item?.punchDateTime,
-      );
-      if (!enrollmentId || !punchTime) {
-        skipped++;
-        continue;
-      }
-
-      const device = devices.find(
-        (d) =>
-          d.deviceCode === deviceCode && (!serialNo || d.serialNo === serialNo),
-      );
-      if (!device) {
-        unknownDevice++;
-        continue;
-      } // only registered machines are accepted
-
-      const mapping = await prisma.biometricMapping.findFirst({
-        where: { enrollmentId, location: device.location, isActive: true },
-        select: { id: true, employeeId: true },
-      });
-      const exists = await prisma.biometricPunch.findFirst({
-        where: { enrollmentId, punchTime, deviceId: device.id },
-        select: { id: true },
-      });
-      if (exists) {
-        skipped++;
-        continue;
-      }
-
-      await prisma.biometricPunch.create({
-        data: {
-          enrollmentId,
-          deviceId: device.id,
-          mappingId: mapping?.id || null,
-          employeeId: mapping?.employeeId || null,
-          location: device.location,
-          punchTime,
-          punchMode: item?.PunchMode != null ? String(item.PunchMode) : null,
-        },
-      });
-      inserted++;
-    }
-    res.json({ success: true, inserted, skipped, unknownDevice });
+    const result = await withIngestLock(() => ingestPunches(records));
+    res.json({ success: true, ...result });
   }),
 );
 
@@ -243,6 +308,19 @@ admin.get(
   }),
 );
 
+admin.get(
+  "/monthly/punch-export",
+  ah(async (req, res) => {
+    const { year, month } = ym(req.query);
+    const report = await monthlyAttendance(year, month);
+    sendXlsx(
+      res,
+      punchGridWorkbookBuffer(report),
+      `punch-in-out-${year}-${String(month).padStart(2, "0")}.xlsx`,
+    );
+  }),
+);
+
 admin.post(
   "/monthly/email",
   ah(async (req, res) => {
@@ -303,7 +381,11 @@ admin.get(
     res.json({
       date: todayKey,
       rows: employees.map((e) => {
-        const p = punches.filter((x) => x.employeeId === e.employeeId);
+        const p = collapsePunches(
+          punches
+            .filter((x) => x.employeeId === e.employeeId)
+            .map((x) => x.punchTime),
+        ).map((t) => ({ punchTime: t }));
         const s = sessions.filter((x) => x.employeeId === e.employeeId);
         const open = s.find((x) => !x.clockOut);
         return {
@@ -320,80 +402,151 @@ admin.get(
   }),
 );
 
-/* Raw punch log */
+/* Punch log.
+   ?date=yyyy-MM-dd (US date)  default = today.   ?date=all = every stored day.
+   For a single day it lists EVERY employee that has a card, so people who
+   have not punched yet are visible:
+     - day still running  -> "Not punched yet" (turns final at 4:30 AM IST auto punch-out)
+     - day closed         -> "Absent"
+   Re-sent / double punches are collapsed, so an old 12:00 is never shown as "Out". */
 admin.get(
   "/punches",
   ah(async (req, res) => {
+    const now = new Date();
+    const todayKey = dateKey(now);
+    const todayClosed = dayIsClosed(todayKey, now);
     const page = Math.max(1, Number(req.query.page) || 1);
     const limit = Math.min(100, Number(req.query.limit) || 50);
+    const allDates = req.query.date === "all";
+    const date = allDates
+      ? null
+      : /^\d{4}-\d{2}-\d{2}$/.test(req.query.date || "")
+        ? req.query.date
+        : todayKey;
+
     const where = {};
     if (req.query.mapped === "true") where.mappingId = { not: null };
     if (req.query.mapped === "false") where.mappingId = null;
     if (req.query.employeeId) where.employeeId = req.query.employeeId;
-    if (req.query.date && /^\d{4}-\d{2}-\d{2}$/.test(req.query.date)) {
-      const r = dayRangeKey(req.query.date);
+    if (date) {
+      const r = dayRangeKey(date);
       where.punchTime = { gte: r.start, lt: r.end };
     }
 
-    const allPunches = await prisma.biometricPunch.findMany({
+    const punches = await prisma.biometricPunch.findMany({
       where,
       orderBy: { punchTime: "asc" },
-      include: {
-        employee: { select: { fullName: true } },
-        device: { select: { deviceName: true, deviceCode: true } },
-      },
+      include: { device: { select: { deviceName: true, deviceCode: true } } },
     });
 
-    const groups = {};
-    for (const r of allPunches) {
-      const wd = dateKey(r.punchTime);
-      const key = `${wd}_${r.enrollmentId}`;
-      if (!groups[key]) {
-        groups[key] = {
-          id: r.id, // using first punch ID as unique key for React
-          enrollmentId: r.enrollmentId,
-          employeeId: r.employeeId,
-          name: r.employee?.fullName || null,
-          location: r.location,
-          device: r.device?.deviceName || r.device?.deviceCode || null,
-          workDateSort: wd,
-          workDate: formatCentral(r.punchTime, "MMM d"),
-          punches: [],
-        };
-      }
-      groups[key].punches.push(r.punchTime);
+    // group: one row per person per US day
+    const groups = new Map();
+    const add = (wd, base) => {
+      const key = `${wd}|${base.employeeId || `card:${base.enrollmentId}`}`;
+      if (!groups.has(key)) groups.set(key, { key, wd, times: [], ...base });
+      return groups.get(key);
+    };
+    for (const p of punches) {
+      const g = add(dateKey(p.punchTime), {
+        employeeId: p.employeeId,
+        enrollmentId: p.enrollmentId,
+        location: p.location,
+        device: p.device?.deviceName || p.device?.deviceCode || null,
+      });
+      g.times.push(p.punchTime);
     }
 
-    // Sort by most recent work date first, then by employee name
-    const groupedList = Object.values(groups).sort((a, b) => {
-      if (a.workDateSort > b.workDateSort) return -1;
-      if (a.workDateSort < b.workDateSort) return 1;
-      return (a.name || "").localeCompare(b.name || "");
+    // roster for a single day: everybody with an active card
+    if (date && req.query.mapped !== "false") {
+      const mappings = await prisma.biometricMapping.findMany({
+        where: {
+          isActive: true,
+          employee: { isActive: true },
+          ...(req.query.employeeId && { employeeId: req.query.employeeId }),
+        },
+        select: { employeeId: true, enrollmentId: true, location: true },
+      });
+      for (const m of mappings)
+        add(date, {
+          employeeId: m.employeeId,
+          enrollmentId: m.enrollmentId,
+          location: m.location,
+          device: null,
+        });
+    }
+
+    const empIds = [
+      ...new Set([...groups.values()].map((g) => g.employeeId).filter(Boolean)),
+    ];
+    const emps = await prisma.employee.findMany({
+      where: { employeeId: { in: empIds } },
+      select: {
+        employeeId: true,
+        fullName: true,
+        saturdayRule: true,
+        joiningDate: true,
+      },
+    });
+    const empMap = new Map(emps.map((e) => [e.employeeId, e]));
+
+    const list = [...groups.values()].map((g) => {
+      const e = g.employeeId ? empMap.get(g.employeeId) : null;
+      const ev = evaluateDay(dayFromKey(g.wd), {
+        punches: g.times,
+        saturdayRule: e?.saturdayRule,
+        joiningKey: e?.joiningDate ? dateKey(e.joiningDate) : null,
+        todayKey,
+        todayClosed,
+      });
+      let code = ev.code;
+      let status = ev.status ? STATUS_LABEL[ev.status] : "";
+      if (!ev.status && !ev.punchCount && ev.working && g.wd === todayKey) {
+        code = "NP"; // today's shift still running, nobody can be called absent yet
+        status = "Not punched yet";
+      }
+      return {
+        id: g.key,
+        enrollmentId: g.enrollmentId,
+        employeeId: g.employeeId,
+        name: e?.fullName || null,
+        location: g.location,
+        device: g.device,
+        workDate: g.wd,
+        inPunchIST: ev.firstPunch
+          ? formatIST(ev.firstPunch, "MMM d, hh:mm a")
+          : null,
+        outPunchIST: ev.lastPunch
+          ? formatIST(ev.lastPunch, "MMM d, hh:mm a")
+          : null,
+        hours: ev.hours,
+        code,
+        status,
+      };
     });
 
-    const total = groupedList.length;
-    const paged = groupedList.slice((page - 1) * limit, page * limit);
+    list.sort((a, b) =>
+      a.workDate !== b.workDate
+        ? a.workDate < b.workDate
+          ? 1
+          : -1
+        : (a.name || "~").localeCompare(b.name || "~"),
+    );
 
+    const summary = {
+      punched: list.filter((r) => r.inPunchIST).length,
+      notPunched: list.filter((r) => r.code === "NP").length,
+      absent: list.filter((r) => r.code === "A").length,
+    };
+    const total = list.length;
     res.json({
-      rows: paged.map((g) => {
-        const inPunch = g.punches[0];
-        const outPunch =
-          g.punches.length > 1 ? g.punches[g.punches.length - 1] : null;
-        return {
-          id: g.id,
-          enrollmentId: g.enrollmentId,
-          employeeId: g.employeeId,
-          name: g.name,
-          location: g.location,
-          device: g.device,
-          workDate: g.workDate,
-          inPunchIST: formatIST(inPunch, "MMM d, hh:mm a"),
-          outPunchIST: outPunch ? formatIST(outPunch, "MMM d, hh:mm a") : null,
-        };
-      }),
+      rows: list.slice((page - 1) * limit, page * limit),
       total,
       page,
       totalPages: Math.max(1, Math.ceil(total / limit)),
+      date: date || "all",
+      todayKey,
+      dayClosed: date ? dayIsClosed(date, now) : true,
+      summary,
     });
   }),
 );
