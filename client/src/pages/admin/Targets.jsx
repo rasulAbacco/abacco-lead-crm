@@ -1,93 +1,238 @@
 import { useState } from "react";
-import { Info } from "lucide-react";
+import {
+  Target as TargetIcon,
+  Users,
+  AlertCircle,
+  CheckCircle2,
+  Save,
+} from "lucide-react";
 import { useApi, useMutation } from "../../lib/api";
 import { num } from "../../lib/format";
-import { Button, Empty, ErrorNote, Input, PageHeader, Panel, Spinner, TH, TD, useToast, cx } from "../../components/ui";
+import {
+  Avatar,
+  Button,
+  Empty,
+  ErrorNote,
+  Input,
+  MiniStat,
+  PageHeader,
+  Pill,
+  SearchInput,
+  Spinner,
+  StatRow,
+  Toolbar,
+  useToast,
+  cx,
+} from "../../components/ui";
 
 const FIELDS = [
   { key: "associationPercent", label: "Association" },
   { key: "attendeesPercent", label: "Attendees" },
   { key: "industryPercent", label: "Industry" },
-  { key: "memberAttendeesPercent", label: "Member att." },
+  { key: "memberAttendeesPercent", label: "Member attendees" },
 ];
+const mixTotal = (o) => FIELDS.reduce((s, f) => s + Number(o[f.key] || 0), 0);
 
-function Row({ emp }) {
+/* One employee: target + lead-type mix */
+function TargetCard({ emp }) {
   const toast = useToast();
   const { run, busy } = useMutation();
-  const initial = { target: emp.target, ...Object.fromEntries(FIELDS.map((f) => [f.key, emp[f.key]])) };
+  const initial = {
+    target: emp.target,
+    ...Object.fromEntries(FIELDS.map((f) => [f.key, emp[f.key]])),
+  };
   const [v, setV] = useState(initial);
   const dirty = JSON.stringify(v) !== JSON.stringify(initial);
-  const total = FIELDS.reduce((s, f) => s + Number(v[f.key] || 0), 0);
+  const total = mixTotal(v);
   const valid = total === 100 || total === 0;
+  const set = (k) => (e) =>
+    setV((x) => ({
+      ...x,
+      [k]: e.target.value === "" ? "" : Number(e.target.value),
+    }));
 
   async function save() {
     try {
-      await run(`/employees/targets/${emp.employeeId}`, { method: "PUT", body: v, invalidates: ["/employees", "/incentives"] });
+      await run(`/employees/targets/${emp.employeeId}`, {
+        method: "PUT",
+        body: v,
+        invalidates: ["/employees", "/incentives"],
+      });
       toast(`Target saved for ${emp.fullName}`);
     } catch (e) {
       toast(e.message, "error");
     }
   }
 
-  const cell = (k) => (
-    <Input type="number" min="0" max={k === "target" ? undefined : 100} value={v[k]} onChange={(e) => setV((x) => ({ ...x, [k]: e.target.value === "" ? "" : Number(e.target.value) }))} className="h-8 w-20 text-right num" aria-label={k} />
-  );
-
   return (
-    <tr className={cx(dirty && "bg-brand-soft/40")}>
-      <TD>
-        <div className="font-medium">{emp.fullName}</div>
-        <div className="text-xs text-muted">{emp.employeeId}, {emp.experience}</div>
-      </TD>
-      <TD>{cell("target")}</TD>
-      {FIELDS.map((f) => (
-        <TD key={f.key}>
-          <div className="flex items-center gap-2">
-            {cell(f.key)}
-            <span className="num text-xs text-muted w-10">{v.target ? `${Math.round((v.target * (v[f.key] || 0)) / 100)}` : ""}</span>
+    <article
+      className={cx("card p-5 flex flex-col", dirty && "ring-2 ring-lime")}
+    >
+      <header className="flex items-center gap-3">
+        <Avatar name={emp.fullName} size={42} />
+        <div className="min-w-0 flex-1">
+          <div className="font-semibold truncate">{emp.fullName}</div>
+          <div className="text-xs text-muted truncate">
+            {emp.employeeId}
+            {emp.experience ? `, ${emp.experience}` : ""}
           </div>
-        </TD>
-      ))}
-      <TD className={cx("num font-medium", valid ? "text-active" : "text-leave")}>{total}%</TD>
-      <TD className="text-right">
-        <Button size="sm" variant={dirty ? "primary" : "secondary"} disabled={!dirty || !valid} loading={busy} onClick={save}>Save</Button>
-      </TD>
-    </tr>
+        </div>
+        <label className="text-right">
+          <span className="block text-[11px] font-bold uppercase tracking-[0.06em] text-teal-deep mb-1">
+            Monthly target
+          </span>
+          <Input
+            type="number"
+            min="0"
+            value={v.target}
+            onChange={set("target")}
+            className="h-10 w-24 text-right num font-bold text-[16px]"
+            aria-label={`Monthly target for ${emp.fullName}`}
+          />
+        </label>
+      </header>
+
+      <div className="mt-4 space-y-3">
+        {FIELDS.map((f) => {
+          const pct = Number(v[f.key] || 0);
+          const leads = v.target ? Math.round((v.target * pct) / 100) : 0;
+          return (
+            <div
+              key={f.key}
+              className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1"
+            >
+              <div className="flex items-center justify-between gap-2 min-w-0">
+                <span className="text-[13.5px] font-medium truncate">
+                  {f.label}
+                </span>
+                <span className="num text-[12px] text-muted whitespace-nowrap">
+                  {leads} lead{leads === 1 ? "" : "s"}
+                </span>
+              </div>
+              <div className="relative row-span-2 self-center">
+                <Input
+                  type="number"
+                  min="0"
+                  max={100}
+                  value={v[f.key]}
+                  onChange={set(f.key)}
+                  className="h-9 w-20 pr-7 text-right num"
+                  aria-label={`${f.label} percent for ${emp.fullName}`}
+                />
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[12px] text-muted">
+                  %
+                </span>
+              </div>
+              <div className="track h-1.5 rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-teal-deep transition-[width] duration-300"
+                  style={{ width: `${Math.min(100, pct)}%` }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <footer className="mt-5 pt-4 border-t border-line flex items-center justify-between gap-3">
+        {total === 100 ? (
+          <Pill tone="lime">Mix 100%</Pill>
+        ) : total === 0 ? (
+          <Pill tone="white">No mix set</Pill>
+        ) : (
+          <Pill tone="teal">Mix {total}%, must be 100%</Pill>
+        )}
+        <Button
+          size="sm"
+          variant={dirty ? "primary" : "secondary"}
+          icon={Save}
+          disabled={!dirty || !valid}
+          loading={busy}
+          onClick={save}
+        >
+          {dirty ? "Save" : "Saved"}
+        </Button>
+      </footer>
+    </article>
   );
 }
 
 export default function Targets() {
   const { data, loading, error, reload } = useApi("/employees/targets");
-  const total = (data || []).reduce((s, e) => s + (e.target || 0), 0);
+  const [q, setQ] = useState("");
+  const list = data || [];
+  const teamTarget = list.reduce((s, e) => s + (e.target || 0), 0);
+  const incomplete = list.filter((e) => mixTotal(e) !== 100).length;
+  const shown = list.filter(
+    (e) =>
+      !q ||
+      e.fullName.toLowerCase().includes(q.toLowerCase()) ||
+      e.employeeId.toLowerCase().includes(q.toLowerCase()),
+  );
+
   return (
     <>
-      <PageHeader title="Targets" subtitle="Set each employee's monthly lead target and how it splits across lead types. The split must add up to 100%." />
+      <PageHeader
+        title="Targets"
+        icon={TargetIcon}
+        subtitle="Each employee's monthly lead target and how it splits across lead types. The split must add up to 100%."
+      />
       <ErrorNote error={error} onRetry={reload} />
-      {data && (
-        <div className="flex items-center gap-3 rounded-xl bg-blue-soft border border-blue/15 px-4 py-3 mb-4">
-          <Info size={18} className="text-blue shrink-0" />
-          <span className="font-semibold">Team target <span className="text-blue num">{num(total)}</span> leads per month</span>
+      {loading ? (
+        <Spinner />
+      ) : !list.length ? (
+        <div className="card">
+          <Empty title="No active employees" />
         </div>
-      )}
-      <Panel bodyClass="p-0">
-        {loading ? <Spinner /> : !data?.length ? <Empty title="No active employees" /> : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr>
-                  <TH>Employee</TH>
-                  <TH>Monthly target</TH>
-                  {FIELDS.map((f) => <TH key={f.key}>{f.label} %</TH>)}
-                  <TH>Total</TH>
-                  <TH />
-                </tr>
-              </thead>
-              <tbody>{data.map((e) => <Row key={`${e.employeeId}-${e.target}-${e.associationPercent}-${e.attendeesPercent}-${e.industryPercent}-${e.memberAttendeesPercent}`} emp={e} />)}</tbody>
-            </table>
+      ) : (
+        <>
+          <StatRow cols={3}>
+            <MiniStat
+              label="Team target"
+              value={`${num(teamTarget)} / month`}
+              icon={TargetIcon}
+              tone="teal"
+            />
+            <MiniStat
+              label="People with a target"
+              value={list.filter((e) => e.target > 0).length}
+              icon={Users}
+              tone="lime"
+            />
+            <MiniStat
+              label="Mix not 100%"
+              value={incomplete}
+              hint={
+                incomplete ? "Fix these so incentives count right" : "All set"
+              }
+              icon={incomplete ? AlertCircle : CheckCircle2}
+            />
+          </StatRow>
+          <Toolbar>
+            <SearchInput
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Find employee"
+            />
+            <span className="text-[13px] text-muted">
+              Changed cards get a lime outline until you save them.
+            </span>
+          </Toolbar>
+          <div className="grid md:grid-cols-2 2xl:grid-cols-3 gap-4">
+            {shown.map((e) => (
+              <TargetCard
+                key={`${e.employeeId}-${e.target}-${e.associationPercent}-${e.attendeesPercent}-${e.industryPercent}-${e.memberAttendeesPercent}`}
+                emp={e}
+              />
+            ))}
           </div>
-        )}
-      </Panel>
-      <p className="text-xs text-muted mt-3">The small number next to each percentage is the lead count for that type.</p>
+          {!shown.length && (
+            <div className="card">
+              <Empty title={`No employee matches "${q}"`} />
+            </div>
+          )}
+        </>
+      )}
     </>
   );
 }

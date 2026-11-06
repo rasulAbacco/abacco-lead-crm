@@ -1,5 +1,5 @@
-// Admin attendance: monthly report (biometric + system clock-in), punch log, machines & cards.
-import { useEffect, useMemo, useState } from "react";
+// Admin attendance: monthly report (biometric + system clock-in), today, punch log, machines & cards.
+import { useMemo, useState } from "react";
 import {
   CalendarCheck,
   Download,
@@ -10,7 +10,6 @@ import {
   Search,
   UserX,
   Clock,
-  Radio,
 } from "lucide-react";
 import { api, download, useApi, useMutation } from "../../lib/api";
 import { fmtDate, num, recentMonths } from "../../lib/format";
@@ -38,37 +37,15 @@ import {
   cx,
 } from "../../components/ui";
 
-/* calendar tiles (employee month view) */
+// Palette only: lime = present, teal = absent, pearl = days off
 const CODE_STYLE = {
-  P: "bg-active-soft text-active border-active/25",
-  HD: "bg-noresp-soft text-noresp border-noresp/25",
-  MP: "bg-orange-soft text-orange border-orange/25",
-  A: "bg-leave-soft text-leave border-leave/25",
-  WO: "bg-pending-soft text-pending border-pending/20",
-  H: "bg-violet-soft text-violet border-violet/20",
-  IN: "bg-blue-soft text-blue border-blue/25",
-  NP: "bg-pending-soft text-pending border-pending/20",
-};
-/* plain status text: dot + coloured words, no boxes */
-const CODE_TEXT = {
-  P: "text-active",
-  HD: "text-noresp",
-  MP: "text-orange",
-  A: "text-leave",
-  WO: "text-muted",
-  H: "text-violet",
-  IN: "text-blue",
-  NP: "text-muted",
-};
-const CODE_DOT = {
-  P: "bg-active",
-  HD: "bg-noresp",
-  MP: "bg-orange",
-  A: "bg-leave",
-  WO: "bg-muted",
-  H: "bg-violet",
-  IN: "bg-blue",
-  NP: "bg-muted",
+  P: "bg-lime text-ink border-lime",
+  HD: "bg-lime/35 text-ink border-lime",
+  MP: "bg-white text-teal-deep border-teal-deep border-dashed",
+  A: "bg-teal-deep text-white border-teal-deep",
+  WO: "bg-pearl text-muted border-line",
+  H: "bg-pearl text-teal-deep border-teal-deep/30",
+  IN: "bg-white text-teal-deep border-lime border-2",
 };
 const CODE_LABEL = {
   P: "Present",
@@ -78,7 +55,6 @@ const CODE_LABEL = {
   WO: "Week off",
   H: "Holiday",
   IN: "Working now",
-  NP: "Not punched yet",
 };
 const SAT = {
   WORKING: "Every Saturday",
@@ -87,32 +63,20 @@ const SAT = {
 };
 const WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-function StatusText({ code, label }) {
-  if (!code) return <span className="text-muted">-</span>;
-  return (
-    <span
-      className={cx(
-        "inline-flex items-center gap-2 font-semibold",
-        CODE_TEXT[code],
-      )}
-    >
-      <span className={cx("size-2 rounded-full shrink-0", CODE_DOT[code])} />
-      {label || CODE_LABEL[code]}
-    </span>
-  );
-}
-
 function Legend() {
   return (
-    <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-[12.5px] text-ink-soft">
-      {Object.entries(CODE_LABEL)
-        .filter(([c]) => c !== "NP")
-        .map(([c, l]) => (
-          <span key={c} className="inline-flex items-center gap-1.5">
-            <span className={cx("size-2 rounded-full", CODE_DOT[c])} />
-            <b className="text-ink">{c}</b> {l}
-          </span>
-        ))}
+    <div className="flex flex-wrap gap-2 text-xs">
+      {Object.entries(CODE_LABEL).map(([c, l]) => (
+        <span
+          key={c}
+          className={cx(
+            "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 font-semibold",
+            CODE_STYLE[c],
+          )}
+        >
+          {c} <span className="font-normal">{l}</span>
+        </span>
+      ))}
     </div>
   );
 }
@@ -135,7 +99,8 @@ function EmployeeMonth({ row, report, onClose }) {
         <Chip tone="leave">{row.summary.absent} absent</Chip>
         <Chip tone="pending">{row.summary.missingOut} missing out</Chip>
         <span className="text-muted self-center">
-          Total {row.summary.hours || "0h"}
+          Biometric {row.summary.hours || "0h"}, system{" "}
+          {row.system.hours || "0h"}
         </span>
       </div>
       <div className="grid grid-cols-7 gap-1.5 text-center text-xs font-semibold text-muted mb-1.5">
@@ -184,6 +149,11 @@ function EmployeeMonth({ row, report, onClose }) {
                 {d.hours}
               </div>
             )}
+            {d.system?.notClockedOut && (
+              <div className="text-[10px] font-semibold text-leave leading-tight mt-0.5">
+                Not clocked out
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -192,31 +162,6 @@ function EmployeeMonth({ row, report, onClose }) {
         {report.fullDayHours} hours or more.
       </p>
     </Modal>
-  );
-}
-
-const numCell = (v, cls) => (
-  <span className={cx("num font-semibold", v ? cls : "text-muted/50")}>
-    {v || 0}
-  </span>
-);
-
-/* stacked present / half / absent bar */
-function AttendanceBar({ s }) {
-  const t = Math.max(s.workingDays, 1);
-  const w = (v) => `${Math.min(100, (v / t) * 100)}%`;
-  return (
-    <div className="min-w-[110px]">
-      <div className="flex h-2 w-full overflow-hidden rounded-full bg-line">
-        <div className="bg-active" style={{ width: w(s.present) }} />
-        <div className="bg-noresp" style={{ width: w(s.halfDay) }} />
-        <div className="bg-leave" style={{ width: w(s.absent) }} />
-      </div>
-      <div className="num text-[11px] text-muted mt-1">
-        {Math.round((s.attendedDays / t) * 100)}% of {s.workingDays} working
-        days
-      </div>
-    </div>
   );
 }
 
@@ -237,7 +182,6 @@ function MonthlyReport() {
     () =>
       (data?.rows || []).filter(
         (r) =>
-          r.role !== "ADMIN" &&
           (!team || r.team === team) &&
           (!q ||
             r.name.toLowerCase().includes(q.toLowerCase()) ||
@@ -264,25 +208,11 @@ function MonthlyReport() {
       setBusy("");
     }
   }
-  async function exportFile(kind, path, name) {
-    setBusy(kind);
-    try {
-      await download(
-        `/attendance/admin/monthly/${path}?year=${y}&month=${m}`,
-        name,
-      );
-    } catch (e) {
-      toast(e.message, "error");
-    } finally {
-      setBusy("");
-    }
-  }
 
   return (
     <>
-      {/* toolbar */}
-      <div className="card p-3 sm:p-4 mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div className="flex flex-wrap gap-2">
           <Select
             value={key}
             onChange={(e) => setKey(e.target.value)}
@@ -318,37 +248,39 @@ function MonthlyReport() {
             />
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap gap-2">
           <RefreshButton onClick={reload} spinning={refreshing} />
           <Button icon={Mail} loading={busy === "mail"} onClick={emailNow}>
-            Email
-          </Button>
-          <Button
-            icon={Download}
-            loading={busy === "xl"}
-            onClick={() => exportFile("xl", "export", `attendance-${key}.xlsx`)}
-          >
-            Summary Excel
+            Email report
           </Button>
           <Button
             variant="blue"
             icon={Download}
-            loading={busy === "punch"}
-            onClick={() =>
-              exportFile("punch", "punch-export", `punch-in-out-${key}.xlsx`)
-            }
+            loading={busy === "xl"}
+            onClick={async () => {
+              setBusy("xl");
+              try {
+                await download(
+                  `/attendance/admin/monthly/export?year=${y}&month=${m}`,
+                  `attendance-${key}.xlsx`,
+                );
+              } catch (e) {
+                toast(e.message, "error");
+              } finally {
+                setBusy("");
+              }
+            }}
           >
-            Punch in/out Excel
+            Excel
           </Button>
         </div>
       </div>
-
       <ErrorNote error={error} onRetry={reload} />
       {loading ? (
         <Spinner />
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+          <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
             <StatCard
               label="Present days"
               value={num(tot("present"))}
@@ -368,19 +300,20 @@ function MonthlyReport() {
               icon={UserX}
               tone="red"
             />
+            <StatCard
+              label="Not clocked out"
+              value={num(tot("notClockedOut", "system"))}
+              hint="System clock-in"
+              icon={Fingerprint}
+              tone="violet"
+            />
           </div>
-
           <Panel
             bodyClass="p-0"
             title={`${data.label} attendance`}
             icon={CalendarCheck}
-            actions={
-              <span className="text-[13px] text-muted">
-                {rows.length} employees
-              </span>
-            }
           >
-            <div className="px-5 py-3 border-b border-line bg-white/40">
+            <div className="px-5 py-3 border-b border-line">
               <Legend />
             </div>
             {!rows.length ? (
@@ -389,16 +322,20 @@ function MonthlyReport() {
               <table className="w-full text-sm table-fixed">
                 <thead>
                   <tr>
-                    <TH className="w-[40%] md:w-[26%]">Employee</TH>
-                    <TH className="hidden md:table-cell">Attendance</TH>
-                    <TH className="text-center w-12 sm:w-16">P</TH>
-                    <TH className="text-center w-12 sm:w-16">HD</TH>
-                    <TH className="text-center w-12 sm:w-16">A</TH>
-                    <TH className="text-center w-12 sm:w-16 hidden sm:table-cell">
-                      MP
+                    <TH className="w-[34%] md:w-[24%]">Employee</TH>
+                    <TH className="text-center">P</TH>
+                    <TH className="text-center">HD</TH>
+                    <TH className="text-center">A</TH>
+                    <TH className="text-center hidden sm:table-cell">MP</TH>
+                    <TH className="text-center hidden lg:table-cell">WO / H</TH>
+                    <TH className="text-right hidden md:table-cell">
+                      Biometric hrs
                     </TH>
-                    <TH className="text-right w-28 hidden md:table-cell">
-                      Hours
+                    <TH className="text-right hidden lg:table-cell">
+                      System hrs
+                    </TH>
+                    <TH className="text-center hidden md:table-cell">
+                      Not clocked out
                     </TH>
                   </tr>
                 </thead>
@@ -406,15 +343,15 @@ function MonthlyReport() {
                   {rows.map((r) => (
                     <tr
                       key={r.employeeId}
-                      className="hover:bg-white/60 cursor-pointer transition-colors"
+                      className="hover:bg-white/55 cursor-pointer"
                       onClick={() => setOpen(r)}
                     >
                       <TD>
-                        <div className="flex items-center gap-3 min-w-0">
-                          <Avatar name={r.name} size={36} />
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <Avatar name={r.name} size={28} />
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5 min-w-0">
-                              <span className="font-semibold truncate text-ink">
+                              <span className="font-semibold truncate text-blue hover:underline">
                                 {r.name}
                               </span>
                               {r.role === "DEVELOPER" && (
@@ -424,37 +361,60 @@ function MonthlyReport() {
                               )}
                             </div>
                             <div className="text-xs text-muted truncate">
-                              {r.employeeId} · {SAT[r.saturdayRule]}
-                              {!r.hasBiometric && " · no punches"}
+                              {r.employeeId}, {SAT[r.saturdayRule]}
+                              {!r.hasBiometric && ", no punches"}
                             </div>
                           </div>
                         </div>
                       </TD>
-                      <TD className="hidden md:table-cell pr-6">
-                        <AttendanceBar s={r.summary} />
+                      <TD className="text-center">
+                        <Chip tone="active">{r.summary.present}</Chip>
                       </TD>
                       <TD className="text-center">
-                        {numCell(r.summary.present, "text-active")}
+                        <Chip tone="noresp">{r.summary.halfDay}</Chip>
                       </TD>
                       <TD className="text-center">
-                        {numCell(r.summary.halfDay, "text-noresp")}
-                      </TD>
-                      <TD className="text-center">
-                        {numCell(r.summary.absent, "text-leave")}
+                        <Chip tone="leave">{r.summary.absent}</Chip>
                       </TD>
                       <TD className="text-center hidden sm:table-cell">
-                        {numCell(r.summary.missingOut, "text-orange")}
+                        <Chip tone="pending">{r.summary.missingOut}</Chip>
                       </TD>
-                      <TD className="text-right hidden md:table-cell">
-                        <div className="num font-semibold text-ink">
-                          {r.summary.hours || "-"}
-                        </div>
+                      <TD className="text-center num text-ink-soft hidden lg:table-cell">
+                        {r.summary.weekOff} / {r.summary.holiday}
+                        {r.summary.offDayWork ? (
+                          <span className="text-active font-semibold">
+                            {" "}
+                            +{r.summary.offDayWork}
+                          </span>
+                        ) : (
+                          ""
+                        )}
+                      </TD>
+                      <TD className="text-right num hidden md:table-cell">
+                        {r.summary.hours || "—"}
+                      </TD>
+                      <TD className="text-right num hidden lg:table-cell">
+                        {r.system.hours || "—"}
+                      </TD>
+                      <TD
+                        className={cx(
+                          "text-center num font-semibold hidden md:table-cell",
+                          r.system.notClockedOut ? "text-leave" : "text-muted",
+                        )}
+                      >
+                        {r.system.notClockedOut || "—"}
                       </TD>
                     </tr>
                   ))}
                 </tbody>
               </table>
             )}
+            <p className="text-xs text-muted px-5 py-3 border-t border-line">
+              Click a name for the day-by-day calendar. Sunday is a holiday.
+              Saturdays follow each person's Saturday rule (set it under
+              Employees). The report for last month is emailed automatically on
+              the 1st. Punch data is kept for 2 months.
+            </p>
           </Panel>
         </>
       )}
@@ -465,258 +425,102 @@ function MonthlyReport() {
   );
 }
 
-/* US Central calendar date helpers (the attendance "day") */
-const usToday = () =>
-  new Intl.DateTimeFormat("en-CA", { timeZone: "America/Chicago" }).format(
-    new Date(),
-  );
-const shiftKey = (key, days) => {
-  const [y, m, d] = key.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
-};
-const prettyKey = (key) => {
-  const [y, m, d] = key.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-US", {
-    timeZone: "UTC",
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-};
-
-function MiniStat({ label, value, tone = "text-ink", hint }) {
-  return (
-    <div className="card px-4 py-3">
-      <div className="text-[12px] font-semibold uppercase tracking-wide text-muted">
-        {label}
-      </div>
-      <div className={cx("num text-2xl font-bold mt-0.5", tone)}>{value}</div>
-      {hint && <div className="text-[11.5px] text-muted mt-0.5">{hint}</div>}
-    </div>
-  );
-}
-
 function PunchLog({ employees }) {
-  const today = usToday();
-  const [f, setF] = useState({
-    page: 1,
-    mapped: "",
-    employeeId: "",
-    date: today,
-  });
-  // bumping this changes the request URL, so Refresh / auto-refresh can never
-  // be answered from the cache with old data
-  const [nonce, setNonce] = useState(0);
-  const params = Object.entries(f).filter(([, v]) => v !== "");
-  if (nonce) params.push(["_r", nonce]);
-  const qs = new URLSearchParams(params).toString();
+  const [f, setF] = useState({ page: 1, mapped: "", employeeId: "", date: "" });
+  const qs = new URLSearchParams(
+    Object.entries(f).filter(([, v]) => v !== ""),
+  ).toString();
   const { data, loading, error, reload, refreshing } = useApi(
     `/attendance/admin/punches?${qs}`,
-    { ttl: 15 * 1000, keepPrevious: true },
+    { ttl: 30 * 1000, keepPrevious: true },
   );
-  const refresh = () => {
-    setNonce((n) => n + 1);
-    reload();
-  };
-  useEffect(() => {
-    if (f.date !== today) return;
-    const t = setInterval(() => setNonce((n) => n + 1), 60 * 1000);
-    return () => clearInterval(t);
-  }, [f.date, today]);
-
   const set = (k) => (e) =>
     setF((x) => ({ ...x, [k]: e.target.value, page: 1 }));
-  const setDate = (date) => setF((x) => ({ ...x, date, page: 1 }));
-  const quick = [
-    { label: "Today", value: today },
-    { label: "Yesterday", value: shiftKey(today, -1) },
-    { label: "Day before", value: shiftKey(today, -2) },
-    { label: "All", value: "all" },
-  ];
-  const single = data && data.date !== "all";
-  const live = single && !data.dayClosed && data.date === data.todayKey;
-
   return (
-    <div className="grid gap-5">
-      {/* date + filters */}
-      <div className="card p-3 sm:p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="inline-flex rounded-xl bg-white/70 border border-line p-1 gap-1">
-            {quick.map((q) => (
-              <button
-                key={q.value}
-                onClick={() => setDate(q.value)}
-                className={cx(
-                  "rounded-lg px-3.5 py-1.5 text-[13px] font-semibold transition-colors",
-                  f.date === q.value
-                    ? "bg-navy text-white shadow-sm"
-                    : "text-ink-soft hover:bg-white",
-                )}
-              >
-                {q.label}
-              </button>
-            ))}
-          </div>
-          <div className="flex items-center gap-3">
-            {live && (
-              <span className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-active">
-                <Radio size={14} className="animate-pulse" /> Live, updates
-                every minute
-              </span>
-            )}
-            <RefreshButton onClick={refresh} spinning={refreshing} />
-          </div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
-          <Input
-            type="date"
-            value={f.date === "all" ? "" : f.date}
-            max={today}
-            onChange={(e) => e.target.value && setDate(e.target.value)}
-            aria-label="Pick a date"
-          />
-          <Select
-            value={f.employeeId}
-            onChange={set("employeeId")}
-            aria-label="Employee"
-          >
-            <option value="">All employees</option>
-            {employees.map((e) => (
-              <option key={e.employeeId} value={e.employeeId}>
-                {e.name}
-              </option>
-            ))}
-          </Select>
-          <Select value={f.mapped} onChange={set("mapped")} aria-label="Card">
-            <option value="">All punches</option>
-            <option value="true">Linked to an employee</option>
-            <option value="false">Card not linked</option>
-          </Select>
-        </div>
+    <Panel
+      bodyClass="p-0"
+      title="Punch log"
+      icon={Fingerprint}
+      actions={<RefreshButton onClick={reload} spinning={refreshing} />}
+    >
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 p-4 border-b border-line">
+        <Select
+          value={f.employeeId}
+          onChange={set("employeeId")}
+          aria-label="Employee"
+        >
+          <option value="">All employees</option>
+          {employees.map((e) => (
+            <option key={e.employeeId} value={e.employeeId}>
+              {e.name}
+            </option>
+          ))}
+        </Select>
+        <Select value={f.mapped} onChange={set("mapped")} aria-label="Card">
+          <option value="">All punches</option>
+          <option value="true">Linked to an employee</option>
+          <option value="false">Card not linked</option>
+        </Select>
+        <Input
+          type="date"
+          value={f.date}
+          onChange={set("date")}
+          aria-label="US date"
+          className="col-span-2 md:col-span-1"
+        />
       </div>
-
-      {/* day summary */}
-      {single && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <MiniStat
-            label="Date"
-            value={prettyKey(data.date)}
-            hint="US workday"
-          />
-          <MiniStat
-            label="Punched"
-            value={data.summary.punched}
-            tone="text-active"
-          />
-          {data.dayClosed ? (
-            <MiniStat
-              label="Absent"
-              value={data.summary.absent}
-              tone="text-leave"
-              hint="Day is closed"
-            />
-          ) : (
-            <MiniStat
-              label="Not punched yet"
-              value={data.summary.notPunched}
-              tone="text-pending"
-              hint="Absent after 4:30 AM IST"
-            />
-          )}
-          <MiniStat
-            label="Total listed"
-            value={data.total}
-            hint={data.dayClosed ? "Final" : "Shift still running"}
-          />
-        </div>
-      )}
-
-      <Panel bodyClass="p-0" title="Punch log" icon={Fingerprint}>
-        <ErrorNote error={error} onRetry={reload} />
-        {loading ? (
-          <Spinner />
-        ) : !data?.rows?.length ? (
-          <Empty title="No punches found">
-            Punches appear here as soon as the machine sends them.
-          </Empty>
-        ) : (
-          <>
-            <table className="w-full text-sm table-fixed">
-              <thead>
-                <tr>
-                  <TH className="w-[44%] sm:w-[28%]">Employee</TH>
-                  <TH className="w-36 hidden sm:table-cell">Punch in (IST)</TH>
-                  <TH className="w-36 hidden sm:table-cell">Punch out (IST)</TH>
-                  <TH>Status</TH>
-                  <TH className="w-24 text-right hidden md:table-cell">
-                    Hours
-                  </TH>
-                  <TH className="hidden xl:table-cell">Machine</TH>
+      <ErrorNote error={error} onRetry={reload} />
+      {loading ? (
+        <Spinner />
+      ) : !data?.rows?.length ? (
+        <Empty title="No punches found">
+          Punches appear here as soon as the machine sends them.
+        </Empty>
+      ) : (
+        <>
+          <table className="w-full text-sm table-fixed">
+            <thead>
+              <tr>
+                <TH>Employee</TH>
+                <TH className="w-28">Card ID</TH>
+                <TH className="w-44">Time (IST)</TH>
+                <TH className="hidden md:table-cell w-28">US workday</TH>
+                <TH className="hidden lg:table-cell">Machine</TH>
+              </tr>
+            </thead>
+            <tbody>
+              {data.rows.map((r) => (
+                <tr key={r.id}>
+                  <TD className="truncate">
+                    {r.name ? (
+                      <span className="font-medium">{r.name}</span>
+                    ) : (
+                      <span className="text-noresp font-medium">
+                        Card not linked
+                      </span>
+                    )}
+                  </TD>
+                  <TD className="num">{r.enrollmentId}</TD>
+                  <TD className="num">{r.timeIST}</TD>
+                  <TD className="num hidden md:table-cell text-ink-soft">
+                    {r.workDate}
+                  </TD>
+                  <TD className="hidden lg:table-cell text-ink-soft truncate">
+                    {r.device}, {r.location}
+                  </TD>
                 </tr>
-              </thead>
-              <tbody>
-                {data.rows.map((r) => (
-                  <tr
-                    key={r.id}
-                    className="hover:bg-white/60 transition-colors"
-                  >
-                    <TD>
-                      <div className="flex items-center gap-3 min-w-0">
-                        <Avatar name={r.name || "?"} size={34} />
-                        <div className="min-w-0">
-                          {r.name ? (
-                            <div className="font-semibold truncate text-ink">
-                              {r.name}
-                            </div>
-                          ) : (
-                            <div className="font-semibold truncate text-noresp">
-                              Card not linked
-                            </div>
-                          )}
-                          <div className="text-xs text-muted truncate">
-                            Card {r.enrollmentId}
-                            {data.date === "all" &&
-                              ` · ${prettyKey(r.workDate)}`}
-                          </div>
-                          {/* phone: times under the name */}
-                          <div className="sm:hidden num text-[11.5px] text-ink-soft mt-0.5">
-                            {r.inPunchIST || "-"} to {r.outPunchIST || "-"}
-                          </div>
-                        </div>
-                      </div>
-                    </TD>
-                    <TD className="num hidden sm:table-cell font-medium text-ink">
-                      {r.inPunchIST || <span className="text-muted">-</span>}
-                    </TD>
-                    <TD className="num hidden sm:table-cell font-medium text-ink">
-                      {r.outPunchIST || <span className="text-muted">-</span>}
-                    </TD>
-                    <TD>
-                      <StatusText code={r.code} label={r.status} />
-                    </TD>
-                    <TD className="num text-right hidden md:table-cell font-semibold">
-                      {r.hours || (
-                        <span className="text-muted font-normal">-</span>
-                      )}
-                    </TD>
-                    <TD className="hidden xl:table-cell text-ink-soft truncate">
-                      {r.device ? `${r.device}, ` : ""}
-                      {r.location}
-                    </TD>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <Pagination
-              page={data.page}
-              totalPages={data.totalPages}
-              total={data.total}
-              onPage={(p) => setF((x) => ({ ...x, page: p }))}
-            />
-          </>
-        )}
-      </Panel>
-    </div>
+              ))}
+            </tbody>
+          </table>
+          <Pagination
+            page={data.page}
+            totalPages={data.totalPages}
+            total={data.total}
+            onPage={(p) => setF((x) => ({ ...x, page: p }))}
+          />
+        </>
+      )}
+    </Panel>
   );
 }
 

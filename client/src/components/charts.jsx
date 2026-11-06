@@ -19,13 +19,14 @@ import {
 import { num } from "../lib/format";
 
 export const CAT_SERIES = [
-  { key: "association", name: "Association", color: "#2563eb" },
-  { key: "attendees", name: "Attendees", color: "#0ea5e9" },
-  { key: "industry", name: "Industry", color: "#8b5cf6" },
-  { key: "memberAttendees", name: "Member attendees", color: "#14b8a6" },
+  { key: "association", name: "Association", color: "#0B3048" },
+  { key: "attendees", name: "Attendees", color: "#B9F12F" },
+  { key: "industry", name: "Industry", color: "#65727A" },
+  { key: "memberAttendees", name: "Member attendees", color: "#D8DAD5" },
 ];
 
-const AXIS = { fontSize: 12, fill: "#66718c" };
+const AXIS = { fontSize: 12, fill: "#65727A" };
+const legendText = (v) => <span style={{ color: "#0B3048" }}>{v}</span>;
 
 export function GlassTooltip({ active, payload, label, suffix = "leads" }) {
   if (!active || !payload?.length) return null;
@@ -33,7 +34,7 @@ export function GlassTooltip({ active, payload, label, suffix = "leads" }) {
     p.value !== undefined && p.dataKey !== "target" ? true : p.value > 0,
   );
   return (
-    <div className="rounded-2xl border border-white bg-white/90 backdrop-blur-xl px-3.5 py-2.5 shadow-[0_18px_40px_-16px_rgba(15,27,61,0.45)] text-[13px]">
+    <div className="rounded-2xl border border-white bg-white/90 backdrop-blur-xl px-3.5 py-2.5 shadow-[0_18px_40px_-16px_rgba(11,48,72,0.4)] text-[13px]">
       <div className="font-bold text-ink mb-1">
         {payload[0]?.payload?.tip || label}
       </div>
@@ -86,15 +87,15 @@ export function SoftBars({
         >
           <defs>
             <linearGradient id="bar-hi" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="#60a5fa" />
-              <stop offset="100%" stopColor="#2563eb" />
+              <stop offset="0%" stopColor="#0B3048" />
+              <stop offset="100%" stopColor="#0B3048" />
             </linearGradient>
             <linearGradient id="bar-lo" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="#bfdbfe" />
-              <stop offset="100%" stopColor="#93c5fd" />
+              <stop offset="0%" stopColor="#B9F12F" />
+              <stop offset="100%" stopColor="#B9F12F" stopOpacity="0.75" />
             </linearGradient>
           </defs>
-          <CartesianGrid vertical={false} stroke="rgba(148,163,196,0.25)" />
+          <CartesianGrid vertical={false} stroke="#D8DAD5" />
           <XAxis dataKey={x} tick={AXIS} axisLine={false} tickLine={false} />
           <YAxis
             tick={AXIS}
@@ -103,7 +104,7 @@ export function SoftBars({
             allowDecimals={false}
           />
           <Tooltip
-            cursor={{ fill: "rgba(37,99,235,0.06)", radius: 10 }}
+            cursor={{ fill: "rgba(11,48,72,0.05)", radius: 10 }}
             content={<GlassTooltip />}
           />
           <RBar dataKey={y} name={name} radius={[10, 10, 4, 4]} maxBarSize={44}>
@@ -126,7 +127,7 @@ export function SoftArea({
   x = "label",
   y = "leads",
   name = "Leads",
-  color = "#2563eb",
+  color = "#0B3048",
   target = false,
   height = 260,
 }) {
@@ -135,9 +136,9 @@ export function SoftArea({
       <ResponsiveContainer>
         <AreaChart data={data} margin={{ left: -20, right: 8, top: 10 }}>
           <defs>
-            <Grad id="area-main" color={color} />
+            <Grad id="area-main" color="#B9F12F" top={0.6} />
           </defs>
-          <CartesianGrid vertical={false} stroke="rgba(148,163,196,0.25)" />
+          <CartesianGrid vertical={false} stroke="#D8DAD5" />
           <XAxis dataKey={x} tick={AXIS} axisLine={false} tickLine={false} />
           <YAxis
             tick={AXIS}
@@ -153,7 +154,7 @@ export function SoftArea({
             stroke={color}
             strokeWidth={3}
             fill="url(#area-main)"
-            dot={{ r: 4, strokeWidth: 2.5, fill: "#fff" }}
+            dot={{ r: 4, strokeWidth: 2.5, fill: "#ffffff" }}
             activeDot={{ r: 6 }}
           />
           {target && (
@@ -161,7 +162,7 @@ export function SoftArea({
               type="monotone"
               dataKey="target"
               name="Target"
-              stroke="#f97316"
+              stroke="#65727A"
               strokeWidth={2}
               strokeDasharray="6 6"
               dot={false}
@@ -189,7 +190,7 @@ export function TypeAreas({ data, height = 280 }) {
               />
             ))}
           </defs>
-          <CartesianGrid vertical={false} stroke="rgba(148,163,196,0.25)" />
+          <CartesianGrid vertical={false} stroke="#D8DAD5" />
           <XAxis
             dataKey="label"
             tick={AXIS}
@@ -207,6 +208,7 @@ export function TypeAreas({ data, height = 280 }) {
             iconType="circle"
             iconSize={9}
             wrapperStyle={{ fontSize: 12.5, paddingTop: 8 }}
+            formatter={legendText}
           />
           {CAT_SERIES.map((s) => (
             <Area
@@ -217,7 +219,7 @@ export function TypeAreas({ data, height = 280 }) {
               stroke={s.color}
               strokeWidth={2.5}
               fill={`url(#fill-${s.key})`}
-              dot={{ r: 3, strokeWidth: 2, fill: "#fff" }}
+              dot={{ r: 3, strokeWidth: 2, fill: "#ffffff" }}
               activeDot={{ r: 5 }}
             />
           ))}
@@ -241,11 +243,11 @@ export function EmployeeBars({ data, stacked = true, height }) {
         >
           <defs>
             <linearGradient id="emp-total" x1="0" x2="1" y1="0" y2="0">
-              <stop offset="0%" stopColor="#93c5fd" />
-              <stop offset="100%" stopColor="#2563eb" />
+              <stop offset="0%" stopColor="#0B3048" />
+              <stop offset="100%" stopColor="#0B3048" />
             </linearGradient>
           </defs>
-          <CartesianGrid horizontal={false} stroke="rgba(148,163,196,0.25)" />
+          <CartesianGrid horizontal={false} stroke="#D8DAD5" />
           <XAxis
             type="number"
             tick={AXIS}
@@ -256,14 +258,14 @@ export function EmployeeBars({ data, stacked = true, height }) {
           <YAxis
             type="category"
             dataKey="name"
-            tick={{ ...AXIS, fill: "#3f4a63" }}
+            tick={{ ...AXIS, fill: "#0B3048" }}
             axisLine={false}
             tickLine={false}
             width={110}
             interval={0}
           />
           <Tooltip
-            cursor={{ fill: "rgba(37,99,235,0.06)" }}
+            cursor={{ fill: "rgba(11,48,72,0.05)" }}
             content={<GlassTooltip />}
           />
           {stacked ? (
@@ -292,6 +294,7 @@ export function EmployeeBars({ data, stacked = true, height }) {
               iconType="circle"
               iconSize={9}
               wrapperStyle={{ fontSize: 12.5, paddingTop: 6 }}
+              formatter={legendText}
             />
           )}
         </BarChart>
@@ -308,7 +311,7 @@ export function Donut({ data, center, sub, height = 220 }) {
       <ResponsiveContainer>
         <PieChart>
           <Pie
-            data={total ? data : [{ name: "None", value: 1, color: "#e2e8f0" }]}
+            data={total ? data : [{ name: "None", value: 1, color: "#D8DAD5" }]}
             dataKey="value"
             nameKey="name"
             innerRadius="64%"
@@ -319,7 +322,7 @@ export function Donut({ data, center, sub, height = 220 }) {
             startAngle={90}
             endAngle={-270}
           >
-            {(total ? data : [{ color: "#e2e8f0" }]).map((d, i) => (
+            {(total ? data : [{ color: "#D8DAD5" }]).map((d, i) => (
               <Cell key={i} fill={d.color} />
             ))}
           </Pie>

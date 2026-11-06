@@ -1,23 +1,37 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Plus, Pencil, Search } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Users,
+  Megaphone,
+  Code2,
+  UserX,
+  CalendarDays,
+  Target as TargetIcon,
+} from "lucide-react";
 import { useApi, useMutation } from "../../lib/api";
 import { fmtDate } from "../../lib/format";
 import {
   Avatar,
-  Badge,
   Button,
   Empty,
   ErrorNote,
   Field,
+  IconButton,
   Input,
+  MiniStat,
   Modal,
   PageHeader,
-  Panel,
+  Pill,
+  SearchInput,
+  Segmented,
   Select,
   Spinner,
+  StatRow,
   TH,
   TD,
+  Toolbar,
   useToast,
   cx,
 } from "../../components/ui";
@@ -45,11 +59,39 @@ const ROLE_LABEL = {
 const isPlaceholder = (email) => (email || "").endsWith("@developer.local");
 
 function RoleBadge({ role }) {
-  if (role === "ADMIN") return <Badge>Admin</Badge>;
+  if (role === "ADMIN")
+    return (
+      <Pill tone="teal" dot={false}>
+        Admin
+      </Pill>
+    );
   if (role === "DEVELOPER")
-    return <Badge className="bg-violet-soft text-violet">Developer</Badge>;
-  return <span>Marketing</span>;
+    return (
+      <Pill tone="pearl" dot={false}>
+        Developer
+      </Pill>
+    );
+  return (
+    <Pill tone="white" dot={false} className="!text-teal-deep">
+      Marketing
+    </Pill>
+  );
 }
+const accessText = (e) =>
+  e.role === "DEVELOPER"
+    ? e.isActive
+      ? "Attendance only"
+      : "Inactive"
+    : e.isActive
+      ? "Can log in"
+      : "Blocked";
+const accessTone = (e) =>
+  !e.isActive ? "teal" : e.role === "DEVELOPER" ? "pearl" : "lime";
+const Section = ({ children }) => (
+  <div className="sm:col-span-2 pt-1 text-[12px] font-bold uppercase tracking-[0.06em] text-teal-deep border-b border-line pb-1.5">
+    {children}
+  </div>
+);
 
 function EmployeeModal({ employee, onClose }) {
   const toast = useToast();
@@ -105,6 +147,7 @@ function EmployeeModal({ employee, onClose }) {
       }
     >
       <form id="emp-form" onSubmit={save} className="grid sm:grid-cols-2 gap-4">
+        <Section>Person</Section>
         <Field label="Employee ID">
           <Input
             required
@@ -127,7 +170,7 @@ function EmployeeModal({ employee, onClose }) {
           </Select>
         </Field>
         {dev ? (
-          <div className="sm:col-span-2 rounded-xl border border-violet/20 bg-violet-soft px-4 py-3 text-[13px] text-ink-soft">
+          <div className="sm:col-span-2 rounded-xl border border-line border-l-4 border-l-lime bg-pearl px-4 py-3 text-[13px] text-ink-soft">
             Developers only appear in <b>Attendance</b>. They cannot log in to
             the CRM and are not counted in leads, targets or leaderboards. After
             saving, link their biometric card under Attendance → Machines &amp;
@@ -135,6 +178,7 @@ function EmployeeModal({ employee, onClose }) {
           </div>
         ) : (
           <>
+            <Section>Login</Section>
             <Field label="Email" className="sm:col-span-2">
               <Input
                 type="email"
@@ -170,6 +214,7 @@ function EmployeeModal({ employee, onClose }) {
             </Field>
           </>
         )}
+        <Section>Work</Section>
         <Field label="Joining date">
           <Input
             type="date"
@@ -253,10 +298,14 @@ export default function Employees() {
     }
   }
 
+  const all = data || [];
+  const active = all.filter((e) => e.isActive);
+
   return (
     <>
       <PageHeader
         title="Employees"
+        icon={Users}
         subtitle="Add people, change details and control who can log in."
         actions={
           <Button variant="primary" icon={Plus} onClick={() => setEditing({})}>
@@ -265,139 +314,188 @@ export default function Employees() {
         }
       />
       <ErrorNote error={error} onRetry={reload} />
-      <Panel bodyClass="p-0">
-        <div className="flex flex-wrap gap-3 p-4 border-b border-line">
-          <div className="relative flex-1 min-w-[220px]">
-            <Search
-              size={15}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"
-            />
-            <Input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search name, email or ID"
-              className="pl-9"
-            />
-          </div>
-          <Select
-            value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
-            className="w-44"
-            aria-label="Role"
-          >
-            <option value="">All roles</option>
-            <option value="EMPLOYEE">Marketing</option>
-            <option value="DEVELOPER">Developers</option>
-            <option value="ADMIN">Admins</option>
-          </Select>
-          <Select
-            value={show}
-            onChange={(e) => setShow(e.target.value)}
-            className="w-40"
-            aria-label="Show"
-          >
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-            <option value="all">Everyone</option>
-          </Select>
+      {!loading && (
+        <StatRow>
+          <MiniStat
+            label="Active people"
+            value={active.length}
+            icon={Users}
+            tone="teal"
+          />
+          <MiniStat
+            label="Marketing"
+            value={active.filter((e) => e.role === "EMPLOYEE").length}
+            icon={Megaphone}
+            tone="lime"
+          />
+          <MiniStat
+            label="Developers"
+            value={active.filter((e) => e.role === "DEVELOPER").length}
+            icon={Code2}
+          />
+          <MiniStat
+            label="Inactive"
+            value={all.length - active.length}
+            icon={UserX}
+          />
+        </StatRow>
+      )}
+      <Toolbar>
+        <SearchInput
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search name, email or ID"
+        />
+        <Segmented
+          value={roleFilter}
+          onChange={setRoleFilter}
+          options={[
+            ["", "All roles"],
+            ["EMPLOYEE", "Marketing"],
+            ["DEVELOPER", "Developers"],
+            ["ADMIN", "Admins"],
+          ]}
+        />
+        <Segmented
+          value={show}
+          onChange={setShow}
+          options={[
+            ["active", "Active"],
+            ["inactive", "Inactive"],
+            ["all", "Everyone"],
+          ]}
+        />
+      </Toolbar>
+
+      {loading ? (
+        <Spinner />
+      ) : !rows.length ? (
+        <div className="card">
+          <Empty title="No employees found">
+            Try another search or filter.
+          </Empty>
         </div>
-        {loading ? (
-          <Spinner />
-        ) : !rows.length ? (
-          <Empty title="No employees found" />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr>
-                  <TH>Name</TH>
-                  <TH className="hidden sm:table-cell">ID</TH>
-                  <TH className="hidden lg:table-cell">Email</TH>
-                  <TH className="hidden md:table-cell">Role</TH>
-                  <TH className="text-right hidden md:table-cell">Target</TH>
-                  <TH className="hidden xl:table-cell">Saturdays</TH>
-                  <TH className="hidden lg:table-cell">Joined</TH>
-                  <TH>Access</TH>
-                  <TH />
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((e) => (
-                  <tr key={e.id} className={cx(!e.isActive && "text-muted")}>
-                    <TD>
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <Avatar name={e.fullName} size={30} />
-                        <div className="min-w-0">
-                          <div className="font-semibold truncate">
-                            {e.fullName}
-                          </div>
-                          <div className="text-xs text-muted truncate lg:hidden">
-                            {e.role === "DEVELOPER"
-                              ? "Developer, attendance only"
-                              : e.email}
-                          </div>
+      ) : (
+        <section className="card overflow-hidden">
+          <table className="hidden lg:table w-full text-sm table-fixed">
+            <thead>
+              <tr>
+                <TH className="w-[28%]">Person</TH>
+                <TH className="w-[90px]">ID</TH>
+                <TH className="w-[120px]">Role</TH>
+                <TH className="w-[80px] text-right">Target</TH>
+                <TH>Saturdays</TH>
+                <TH className="w-[120px]">Joined</TH>
+                <TH className="w-[150px]">Access</TH>
+                <TH className="w-[64px]" />
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((e) => (
+                <tr
+                  key={e.id}
+                  className={cx(
+                    "hover:bg-pearl/60",
+                    !e.isActive && "opacity-70",
+                  )}
+                >
+                  <TD>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Avatar name={e.fullName} size={36} />
+                      <div className="min-w-0">
+                        <div className="font-semibold truncate">
+                          {e.fullName}
+                        </div>
+                        <div className="text-xs text-muted truncate">
+                          {isPlaceholder(e.email) ? "No login" : e.email}
                         </div>
                       </div>
-                    </TD>
-                    <TD className="hidden sm:table-cell">{e.employeeId}</TD>
-                    <TD className="hidden lg:table-cell truncate">
-                      {isPlaceholder(e.email) ? (
-                        <span className="text-muted">—</span>
-                      ) : (
-                        e.email
-                      )}
-                    </TD>
-                    <TD className="hidden md:table-cell">
-                      <RoleBadge role={e.role} />
-                    </TD>
-                    <TD className="num text-right hidden md:table-cell">
-                      {e.role === "DEVELOPER" ? "—" : e.target || "—"}
-                    </TD>
-                    <TD className="hidden xl:table-cell text-ink-soft">
-                      {SAT[e.saturdayRule] || "—"}
-                    </TD>
-                    <TD className="whitespace-nowrap hidden lg:table-cell">
-                      {fmtDate(e.joiningDate)}
-                    </TD>
-                    <TD>
-                      <button
-                        onClick={() => toggle(e)}
-                        className={cx(
-                          "text-[13px] font-medium hover:underline",
-                          e.isActive ? "text-active" : "text-leave",
-                        )}
-                        title={
-                          e.isActive
-                            ? "Click to deactivate"
-                            : "Click to activate"
-                        }
-                      >
-                        {e.role === "DEVELOPER"
-                          ? e.isActive
-                            ? "Attendance only"
-                            : "Inactive"
-                          : e.isActive
-                            ? "Can log in"
-                            : "Blocked"}
-                      </button>
-                    </TD>
-                    <TD className="text-right">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        icon={Pencil}
-                        onClick={() => setEditing(e)}
-                      >
-                        Edit
-                      </Button>
-                    </TD>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Panel>
+                    </div>
+                  </TD>
+                  <TD className="num text-ink-soft">{e.employeeId}</TD>
+                  <TD>
+                    <RoleBadge role={e.role} />
+                  </TD>
+                  <TD className="num text-right font-semibold">
+                    {e.role === "DEVELOPER" || !e.target ? (
+                      <span className="text-muted font-normal">—</span>
+                    ) : (
+                      e.target
+                    )}
+                  </TD>
+                  <TD className="text-ink-soft truncate">
+                    {SAT[e.saturdayRule] || "—"}
+                  </TD>
+                  <TD className="whitespace-nowrap text-ink-soft">
+                    {fmtDate(e.joiningDate)}
+                  </TD>
+                  <TD>
+                    <button
+                      onClick={() => toggle(e)}
+                      title={
+                        e.isActive ? "Click to deactivate" : "Click to activate"
+                      }
+                      className="rounded-full hover:ring-2 hover:ring-lime"
+                    >
+                      <Pill tone={accessTone(e)}>{accessText(e)}</Pill>
+                    </button>
+                  </TD>
+                  <TD className="text-right">
+                    <IconButton
+                      icon={Pencil}
+                      label={`Edit ${e.fullName}`}
+                      onClick={() => setEditing(e)}
+                    />
+                  </TD>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* phones / tablets */}
+          <ul className="lg:hidden divide-y divide-line">
+            {rows.map((e) => (
+              <li key={e.id} className={cx("p-4", !e.isActive && "opacity-70")}>
+                <div className="flex items-start gap-3">
+                  <Avatar name={e.fullName} size={40} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold">{e.fullName}</span>
+                      <span className="num text-xs text-muted">
+                        {e.employeeId}
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted truncate">
+                      {isPlaceholder(e.email) ? "No login" : e.email}
+                    </div>
+                  </div>
+                  <IconButton
+                    icon={Pencil}
+                    label={`Edit ${e.fullName}`}
+                    onClick={() => setEditing(e)}
+                  />
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-[12.5px] text-ink-soft">
+                  <RoleBadge role={e.role} />
+                  <button onClick={() => toggle(e)} className="rounded-full">
+                    <Pill tone={accessTone(e)}>{accessText(e)}</Pill>
+                  </button>
+                  {e.role !== "DEVELOPER" && e.target ? (
+                    <span className="inline-flex items-center gap-1">
+                      <TargetIcon size={13} className="text-teal-deep" />{" "}
+                      {e.target}/month
+                    </span>
+                  ) : null}
+                  <span className="inline-flex items-center gap-1">
+                    <CalendarDays size={13} className="text-teal-deep" />{" "}
+                    {SAT[e.saturdayRule] || "—"}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       {editing && (
         <EmployeeModal employee={editing} onClose={() => setEditing(null)} />
       )}

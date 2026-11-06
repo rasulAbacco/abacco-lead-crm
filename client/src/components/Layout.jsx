@@ -1,7 +1,7 @@
-// App shell.
-//  Admin:    navy sidebar (desktop), slim top bar with clock + bell.
-//  Employee: navy top navigation bar (desktop).
-//  Phones:   compact top bar + bottom navigation bar for both roles.
+// App shell (spatial design).
+//  Admin:    floating glass sidebar (desktop) + floating clock/bell pill.
+//  Employee: floating glass top navigation bar.
+//  Phones:   floating glass top bar + floating bottom dock for both roles.
 import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
@@ -26,7 +26,7 @@ import {
 import { api, clearCache, useApi } from "../lib/api";
 import { clearSession, getSession } from "../lib/session";
 import { Avatar, cx } from "./ui";
-import RetentionBanner, { RetentionAlert } from "./RetentionBanner";
+import RetentionBanner from "./RetentionBanner";
 import LoginNoticeModal from "./LoginNoticeModal";
 import ClockWidget from "./ClockWidget";
 import NotificationBell from "./NotificationBell";
@@ -69,25 +69,29 @@ const ADMIN_NAV = [
 function Logo({ small }) {
   return (
     <div className="flex items-center gap-2.5 min-w-0">
-      <img
-        src="https://www.abaccotech.com/Logo/icon.png"
-        alt=""
+      <span
         className={cx(
-          "rounded-lg bg-white/10 object-contain",
-          small ? "size-8" : "size-10",
+          "inline-flex items-center justify-center rounded-full bg-white shrink-0 overflow-hidden",
+          small ? "size-9" : "size-11",
         )}
-        onError={(e) => (e.currentTarget.style.visibility = "hidden")}
-      />
+      >
+        <img
+          src="https://www.abaccotech.com/Logo/icon.png"
+          alt=""
+          className="size-[72%] object-contain"
+          onError={(e) => (e.currentTarget.style.visibility = "hidden")}
+        />
+      </span>
       <div className="leading-tight">
         <div
           className={cx(
-            "font-bold text-white",
-            small ? "text-[15px]" : "text-[17px]",
+            "font-[family-name:var(--font-display)] font-extrabold text-white tracking-tight",
+            small ? "text-[16px]" : "text-[19px]",
           )}
         >
           Abacco
         </div>
-        <div className="text-[12px] text-white/55">Lead CRM</div>
+        <div className="text-[12px] font-bold text-lime">Lead CRM</div>
       </div>
     </div>
   );
@@ -107,15 +111,16 @@ function useLogout() {
   };
 }
 
+/* Phones: floating glass dock */
 function MobileBottomNav({ items, onMore }) {
   return (
     <nav
-      className="lg:hidden fixed bottom-0 inset-x-0 z-40 nav-surface border-t border-white/10"
-      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      className="lg:hidden fixed bottom-3 inset-x-3 z-40 glass-nav rounded-[26px]"
+      style={{ marginBottom: "env(safe-area-inset-bottom)" }}
       aria-label="Main"
     >
       <div
-        className="grid"
+        className="grid px-1"
         style={{
           gridTemplateColumns: `repeat(${items.length + (onMore ? 1 : 0)}, minmax(0, 1fr))`,
         }}
@@ -126,8 +131,8 @@ function MobileBottomNav({ items, onMore }) {
             to={it.to}
             className={({ isActive }) =>
               cx(
-                "flex flex-col items-center justify-center gap-1 h-16 text-[11px] font-semibold",
-                isActive ? "text-white" : "text-white/55",
+                "flex flex-col items-center justify-center gap-0.5 h-[66px] text-[11px] font-semibold",
+                isActive ? "text-lime" : "text-pearl/70",
               )
             }
           >
@@ -135,7 +140,7 @@ function MobileBottomNav({ items, onMore }) {
               <>
                 <span
                   className={cx(
-                    "flex items-center justify-center h-8 w-12 rounded-full transition",
+                    "flex items-center justify-center h-9 w-12 rounded-2xl transition",
                     isActive && "nav-active",
                   )}
                 >
@@ -149,9 +154,9 @@ function MobileBottomNav({ items, onMore }) {
         {onMore && (
           <button
             onClick={onMore}
-            className="flex flex-col items-center justify-center gap-1 h-16 text-[11px] font-semibold text-white/55"
+            className="flex flex-col items-center justify-center gap-0.5 h-[66px] text-[11px] font-semibold text-pearl/70"
           >
-            <span className="flex items-center justify-center h-8 w-12">
+            <span className="flex items-center justify-center h-9 w-12">
               <MoreHorizontal size={20} />
             </span>
             More
@@ -164,17 +169,20 @@ function MobileBottomNav({ items, onMore }) {
 
 function MoreSheet({ items, onClose, onLogout, session }) {
   return (
-    <div className="lg:hidden fixed inset-0 z-50 bg-navy/50" onClick={onClose}>
+    <div
+      className="lg:hidden fixed inset-0 z-50 bg-teal-deep/40 backdrop-blur-sm"
+      onClick={onClose}
+    >
       <div
-        className="absolute bottom-0 inset-x-0 nav-surface rounded-t-2xl p-4 pb-24 text-white"
+        className="absolute bottom-3 inset-x-3 card !bg-white p-4 pb-[92px]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <Avatar name={session?.fullName || ""} size={36} />
+            <Avatar name={session?.fullName || ""} size={38} />
             <div>
-              <div className="font-semibold">{session?.fullName}</div>
-              <div className="text-xs text-white/55">
+              <div className="font-bold">{session?.fullName}</div>
+              <div className="text-xs text-muted">
                 {session?.role === "ADMIN"
                   ? "Administrator"
                   : session?.employeeId}
@@ -184,7 +192,7 @@ function MoreSheet({ items, onClose, onLogout, session }) {
           <button
             onClick={onClose}
             aria-label="Close"
-            className="p-2 rounded-lg hover:bg-white/10"
+            className="p-2 rounded-full hover:bg-white"
           >
             <X size={20} />
           </button>
@@ -197,8 +205,8 @@ function MoreSheet({ items, onClose, onLogout, session }) {
               onClick={onClose}
               className={({ isActive }) =>
                 cx(
-                  "flex flex-col items-center gap-1.5 rounded-xl p-3 text-[12px] font-semibold",
-                  isActive ? "nav-active" : "bg-white/6 hover:bg-white/10",
+                  "flex flex-col items-center gap-1.5 rounded-2xl p-3 text-[12px] font-semibold text-center",
+                  isActive ? "nav-active" : "glass-inset text-teal-deep",
                 )
               }
             >
@@ -208,7 +216,7 @@ function MoreSheet({ items, onClose, onLogout, session }) {
           ))}
           <button
             onClick={onLogout}
-            className="flex flex-col items-center gap-1.5 rounded-xl p-3 text-[12px] font-semibold bg-white/6 hover:bg-white/10"
+            className="flex flex-col items-center gap-1.5 rounded-2xl p-3 text-[12px] font-semibold glass-inset text-teal-deep"
           >
             <LogOut size={20} />
             Log out
@@ -224,17 +232,18 @@ function AdminShell({ session, status, children }) {
   const [more, setMore] = useState(false);
   const links = ADMIN_NAV.filter((n) => !n.group);
   return (
-    <div className="min-h-screen lg:pl-64">
-      <aside className="hidden lg:flex fixed inset-y-0 left-0 z-30 w-64 flex-col nav-surface text-white">
-        <div className="px-5 h-[76px] flex items-center border-b border-white/10">
+    <div className="min-h-screen lg:pl-[272px]">
+      {/* floating glass sidebar */}
+      <aside className="hidden lg:flex fixed top-4 bottom-4 left-4 z-30 w-[240px] flex-col glass-nav rounded-[28px]">
+        <div className="px-5 pt-6 pb-4">
           <Logo />
         </div>
-        <nav className="flex-1 overflow-y-auto px-3 py-2" aria-label="Main">
+        <nav className="flex-1 overflow-y-auto px-3 pb-2" aria-label="Main">
           {ADMIN_NAV.map((item, i) =>
             item.group ? (
               <div
                 key={i}
-                className="px-3 pt-5 pb-2 text-[11px] font-bold tracking-[0.08em] uppercase text-[#6f9cff]"
+                className="px-3 pt-4 pb-1.5 text-[11px] font-bold tracking-[0.1em] uppercase text-pearl/45"
               >
                 {item.group}
               </div>
@@ -244,68 +253,53 @@ function AdminShell({ session, status, children }) {
                 to={item.to}
                 className={({ isActive }) =>
                   cx(
-                    "flex items-center gap-3 px-3.5 h-11 rounded-xl text-[14px] font-medium mb-1 transition",
+                    "flex items-center gap-3 px-3.5 h-11 rounded-2xl text-[14px] font-semibold mb-1 transition",
                     isActive
-                      ? "nav-active text-white"
-                      : "text-white/80 hover:bg-white/8 hover:text-white",
+                      ? "nav-active"
+                      : "text-pearl/85 hover:bg-white/10 hover:text-white",
                   )
                 }
               >
-                <item.icon size={19} strokeWidth={1.9} />
+                <item.icon size={19} strokeWidth={2} />
                 {item.label}
               </NavLink>
             ),
           )}
         </nav>
-        <div className="border-t border-white/10 p-3">
-          <div className="flex items-center gap-3 px-2 py-2">
-            <Avatar name={session.fullName || "A"} size={38} />
+        <div className="m-3 rounded-2xl bg-white/[0.06] border border-white/10 p-2">
+          <div className="flex items-center gap-3 px-2 py-1.5">
+            <Avatar name={session.fullName || "A"} size={36} />
             <div className="min-w-0">
-              <div className="font-semibold text-[14px] truncate">
+              <div className="font-bold text-[14px] text-white truncate">
                 {session.fullName}
               </div>
-              <div className="text-white/50 text-xs">Administrator</div>
+              <div className="text-pearl/60 text-xs">Administrator</div>
             </div>
           </div>
           <button
             onClick={logout}
-            className="flex items-center gap-3 w-full px-3.5 h-10 rounded-xl text-white/80 hover:bg-white/8 hover:text-white text-[14px]"
+            className="flex items-center gap-2.5 w-full px-3 h-9 rounded-xl text-pearl/80 hover:bg-white/10 hover:text-lime text-[13px] font-semibold"
           >
-            <LogOut size={18} /> Log out
+            <LogOut size={17} /> Log out
           </button>
         </div>
       </aside>
 
-      {/* top bar: phone = logo, desktop = actions only */}
-      <header className="sticky top-0 z-20 flex items-center justify-between gap-3 h-14 lg:h-16 px-4 sm:px-6 lg:px-8 nav-surface lg:bg-none lg:bg-paper/90 lg:backdrop-blur lg:border-b lg:border-line">
-        <div className="lg:hidden">
-          <Logo small />
-        </div>
-        <div className="hidden lg:block text-[13px] text-muted">
-          US Central time is used for all dates
-        </div>
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          <ClockWidget compact={false} dark={false} />
-          <span className="lg:hidden">
-            <RetentionAlert notices={status?.notices || []} isAdmin dark />
-          </span>
-          <span className="hidden lg:inline-flex">
-            <RetentionAlert notices={status?.notices || []} isAdmin />
-          </span>
-          <span className="lg:hidden">
-            <NotificationBell dark />
-          </span>
-          <span className="hidden lg:inline-flex">
+      {/* phone: floating glass bar | desktop: floating action pill */}
+      <header className="sticky top-0 z-20 px-3 sm:px-6 lg:px-8 pt-3 lg:pt-4">
+        <div className="flex items-center justify-between gap-3 glass-nav lg:bg-none lg:!bg-transparent lg:!border-transparent lg:!shadow-none lg:![backdrop-filter:none] rounded-[22px] px-3 lg:px-0 h-16">
+          <div className="lg:hidden">
+            <Logo small />
+          </div>
+          <div className="hidden lg:block" />
+          <div className="flex items-center gap-2 lg:glass-nav lg:rounded-full lg:p-1.5 lg:pl-3">
+            <ClockWidget />
             <NotificationBell />
-          </span>
+          </div>
         </div>
       </header>
-      <RetentionBanner
-        notices={status?.notices || []}
-        isAdmin
-        stickyClass="top-14 lg:top-16"
-      />
-      <main className="px-4 sm:px-6 lg:px-8 py-6 max-w-[1500px] pb-mobile-nav">
+      <main className="px-4 sm:px-6 lg:px-8 pt-4 pb-8 max-w-[1500px] pb-mobile-nav">
+        <RetentionBanner notices={status?.notices || []} isAdmin />
         {children}
       </main>
       <MobileBottomNav
@@ -329,11 +323,12 @@ function EmployeeShell({ session, status, children }) {
   const [menu, setMenu] = useState(false);
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-30 nav-surface text-white shadow-[0_6px_20px_rgba(11,23,57,0.25)]">
-        <div className="max-w-[1500px] mx-auto flex items-center gap-4 h-14 lg:h-[68px] px-4 sm:px-6 lg:px-8">
+      {/* floating glass top bar */}
+      <header className="sticky top-0 z-30 px-3 sm:px-6 lg:px-8 pt-3 lg:pt-4">
+        <div className="max-w-[1500px] mx-auto flex items-center gap-4 h-16 lg:h-[70px] px-3 lg:px-5 glass-nav rounded-[24px]">
           <Logo small />
           <nav
-            className="hidden lg:flex items-center gap-1 ml-6"
+            className="hidden lg:flex items-center gap-1 ml-6 rounded-2xl bg-white/[0.06] border border-white/10 p-1"
             aria-label="Main"
           >
             {EMPLOYEE_NAV.map((it) => (
@@ -344,8 +339,8 @@ function EmployeeShell({ session, status, children }) {
                   cx(
                     "flex items-center gap-2 px-4 h-10 rounded-xl text-[14px] font-semibold transition",
                     isActive
-                      ? "nav-active text-white"
-                      : "text-white/75 hover:bg-white/8 hover:text-white",
+                      ? "nav-active"
+                      : "text-pearl/85 hover:bg-white/10 hover:text-white",
                   )
                 }
               >
@@ -354,33 +349,28 @@ function EmployeeShell({ session, status, children }) {
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-1.5 sm:gap-2.5">
-            <ClockWidget dark />
-            <RetentionAlert
-              notices={status?.notices || []}
-              isAdmin={false}
-              dark
-            />
-            <NotificationBell dark />
+            <ClockWidget />
+            <NotificationBell />
             <div className="relative">
               <button
                 onClick={() => setMenu(!menu)}
-                className="flex items-center gap-2 rounded-xl p-1 lg:pr-3 hover:bg-white/10"
+                className="flex items-center gap-2 rounded-full p-1 lg:pr-3 hover:bg-white/10"
                 aria-haspopup="menu"
                 aria-expanded={menu}
               >
-                <Avatar name={session.fullName || ""} size={34} />
+                <Avatar name={session.fullName || ""} size={36} />
                 <span className="hidden lg:block text-left leading-tight">
-                  <span className="block text-[13px] font-semibold">
+                  <span className="block text-[13px] font-bold text-white">
                     {session.fullName}
                   </span>
-                  <span className="block text-[11px] text-white/55">
+                  <span className="block text-[11px] text-pearl/60">
                     {session.employeeId}
                   </span>
                 </span>
               </button>
               {menu && (
                 <div
-                  className="absolute right-0 top-12 w-48 card shadow-xl text-ink py-1 z-50"
+                  className="absolute right-0 top-13 w-52 card !bg-white text-ink py-1.5 z-50"
                   onMouseLeave={() => setMenu(false)}
                 >
                   <div className="px-4 py-2 border-b border-line lg:hidden">
@@ -393,7 +383,7 @@ function EmployeeShell({ session, status, children }) {
                   </div>
                   <button
                     onClick={logout}
-                    className="w-full flex items-center gap-2 px-4 py-2.5 text-[14px] hover:bg-paper"
+                    className="w-full flex items-center gap-2 px-4 py-2.5 text-[14px] font-semibold text-teal-deep hover:bg-pearl"
                   >
                     <LogOut size={16} /> Log out
                   </button>
@@ -403,12 +393,8 @@ function EmployeeShell({ session, status, children }) {
           </div>
         </div>
       </header>
-      <RetentionBanner
-        notices={status?.notices || []}
-        isAdmin={false}
-        stickyClass="top-14 lg:top-[68px]"
-      />
-      <main className="px-4 sm:px-6 lg:px-8 py-6 max-w-[1500px] mx-auto pb-mobile-nav">
+      <main className="px-4 sm:px-6 lg:px-8 pt-5 pb-8 max-w-[1500px] mx-auto pb-mobile-nav">
+        <RetentionBanner notices={status?.notices || []} isAdmin={false} />
         {children}
       </main>
       <MobileBottomNav items={EMPLOYEE_NAV} />

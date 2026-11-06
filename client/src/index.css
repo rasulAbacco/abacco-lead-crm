@@ -10,42 +10,51 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-display: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
 
-  /* text */
-  --color-ink: #0f1b3d;
-  --color-ink-soft: #3f4a63;
-  --color-muted: #66718c;
-  /* surfaces (translucent so the glass shows through) */
-  --color-paper: rgb(255 255 255 / 0.55);
-  --color-line: rgb(148 163 196 / 0.24);
-  --color-line-strong: rgb(148 163 196 / 0.42);
-  /* deep blue (overlays, toasts) */
-  --color-navy: #0b1739;
-  --color-navy-2: #10224f;
-  /* actions */
-  --color-brand: #2563eb;
-  --color-brand-dark: #1d4ed8;
-  --color-brand-soft: #e6eefe;
-  --color-blue: #2563eb;
-  --color-blue-dark: #1d4ed8;
-  --color-blue-soft: #e5edfe;
-  --color-sky: #0ea5e9;
-  --color-violet: #7c3aed;
-  --color-violet-soft: #efe8fe;
-  --color-orange: #f97316;
-  --color-orange-soft: #ffefe2;
-  --color-teal: #0d9488;
-  /* lead status */
-  --color-active: #16a34a;
-  --color-active-soft: #e5f7eb;
-  --color-noresp: #d97706;
-  --color-noresp-soft: #fff3e0;
-  --color-leave: #dc2626;
-  --color-leave-soft: #fdeaea;
-  --color-pending: #64748b;
-  --color-pending-soft: #edf1f7;
+  /* ---------- Abacco palette (only these) ----------
+     teal #0B3048 · pearl #F2F0E9 · lime #B9F12F · white
+     text #08090B · muted #65727A · border #D8DAD5            */
+  --color-teal-deep: #0B3048;
+  --color-pearl: #F2F0E9;
+  --color-lime: #B9F12F;
+  --color-lime-dark: #A9E01F;
 
-  --shadow-glass: 0 1px 0 rgb(255 255 255 / 0.9) inset, 0 18px 40px -18px rgb(37 64 160 / 0.28), 0 2px 8px rgb(15 27 61 / 0.04);
-  --shadow-float: 0 1px 0 rgb(255 255 255 / 0.9) inset, 0 24px 50px -20px rgb(37 64 160 / 0.4), 0 4px 12px rgb(15 27 61 / 0.06);
+  /* text */
+  --color-ink: #08090B;
+  --color-ink-soft: #0B3048;
+  --color-muted: #65727A;
+  /* surfaces */
+  --color-paper: rgb(242 240 233 / 0.7);
+  --color-line: #D8DAD5;
+  --color-line-strong: rgb(11 48 72 / 0.22);
+  --color-navy: #0B3048;
+  --color-navy-2: #0B3048;
+
+  /* every former accent maps onto the palette */
+  --color-brand: #0B3048;
+  --color-brand-dark: #0B3048;
+  --color-brand-soft: rgb(185 241 47 / 0.28);
+  --color-blue: #0B3048;
+  --color-blue-dark: #0B3048;
+  --color-blue-soft: rgb(185 241 47 / 0.28);
+  --color-sky: #0B3048;
+  --color-violet: #0B3048;
+  --color-violet-soft: rgb(11 48 72 / 0.08);
+  --color-orange: #0B3048;
+  --color-orange-soft: #F2F0E9;
+  --color-teal: #0B3048;
+
+  /* lead status (used with the explicit styles in ui.jsx) */
+  --color-active: #0B3048;
+  --color-active-soft: rgb(185 241 47 / 0.45);
+  --color-noresp: #0B3048;
+  --color-noresp-soft: #F2F0E9;
+  --color-leave: #0B3048;
+  --color-leave-soft: rgb(11 48 72 / 0.1);
+  --color-pending: #65727A;
+  --color-pending-soft: #F2F0E9;
+
+  --shadow-glass: 0 1px 0 rgb(255 255 255 / 0.9) inset, 0 18px 40px -20px rgb(11 48 72 / 0.28), 0 2px 8px rgb(11 48 72 / 0.04);
+  --shadow-float: 0 1px 0 rgb(255 255 255 / 0.9) inset, 0 24px 50px -22px rgb(11 48 72 / 0.38), 0 4px 12px rgb(11 48 72 / 0.06);
 }
 
 html,
@@ -61,13 +70,11 @@ body {
   line-height: 1.5;
   overflow-x: hidden;
   min-height: 100vh;
-  background-color: #eaf0fb;
+  background-color: #F2F0E9;
   background-image:
-    radial-gradient(42rem 32rem at 8% -6%, rgb(147 197 253 / 0.55), transparent 70%),
-    radial-gradient(38rem 30rem at 100% 8%, rgb(196 181 253 / 0.45), transparent 70%),
-    radial-gradient(46rem 34rem at 70% 108%, rgb(125 211 252 / 0.4), transparent 70%),
-    radial-gradient(30rem 26rem at -6% 90%, rgb(165 180 252 / 0.35), transparent 70%),
-    linear-gradient(180deg, #eef3fc 0%, #e7eefa 100%);
+    radial-gradient(44rem 30rem at 100% -8%, rgb(185 241 47 / 0.16), transparent 70%),
+    radial-gradient(40rem 32rem at -8% 105%, rgb(11 48 72 / 0.08), transparent 70%),
+    linear-gradient(180deg, #F2F0E9 0%, #F2F0E9 100%);
   background-attachment: fixed;
 }
 
@@ -77,125 +84,96 @@ body {
 
 @layer components {
 
-  /* main frosted panel */
+  /* main panel: white glass on pearl */
   .card {
-    background: linear-gradient(180deg, rgb(255 255 255 / 0.78) 0%, rgb(255 255 255 / 0.6) 100%);
-    -webkit-backdrop-filter: blur(22px) saturate(160%);
-    backdrop-filter: blur(22px) saturate(160%);
-    border: 1px solid rgb(255 255 255 / 0.85);
-    border-radius: 22px;
+    background: linear-gradient(180deg, rgb(255 255 255 / 0.92) 0%, rgb(255 255 255 / 0.78) 100%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    backdrop-filter: blur(18px) saturate(140%);
+    border: 1px solid #ffffff;
+    border-radius: 24px;
     box-shadow: var(--shadow-glass);
   }
 
-  /* lighter glass used inside a card */
+  /* lighter panel inside a card */
   .glass-inset {
-    background: rgb(255 255 255 / 0.58);
-    border: 1px solid rgb(255 255 255 / 0.9);
+    background: rgb(242 240 233 / 0.65);
+    border: 1px solid #D8DAD5;
     border-radius: 16px;
-    box-shadow: 0 1px 0 rgb(255 255 255 / 0.9) inset, 0 6px 16px -10px rgb(37 64 160 / 0.22);
   }
 
-  /* floating navigation (sidebar, top bar, phone dock) */
+  /* navigation: deep teal */
   .glass-nav {
-    background: linear-gradient(180deg, rgb(255 255 255 / 0.82) 0%, rgb(255 255 255 / 0.66) 100%);
-    -webkit-backdrop-filter: blur(24px) saturate(170%);
-    backdrop-filter: blur(24px) saturate(170%);
-    border: 1px solid rgb(255 255 255 / 0.9);
-    box-shadow: var(--shadow-float);
+    background: #0B3048;
+    border: 1px solid rgb(255 255 255 / 0.06);
+    box-shadow: 0 24px 50px -24px rgb(11 48 72 / 0.6);
+    color: #F2F0E9;
   }
 
-  /* kept for older markup */
   .nav-surface {
-    background: linear-gradient(180deg, rgb(255 255 255 / 0.82) 0%, rgb(255 255 255 / 0.66) 100%);
-    -webkit-backdrop-filter: blur(24px);
-    backdrop-filter: blur(24px);
+    background: #0B3048;
   }
 
+  /* primary action: lime with dark text (same as Sign In) */
   .btn-teal,
   .btn-blue {
-    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 55%, #4f46e5 100%);
+    background: #B9F12F;
+    color: #08090B;
+  }
+
+  .btn-blue:hover {
+    background: #A9E01F;
   }
 
   .btn-glass {
-    background: rgb(255 255 255 / 0.7);
-    -webkit-backdrop-filter: blur(12px);
-    backdrop-filter: blur(12px);
-    border: 1px solid rgb(255 255 255 / 0.95);
-    box-shadow: 0 1px 0 #fff inset, 0 6px 16px -8px rgb(37 64 160 / 0.3);
+    background: #ffffff;
+    border: 1px solid #D8DAD5;
+    box-shadow: 0 6px 16px -12px rgb(11 48 72 / 0.4);
   }
 
   .nav-active {
-    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 60%, #4f46e5 100%);
-    box-shadow: 0 1px 0 rgb(255 255 255 / 0.35) inset, 0 10px 22px -8px rgb(37 99 235 / 0.65);
-    color: #fff;
+    background: #B9F12F;
+    color: #08090B;
+    box-shadow: 0 10px 22px -12px rgb(185 241 47 / 0.9);
   }
 
-  /* glossy round icon ("orb") */
+  /* round icon: teal with lime icon, or lime with dark icon */
   .orb {
     position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     border-radius: 9999px;
-    color: #fff;
     flex-shrink: 0;
-    box-shadow: 0 1px 0 rgb(255 255 255 / 0.55) inset, 0 -6px 12px rgb(0 0 0 / 0.08) inset, 0 10px 20px -8px var(--orb-glow, rgb(37 99 235 / 0.6));
+    background: #0B3048;
+    color: #B9F12F;
+    box-shadow: 0 1px 0 rgb(255 255 255 / 0.15) inset, 0 10px 20px -10px rgb(11 48 72 / 0.7);
   }
 
-  .orb::after {
-    content: "";
-    position: absolute;
-    inset: 8% 18% 52% 18%;
-    border-radius: 9999px;
-    background: linear-gradient(180deg, rgb(255 255 255 / 0.55), rgb(255 255 255 / 0));
-    pointer-events: none;
-  }
-
-  .orb-blue {
-    background: radial-gradient(circle at 30% 25%, #7cb4ff, #2563eb 70%);
-    --orb-glow: rgb(37 99 235 / 0.55);
-  }
-
-  .orb-green {
-    background: radial-gradient(circle at 30% 25%, #6ee7a8, #16a34a 70%);
-    --orb-glow: rgb(22 163 74 / 0.5);
-  }
-
-  .orb-orange {
-    background: radial-gradient(circle at 30% 25%, #ffc078, #f97316 70%);
-    --orb-glow: rgb(249 115 22 / 0.5);
-  }
-
-  .orb-violet {
-    background: radial-gradient(circle at 30% 25%, #c4a8ff, #7c3aed 70%);
-    --orb-glow: rgb(124 58 237 / 0.5);
-  }
-
-  .orb-teal {
-    background: radial-gradient(circle at 30% 25%, #6ee7d8, #0d9488 70%);
-    --orb-glow: rgb(13 148 136 / 0.5);
-  }
-
+  .orb-blue,
+  .orb-teal,
+  .orb-sky,
+  .orb-violet,
   .orb-red {
-    background: radial-gradient(circle at 30% 25%, #ff9a9a, #dc2626 70%);
-    --orb-glow: rgb(220 38 38 / 0.5);
+    background: #0B3048;
+    color: #B9F12F;
   }
 
-  .orb-sky {
-    background: radial-gradient(circle at 30% 25%, #8ddcff, #0ea5e9 70%);
-    --orb-glow: rgb(14 165 233 / 0.5);
+  .orb-green,
+  .orb-orange {
+    background: #B9F12F;
+    color: #0B3048;
+    box-shadow: 0 1px 0 rgb(255 255 255 / 0.5) inset, 0 10px 20px -10px rgb(185 241 47 / 0.9);
   }
 
-  /* stat tiles: tinted glass that floats a little higher */
+  /* stat tiles */
   .tile {
     position: relative;
     overflow: hidden;
-    border-radius: 22px;
-    border: 1px solid rgb(255 255 255 / 0.9);
-    -webkit-backdrop-filter: blur(22px) saturate(160%);
-    backdrop-filter: blur(22px) saturate(160%);
+    border-radius: 24px;
+    border: 1px solid #ffffff;
+    background: #ffffff;
     box-shadow: var(--shadow-float);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transition: transform 0.2s ease;
   }
 
   .tile:hover {
@@ -205,44 +183,37 @@ body {
   .tile::before {
     content: "";
     position: absolute;
-    inset: 0;
-    background: linear-gradient(160deg, rgb(255 255 255 / 0.65) 0%, rgb(255 255 255 / 0) 45%);
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: #0B3048;
     pointer-events: none;
   }
 
-  .tile-blue {
-    background: linear-gradient(145deg, rgb(219 234 254 / 0.92), rgb(255 255 255 / 0.62));
+  .tile-green::before,
+  .tile-orange::before {
+    background: #B9F12F;
   }
 
-  .tile-green {
-    background: linear-gradient(145deg, rgb(209 250 229 / 0.92), rgb(255 255 255 / 0.62));
-  }
-
+  .tile-blue,
+  .tile-violet,
+  .tile-teal,
+  .tile-red,
+  .tile-green,
   .tile-orange {
-    background: linear-gradient(145deg, rgb(255 237 213 / 0.95), rgb(255 255 255 / 0.62));
-  }
-
-  .tile-violet {
-    background: linear-gradient(145deg, rgb(237 233 254 / 0.95), rgb(255 255 255 / 0.62));
-  }
-
-  .tile-teal {
-    background: linear-gradient(145deg, rgb(204 251 241 / 0.92), rgb(255 255 255 / 0.62));
-  }
-
-  .tile-red {
-    background: linear-gradient(145deg, rgb(254 226 226 / 0.92), rgb(255 255 255 / 0.62));
+    background: #ffffff;
   }
 
   /* progress bar track */
   .track {
-    background: rgb(203 213 233 / 0.45);
-    box-shadow: 0 1px 2px rgb(15 27 61 / 0.06) inset;
+    background: #F2F0E9;
+    box-shadow: inset 0 0 0 1px #D8DAD5;
   }
 }
 
 :focus-visible {
-  outline: 2px solid var(--color-blue);
+  outline: 2px solid #0B3048;
   outline-offset: 2px;
 }
 

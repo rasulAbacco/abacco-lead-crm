@@ -5,7 +5,6 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   User,
-  Tag,
   Mail,
   Globe,
   Link2,
@@ -24,6 +23,11 @@ import {
   Hash,
   AlertTriangle,
   CheckCircle2,
+  Circle,
+  Building2,
+  UsersRound,
+  Factory,
+  BadgeCheck,
 } from "lucide-react";
 import { api, invalidate, LEAD_KEYS } from "../../lib/api";
 import { getSession } from "../../lib/session";
@@ -37,6 +41,13 @@ import {
   useToast,
   cx,
 } from "../../components/ui";
+
+const TYPE_TILES = [
+  { value: "Association Lead", label: "Association", icon: Building2 },
+  { value: "Attendees Lead", label: "Attendees", icon: UsersRound },
+  { value: "Industry Lead", label: "Industry", icon: Factory },
+  { value: "Member Attendees", label: "Member attendees", icon: BadgeCheck },
+];
 
 const LEAD_TYPES = [
   "Association Lead",
@@ -89,12 +100,21 @@ const linkLabel = (t) =>
         ? "Member link"
         : "Link";
 
-function Section({ title, hint, children }) {
+function Step({ n, title, hint, children }) {
   return (
-    <section className="pt-6 first:pt-0">
-      <h2 className="font-bold text-[16px]">{title}</h2>
-      {hint && <p className="text-muted text-[13px] mt-0.5">{hint}</p>}
-      <div className="grid sm:grid-cols-2 gap-x-5 gap-y-4 mt-4">{children}</div>
+    <section className="card p-5 sm:p-7">
+      <header className="flex items-start gap-3.5 mb-5">
+        <span className="num size-9 rounded-full bg-lime text-ink font-extrabold flex items-center justify-center shrink-0">
+          {n}
+        </span>
+        <div>
+          <h2 className="font-[family-name:var(--font-display)] font-extrabold text-[18px] leading-tight">
+            {title}
+          </h2>
+          {hint && <p className="text-muted text-[13px] mt-0.5">{hint}</p>}
+        </div>
+      </header>
+      <div className="grid sm:grid-cols-2 gap-x-5 gap-y-4">{children}</div>
     </section>
   );
 }
@@ -106,6 +126,7 @@ function MultiInput({
   placeholder,
   type = "text",
   addLabel,
+  invalid,
 }) {
   return (
     <div className="space-y-2">
@@ -117,6 +138,7 @@ function MultiInput({
               type={type}
               value={v}
               placeholder={placeholder}
+              className={cx(invalid && "ring-2 !ring-teal-deep")}
               onChange={(e) =>
                 onChange(values.map((x, j) => (j === i ? e.target.value : x)))
               }
@@ -126,21 +148,21 @@ function MultiInput({
             <button
               type="button"
               onClick={() => onChange(values.filter((_, j) => j !== i))}
-              className="size-10 shrink-0 rounded-lg border border-line-strong text-muted hover:text-leave hover:border-leave/40"
+              className="size-10 shrink-0 rounded-full border border-line bg-white text-teal-deep hover:bg-teal-deep hover:text-white transition flex items-center justify-center"
               aria-label="Remove"
             >
-              <X size={16} className="mx-auto" />
+              <X size={16} />
             </button>
           ) : null}
           {i === values.length - 1 && (
             <button
               type="button"
               onClick={() => onChange([...values, ""])}
-              className="size-10 shrink-0 rounded-lg bg-blue-soft text-blue hover:bg-blue hover:text-white transition"
+              className="size-10 shrink-0 rounded-full bg-lime text-ink hover:bg-lime-dark transition flex items-center justify-center"
               aria-label={addLabel}
               title={addLabel}
             >
-              <Plus size={18} className="mx-auto" />
+              <Plus size={18} />
             </button>
           )}
         </div>
@@ -238,6 +260,37 @@ export default function LeadForm() {
 
   const attendees =
     f.leadType === "Attendees Lead" || f.leadType === "Member Attendees";
+  const bad = (k) => (errors[k] ? "ring-2 !ring-teal-deep" : "");
+
+  // live checklist of required fields
+  const checks = [
+    ["Client email", isEmail(f.clientEmail.trim())],
+    ["Lead email", isEmail(f.leadEmail.trim())],
+    ["Website", !!f.website.trim()],
+    [linkLabel(f.leadType), !!f.link.trim()],
+    ["Phone number", f.phones.some((p) => p.trim())],
+    ["Subject line", !!f.subjectLine.trim()],
+    ["Email pitch", !!f.emailPitch.trim()],
+  ];
+  const ready = checks.filter((c) => c[1]).length;
+
+  const actions = (
+    <div className="flex flex-col gap-2.5">
+      <Button
+        type="submit"
+        form="lead-form"
+        variant="primary"
+        icon={Send}
+        loading={busy}
+        className="w-full h-12 text-[16px]"
+      >
+        Submit lead
+      </Button>
+      <Button type="button" icon={RotateCcw} onClick={clear} className="w-full">
+        Clear form
+      </Button>
+    </div>
+  );
 
   return (
     <>
@@ -245,282 +298,339 @@ export default function LeadForm() {
         className="flex items-center gap-1.5 text-[13px] text-muted mb-4"
         aria-label="Breadcrumb"
       >
-        <Link to="/employee-dashboard" className="hover:text-ink">
+        <Link to="/employee-dashboard" className="hover:text-teal-deep">
           <Home size={15} />
         </Link>
         <ChevronRight size={14} />
         <span className="text-ink font-medium">Upload lead</span>
       </nav>
 
-      {/* Header */}
-      <div className="card relative overflow-hidden mb-5 bg-gradient-to-r from-white via-white to-blue-soft">
-        <div
-          className="absolute -right-16 -top-20 size-64 rounded-full bg-blue/10"
+      {/* header */}
+      <header className="relative overflow-hidden rounded-[24px] bg-teal-deep text-white mb-5 shadow-[0_24px_50px_-26px_rgba(11,48,72,0.8)]">
+        <svg
+          className="absolute right-0 top-0 h-full w-1/2 opacity-60"
+          viewBox="0 0 400 200"
+          preserveAspectRatio="none"
           aria-hidden="true"
-        />
-        <div className="relative flex flex-col xl:flex-row xl:items-center gap-5 p-5 sm:p-6">
+        >
+          <circle cx="380" cy="10" r="140" fill="#0F3A56" />
+          <path
+            d="M240 -10 C200 60 230 120 330 150"
+            fill="none"
+            stroke="#B9F12F"
+            strokeOpacity="0.6"
+            strokeWidth="3"
+          />
+        </svg>
+        <div className="relative flex flex-col xl:flex-row xl:items-center gap-5 p-5 sm:p-7">
           <div className="flex items-center gap-4 flex-1 min-w-0">
-            <div className="relative shrink-0 size-16 sm:size-20 rounded-2xl bg-gradient-to-br from-blue-soft to-white border border-blue/15 flex items-center justify-center">
-              <ClipboardList size={34} className="text-blue" />
-              <span className="absolute -bottom-2 -right-2 size-9 rounded-full btn-blue text-white flex items-center justify-center shadow-lg">
-                <Send size={16} />
+            <span className="relative size-16 sm:size-[72px] rounded-[22px] bg-lime text-teal-deep flex items-center justify-center shrink-0">
+              <ClipboardList size={32} />
+              <span className="absolute -bottom-2 -right-2 size-8 rounded-full bg-white text-teal-deep flex items-center justify-center shadow">
+                <Send size={15} />
               </span>
-            </div>
+            </span>
             <div className="min-w-0">
-              <h1 className="text-[22px] sm:text-[26px] font-bold tracking-tight">
+              <h1 className="font-[family-name:var(--font-display)] text-[24px] sm:text-[30px] font-extrabold tracking-tight leading-tight">
                 Drop your lead here
               </h1>
-              <p className="text-ink-soft">Employee lead submission portal</p>
-              <p className="text-muted text-[13px] mt-0.5">
-                Fill in the details below to submit a new lead.
+              <p className="text-pearl/75">
+                Fill in the three parts below and submit.
               </p>
             </div>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-            <div className="rounded-xl bg-white/80 border border-line px-3 py-2.5">
-              <div className="flex items-center gap-1.5 text-xs text-muted">
-                <Users size={14} className="text-blue" />
-                Type
-              </div>
-              <div className="font-semibold text-[13px]">New lead</div>
-            </div>
-            <div className="rounded-xl bg-white/80 border border-line px-3 py-2.5">
-              <div className="flex items-center gap-1.5 text-xs text-muted">
-                <CalendarDays size={14} className="text-blue" />
+          <div className="grid grid-cols-3 gap-2.5 xl:w-[460px]">
+            <div className="rounded-2xl bg-white/[0.07] border border-white/10 px-3 py-2.5">
+              <div className="flex items-center gap-1.5 text-[11.5px] text-pearl/70">
+                <CalendarDays size={13} className="text-lime" />
                 Date
               </div>
-              <div className="num font-semibold text-[13px]">
+              <div className="num font-bold text-[14px]">
                 {fmtDate(new Date(), "dd/MM/yyyy")}
               </div>
             </div>
-            <div className="rounded-xl bg-white/80 border border-line px-3 py-2.5">
-              <div className="flex items-center gap-1.5 text-xs text-muted">
-                <Hash size={14} className="text-violet" />
+            <div className="rounded-2xl bg-white/[0.07] border border-white/10 px-3 py-2.5">
+              <div className="flex items-center gap-1.5 text-[11.5px] text-pearl/70">
+                <Hash size={13} className="text-lime" />
                 Form ID
               </div>
-              <div className="num font-semibold text-[13px]">{formId}</div>
+              <div className="num font-bold text-[14px]">{formId}</div>
             </div>
-            <div className="rounded-xl bg-navy text-white px-3 py-2.5">
-              <div className="text-xs text-white/60">Employee ID</div>
-              <div className="font-bold text-[15px] tracking-wide">
+            <div className="rounded-2xl bg-lime text-ink px-3 py-2.5">
+              <div className="text-[11.5px] text-ink/70">Employee ID</div>
+              <div className="font-extrabold text-[15px] tracking-wide">
                 {session?.employeeId}
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
       {done && (
-        <div className="flex items-center gap-2 rounded-xl border border-active/25 bg-active-soft text-active px-4 py-3 mb-5 font-semibold">
+        <div
+          role="status"
+          className="flex items-center gap-2 rounded-2xl bg-lime text-ink px-4 py-3 mb-5 font-semibold"
+        >
           <CheckCircle2 size={18} /> Lead submitted. You can add the next one.
         </div>
       )}
 
-      <form
-        onSubmit={submit}
-        noValidate
-        className="card p-5 sm:p-7 divide-y divide-line [&>section+section]:mt-6"
-      >
-        <Section
-          title="Lead information"
-          hint="Who the lead is and what kind of lead it is."
+      <div className="grid xl:grid-cols-[minmax(0,1fr)_300px] gap-5 items-start">
+        <form
+          id="lead-form"
+          onSubmit={submit}
+          noValidate
+          className="space-y-5 min-w-0"
         >
-          <Field label="Client name">
-            <IconInput
-              icon={User}
-              value={f.agentName}
-              onChange={set("agentName")}
-              placeholder="Enter client full name"
-            />
-          </Field>
-          <Field label="Lead type">
-            <span className="relative block">
-              <Tag
-                size={17}
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted"
-              />
-              <select
-                value={f.leadType}
-                onChange={set("leadType")}
-                className="w-full h-10 rounded-lg border border-line-strong bg-white pl-10 pr-9 text-sm outline-none focus:border-blue focus:ring-4 focus:ring-blue/10 appearance-none cursor-pointer"
+          <Step
+            n={1}
+            title="Lead"
+            hint="What kind of lead it is and who it is for."
+          >
+            <div className="sm:col-span-2">
+              <span className="block text-[13px] font-semibold text-ink mb-2">
+                Lead type
+              </span>
+              <div
+                className="grid grid-cols-2 lg:grid-cols-4 gap-2.5"
+                role="radiogroup"
+                aria-label="Lead type"
               >
-                {LEAD_TYPES.map((t) => (
-                  <option key={t}>{t}</option>
-                ))}
-              </select>
-              <ChevronRight
-                size={16}
-                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-muted"
-              />
-            </span>
-          </Field>
-          <Field label="Client email" required error={errors.clientEmail}>
-            <IconInput
-              icon={Mail}
-              type="email"
-              value={f.clientEmail}
-              onChange={set("clientEmail")}
-              placeholder="client@company.com"
-              className={cx(errors.clientEmail && "border-leave")}
-            />
-          </Field>
-          <Field label="Lead email" required error={errors.leadEmail}>
-            <IconInput
-              icon={Mail}
-              type="email"
-              value={f.leadEmail}
-              onChange={set("leadEmail")}
-              placeholder="lead@company.com"
-              className={cx(errors.leadEmail && "border-leave")}
-            />
-          </Field>
-          <Field
-            label="CC emails"
-            error={errors.ccEmails}
-            className="sm:col-span-2"
-          >
-            <MultiInput
-              icon={Mail}
-              type="email"
-              values={f.ccEmails}
-              placeholder="cc@example.com"
-              addLabel="Add another CC email"
-              onChange={(v) => {
-                setF((x) => ({ ...x, ccEmails: v }));
-                setErrors((x) => ({ ...x, ccEmails: null }));
-              }}
-            />
-          </Field>
-        </Section>
-
-        <Section
-          title="Contact details"
-          hint="Where the client can be reached."
-        >
-          <Field label="Client website" required error={errors.website}>
-            <IconInput
-              icon={Globe}
-              value={f.website}
-              onChange={set("website")}
-              placeholder="https://website.com"
-              className={cx(errors.website && "border-leave")}
-            />
-          </Field>
-          <Field label={linkLabel(f.leadType)} required error={errors.link}>
-            <IconInput
-              icon={Link2}
-              value={f.link}
-              onChange={set("link")}
-              placeholder="https://link.com"
-              className={cx(errors.link && "border-leave")}
-            />
-          </Field>
-          <Field
-            label="Phone numbers"
-            required
-            error={errors.phones}
-            className="sm:col-span-2"
-          >
-            <MultiInput
-              icon={Phone}
-              values={f.phones}
-              placeholder="+1 (555) 123-4567"
-              addLabel="Add another phone number"
-              onChange={(v) => {
-                setF((x) => ({ ...x, phones: v }));
-                setErrors((x) => ({ ...x, phones: null }));
-              }}
-            />
-          </Field>
-          <Field label="Country" hint="Pick from the list or type a country">
-            <IconInput
-              icon={Globe}
-              list="lead-countries"
-              value={f.country}
-              onChange={set("country")}
-              placeholder="United States"
-            />
-            <datalist id="lead-countries">
-              {COUNTRIES.map((c) => (
-                <option key={c} value={c} />
-              ))}
-            </datalist>
-          </Field>
-          <Field label="Contact date" hint="Leave empty for today">
-            <IconInput
-              icon={CalendarDays}
-              type="date"
-              max={todayKey()}
-              value={f.date}
-              onChange={set("date")}
-            />
-          </Field>
-          {attendees && (
-            <Field label="Attendees count" hint="Optional">
+                {TYPE_TILES.map((t) => {
+                  const on = f.leadType === t.value;
+                  return (
+                    <button
+                      key={t.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      onClick={() => setF((x) => ({ ...x, leadType: t.value }))}
+                      className={cx(
+                        "flex items-center gap-2.5 rounded-2xl border px-3.5 h-14 text-left transition",
+                        on
+                          ? "bg-teal-deep border-teal-deep text-white"
+                          : "bg-white border-line hover:border-teal-deep/40",
+                      )}
+                    >
+                      <span
+                        className={cx(
+                          "size-8 rounded-full flex items-center justify-center shrink-0",
+                          on
+                            ? "bg-lime text-teal-deep"
+                            : "bg-pearl text-teal-deep",
+                        )}
+                      >
+                        <t.icon size={16} />
+                      </span>
+                      <span className="text-[13.5px] font-semibold leading-tight">
+                        {t.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <Field label="Client name">
               <IconInput
-                icon={Users}
-                type="number"
-                min="0"
-                value={f.attendeesCount}
-                onChange={set("attendeesCount")}
-                placeholder="Number of attendees"
+                icon={User}
+                value={f.agentName}
+                onChange={set("agentName")}
+                placeholder="Enter client full name"
               />
             </Field>
-          )}
-        </Section>
+            <Field label="Client email" required error={errors.clientEmail}>
+              <IconInput
+                icon={Mail}
+                type="email"
+                value={f.clientEmail}
+                onChange={set("clientEmail")}
+                placeholder="client@company.com"
+                className={bad("clientEmail")}
+              />
+            </Field>
+            <Field label="Lead email" required error={errors.leadEmail}>
+              <IconInput
+                icon={Mail}
+                type="email"
+                value={f.leadEmail}
+                onChange={set("leadEmail")}
+                placeholder="lead@company.com"
+                className={bad("leadEmail")}
+              />
+            </Field>
+            <Field label="CC emails" error={errors.ccEmails}>
+              <MultiInput
+                icon={Mail}
+                type="email"
+                values={f.ccEmails}
+                placeholder="cc@example.com"
+                addLabel="Add another CC email"
+                invalid={!!errors.ccEmails}
+                onChange={(v) => {
+                  setF((x) => ({ ...x, ccEmails: v }));
+                  setErrors((x) => ({ ...x, ccEmails: null }));
+                }}
+              />
+            </Field>
+          </Step>
 
-        <Section title="Email" hint="The message you sent to the client.">
-          <Field
-            label="Subject line"
-            required
-            error={errors.subjectLine}
-            className="sm:col-span-2"
+          <Step
+            n={2}
+            title="Contact"
+            hint="Where the client and the event can be found."
           >
-            <IconInput
-              icon={Type}
-              value={f.subjectLine}
-              onChange={set("subjectLine")}
-              placeholder="Partnership opportunity"
-              className={cx(errors.subjectLine && "border-leave")}
-            />
-          </Field>
-          <Field
-            label="Email pitch"
-            required
-            error={errors.emailPitch}
-            className="sm:col-span-2"
-          >
-            <span className="relative block">
-              <FileText
-                size={17}
-                className="pointer-events-none absolute left-3 top-3 text-muted"
+            <Field label="Client website" required error={errors.website}>
+              <IconInput
+                icon={Globe}
+                value={f.website}
+                onChange={set("website")}
+                placeholder="https://website.com"
+                className={bad("website")}
               />
-              <Textarea
-                rows={6}
-                value={f.emailPitch}
-                onChange={set("emailPitch")}
-                placeholder="Enter your professional email pitch here…"
-                className={cx("pl-10", errors.emailPitch && "border-leave")}
+            </Field>
+            <Field label={linkLabel(f.leadType)} required error={errors.link}>
+              <IconInput
+                icon={Link2}
+                value={f.link}
+                onChange={set("link")}
+                placeholder="https://link.com"
+                className={bad("link")}
               />
+            </Field>
+            <Field label="Phone numbers" required error={errors.phones}>
+              <MultiInput
+                icon={Phone}
+                values={f.phones}
+                placeholder="+1 (555) 123-4567"
+                addLabel="Add another phone number"
+                invalid={!!errors.phones}
+                onChange={(v) => {
+                  setF((x) => ({ ...x, phones: v }));
+                  setErrors((x) => ({ ...x, phones: null }));
+                }}
+              />
+            </Field>
+            <Field label="Country" hint="Pick from the list or type a country">
+              <IconInput
+                icon={Globe}
+                list="lead-countries"
+                value={f.country}
+                onChange={set("country")}
+                placeholder="United States"
+              />
+              <datalist id="lead-countries">
+                {COUNTRIES.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
+            </Field>
+            <Field label="Contact date" hint="Leave empty for today">
+              <IconInput
+                icon={CalendarDays}
+                type="date"
+                max={todayKey()}
+                value={f.date}
+                onChange={set("date")}
+              />
+            </Field>
+            {attendees && (
+              <Field label="Attendees count" hint="Optional">
+                <IconInput
+                  icon={Users}
+                  type="number"
+                  min="0"
+                  value={f.attendeesCount}
+                  onChange={set("attendeesCount")}
+                  placeholder="Number of attendees"
+                />
+              </Field>
+            )}
+          </Step>
+
+          <Step n={3} title="Email" hint="The message you sent to the client.">
+            <Field
+              label="Subject line"
+              required
+              error={errors.subjectLine}
+              className="sm:col-span-2"
+            >
+              <IconInput
+                icon={Type}
+                value={f.subjectLine}
+                onChange={set("subjectLine")}
+                placeholder="Partnership opportunity"
+                className={bad("subjectLine")}
+              />
+            </Field>
+            <Field
+              label="Email pitch"
+              required
+              error={errors.emailPitch}
+              className="sm:col-span-2"
+            >
+              <span className="relative block">
+                <FileText
+                  size={17}
+                  className="pointer-events-none absolute left-3 top-3 text-muted"
+                />
+                <Textarea
+                  rows={8}
+                  value={f.emailPitch}
+                  onChange={set("emailPitch")}
+                  placeholder="Enter your professional email pitch here…"
+                  className={cx("pl-10", bad("emailPitch"))}
+                />
+              </span>
+            </Field>
+          </Step>
+
+          {/* phones / tablets: buttons at the end */}
+          <div className="xl:hidden card p-4">{actions}</div>
+        </form>
+
+        {/* desktop: checklist + submit, stays in view */}
+        <aside className="hidden xl:block xl:sticky xl:top-[100px] card p-5">
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="font-bold">Before you submit</h2>
+            <span
+              className={cx(
+                "num rounded-full px-2.5 h-6 inline-flex items-center text-[12px] font-bold",
+                ready === checks.length
+                  ? "bg-lime text-ink"
+                  : "bg-teal-deep text-white",
+              )}
+            >
+              {ready}/{checks.length}
             </span>
-          </Field>
-        </Section>
-
-        <div className="flex flex-col-reverse sm:flex-row sm:items-center gap-3 pt-6 mt-6">
-          <Button type="button" icon={RotateCcw} onClick={clear}>
-            Clear form
-          </Button>
-          <Button
-            type="submit"
-            variant="blue"
-            icon={Send}
-            loading={busy}
-            className="sm:ml-auto sm:w-80 h-11"
-          >
-            Submit lead
-          </Button>
-        </div>
-      </form>
+          </div>
+          <p className="text-[12.5px] text-muted mb-4">Required fields</p>
+          <ul className="space-y-2 mb-5">
+            {checks.map(([label, ok]) => (
+              <li
+                key={label}
+                className={cx(
+                  "flex items-center gap-2.5 text-[13.5px]",
+                  ok ? "text-ink" : "text-muted",
+                )}
+              >
+                {ok ? (
+                  <CheckCircle2 size={18} className="text-teal-deep shrink-0" />
+                ) : (
+                  <Circle size={18} className="text-line shrink-0" />
+                )}
+                <span className={cx(ok && "font-medium")}>{label}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="track h-1.5 rounded-full overflow-hidden mb-5">
+            <div
+              className="h-full bg-lime rounded-full transition-[width] duration-300"
+              style={{ width: `${(ready / checks.length) * 100}%` }}
+            />
+          </div>
+          {actions}
+        </aside>
+      </div>
 
       {dup && (
         <Modal
@@ -533,15 +643,17 @@ export default function LeadForm() {
             </Button>
           }
         >
-          <div className="flex gap-3 rounded-xl bg-noresp-soft border border-noresp/25 p-4 mb-4 text-[14px]">
-            <AlertTriangle size={20} className="text-noresp shrink-0" />
+          <div className="flex gap-3 rounded-2xl bg-pearl border border-line border-l-4 border-l-lime p-4 mb-4 text-[14px]">
+            <AlertTriangle size={20} className="text-teal-deep shrink-0" />
             <span>
               The same client email can be uploaded again only after 2 months.
             </span>
           </div>
           <dl className="grid grid-cols-[130px_1fr] gap-y-2 text-[14px]">
             <dt className="text-muted">Client email</dt>
-            <dd className="break-all font-medium">{dup.clientEmail}</dd>
+            <dd className="[overflow-wrap:anywhere] font-medium">
+              {dup.clientEmail}
+            </dd>
             <dt className="text-muted">Subject</dt>
             <dd className="break-words">{dup.subjectLine}</dd>
             <dt className="text-muted">Uploaded by</dt>
