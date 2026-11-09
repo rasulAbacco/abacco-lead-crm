@@ -43,14 +43,17 @@ app.use("/api", (req, res) => res.status(404).json({ message: "Not found" }));
 
 // Central error handler
 app.use((err, req, res, next) => {
-  if (err?.code === "P2025") return res.status(404).json({ message: "Record not found" });
+  if (err?.code === "P2025")
+    return res.status(404).json({ message: "Record not found" });
   console.error(`💥 ${req.method} ${req.originalUrl}:`, err);
   res.status(500).json({ message: "Server error" });
 });
 
 const server = app.listen(config.port, async () => {
   console.log(`✅ Lead CRM API on port ${config.port}`);
-  await ensureReleaseDate().catch((e) => console.error("Release date error:", e.message));
+  await ensureReleaseDate().catch((e) =>
+    console.error("Release date error:", e.message),
+  );
   verifyMailer();
   if (process.env.DISABLE_SCHEDULER !== "true") startMaintenanceScheduler();
 });
