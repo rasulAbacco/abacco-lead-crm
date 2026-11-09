@@ -151,7 +151,16 @@ function TodayIncentive({ progress }) {
     <div className="space-y-5">
       {plans.map((p) => (
         <div key={p.planId}>
-          <div className="font-semibold mb-2.5">{p.title}</div>
+          <div
+            className={cx("font-semibold", p.description ? "mb-0.5" : "mb-2.5")}
+          >
+            {p.title}
+          </div>
+          {p.description && (
+            <p className="text-[12.5px] leading-snug text-muted mb-2.5 whitespace-pre-line [overflow-wrap:anywhere]">
+              {p.description}
+            </p>
+          )}
           <div className="space-y-3">
             {p.rules.map((r) => {
               const done = r.count >= r.leadsRequired;
