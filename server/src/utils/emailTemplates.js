@@ -50,7 +50,7 @@ export function attendanceReportEmailHtml({ monthLabel, employees, summary }) {
     <h1 style="margin:0 0 12px;font-size:21px;color:#111827;">${monthLabel} employee attendance report</h1>
     <p style="margin:0 0 14px;font-size:14px;line-height:1.6;color:#4b5563;">
       The full attendance report for <b>${employees}</b> employees is attached as Excel
-      (summary, daily biometric grid and system clock-in).</p>
+      (summary, punch in / punch out for every date, daily biometric grid and system clock-in).</p>
     <table cellspacing="0" cellpadding="6" style="font-size:13px;color:#374151;border-collapse:collapse;">
       <tr><td>Present days</td><td><b>${summary.present}</b></td></tr>
       <tr><td>Half days</td><td><b>${summary.halfDay}</b></td></tr>
@@ -59,5 +59,34 @@ export function attendanceReportEmailHtml({ monthLabel, employees, summary }) {
       <tr><td>Not clocked out (system)</td><td><b>${summary.notClockedOut}</b></td></tr>
     </table>
     <p style="margin:16px 0 0;font-size:12px;color:#6b7280;">Punch data older than 2 months is removed from the CRM, so keep this email as the record.</p>`,
+  );
+}
+
+/** Punch in / punch out report (sent from Attendance → Punch in / out) */
+export function punchReportEmailHtml({
+  title,
+  employees,
+  days,
+  totals,
+  sentBy,
+}) {
+  const row = (label, value) =>
+    `<tr><td style="padding:7px 10px;border-bottom:1px solid #D8DAD5;color:#65727A;">${label}</td><td style="padding:7px 10px;border-bottom:1px solid #D8DAD5;text-align:right;"><b style="color:#08090B;">${value}</b></td></tr>`;
+  return shell(
+    `Punch report ${title}`,
+    `<p style="margin:0 0 6px;font-size:12px;font-weight:bold;color:#0B3048;text-transform:uppercase;letter-spacing:.08em;">Punch in / punch out</p>
+    <h1 style="margin:0 0 12px;font-size:21px;color:#08090B;">${title} punch report</h1>
+    <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#4b5563;">
+      Punch in and punch out times of <b>${employees}</b> employees for <b>${days}</b> days are attached as Excel.
+      Sheet <b>Punch In-Out</b> has every date with punch in and punch out per employee;
+      sheet <b>Punch list</b> has one row per person per day with filters.</p>
+    <table cellspacing="0" cellpadding="0" style="width:100%;font-size:13px;border-collapse:collapse;background:#F2F0E9;border-radius:8px;">
+      ${row("Days with punches", totals.punched)}
+      ${row("Present days", totals.present)}
+      ${row("Half days", totals.halfDay)}
+      ${row("Absent days", totals.absent)}
+      ${row("No punch-out", totals.missingOut)}
+    </table>
+    <p style="margin:16px 0 0;font-size:12px;color:#65727A;">Times are IST. Day = US Central workday.${sentBy ? ` Sent by ${sentBy}.` : ""}</p>`,
   );
 }

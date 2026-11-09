@@ -4,7 +4,7 @@ import { STATUS_LABEL, SATURDAY_LABEL } from "../services/attendance.js";
 
 const HEAD = {
   font: { bold: true, color: { rgb: "FFFFFF" } },
-  fill: { fgColor: { rgb: "0B1A3C" } },
+  fill: { fgColor: { rgb: "0B3048" } },
   alignment: { horizontal: "center", vertical: "center", wrapText: true },
 };
 const FILL = {
@@ -17,20 +17,142 @@ const FILL = {
   IN: "DBEAFE",
 };
 const WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const cell = (v, style) => ({ v: v ?? "", s: style || {} });
+const cell = (v, style) => ({
+  v: v ?? "",
+  t: typeof v === "number" ? "n" : "s",
+  s: style || {},
+});
+
+/* ---- helpers for the punch report ---- */
+const MONTH_SHORT = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+const niceDate = (key) => {
+  const [, m, d] = key.split("-").map(Number);
+  return `${d} ${MONTH_SHORT[m - 1]}`;
+};
+const OFF_TEXT = { WO: "Week off", H: "Holiday", A: "Absent" };
+
+/** Totals of one employee for the days in the report (works for a date range too) */
+export function rangeTotals(days) {
+  const t = {
+    present: 0,
+    halfDay: 0,
+    absent: 0,
+    missingOut: 0,
+    offDayWork: 0,
+    minutes: 0,
+    punched: 0,
+  };
+  for (const d of days) {
+    if (d.status === "PRESENT") t.present++;
+    if (d.status === "HALF_DAY") t.halfDay++;
+    if (d.status === "ABSENT") t.absent++;
+    if (d.status === "MISSING_OUT") t.missingOut++;
+    if (d.offDayWork) t.offDayWork++;
+    if (d.firstPunchIST) t.punched++;
+    t.minutes += d.minutes || 0;
+  }
+  t.hours = t.minutes
+    ? `${Math.floor(t.minutes / 60)}h ${String(t.minutes % 60).padStart(2, "0")}m`
+    : "0h 00m";
+  return t;
+}
+
+/** Keep only some days / people: { from, to } = yyyy-MM-dd, team = Marketing | Developer, q = name / ID */
+export function sliceReport(report, { from, to, team, q } = {}) {
+  const inRange = (d) => (!from || d.date >= from) && (!to || d.date <= to);
+  const text = String(q || "")
+    .trim()
+    .toLowerCase();
+  const days = report.days.filter(inRange);
+  const rows = report.rows
+    .filter(
+      (r) =>
+        (!team || r.team === team) &&
+        (!text ||
+          r.name.toLowerCase().includes(text) ||
+          r.employeeId.toLowerCase().includes(text)),
+    )
+    .map((r) => ({ ...r, days: r.days.filter(inRange) }));
+  const range = days.length
+    ? { from: days[0].date, to: days[days.length - 1].date }
+    : null;
+  const full = days.length === report.days.length;
+  return {
+    ...report,
+    days,
+    rows,
+    range,
+    rangeLabel:
+      full || !range
+        ? report.label
+        : range.from === range.to
+          ? niceDate(range.from)
+          : `${niceDate(range.from)} to ${niceDate(range.to)}`,
+  };
+}
+
+/** Freeze panes (xlsx-js-style can't write them, so patch the sheet XML). freeze = { 1: "D6" } -> sheet1 */
+function withFrozenPanes(buf, XLSXlib, freeze) {
+  try {
+    const C = XLSXlib.CFB;
+    const zip = C.read(buf, { type: "buffer" });
+    for (const [n, cellRef] of Object.entries(freeze)) {
+      const i = zip.FullPaths.findIndex((p) =>
+        p.endsWith(`xl/worksheets/sheet${n}.xml`),
+      );
+      if (i < 0) continue;
+      const e = zip.FileIndex[i];
+      const m = cellRef.match(/^([A-Z]+)(\d+)$/);
+      const col =
+        m[1].split("").reduce((a, ch) => a * 26 + ch.charCodeAt(0) - 64, 0) - 1;
+      const row = Number(m[2]) - 1;
+      const pane = `<pane xSplit="${col}" ySplit="${row}" topLeftCell="${cellRef}" activePane="bottomRight" state="frozen"/><selection pane="bottomRight" activeCell="${cellRef}" sqref="${cellRef}"/>`;
+      const xml = Buffer.from(e.content)
+        .toString("utf8")
+        .replace(
+          /<sheetView workbookViewId="0"\/>/,
+          `<sheetView workbookViewId="0">${pane}</sheetView>`,
+        );
+      e.content = Buffer.from(xml, "utf8");
+      e.size = e.content.length;
+    }
+    return C.write(zip, { fileType: "zip", type: "buffer", compression: true });
+  } catch (err) {
+    console.error("freeze panes skipped:", err.message);
+    return buf;
+  }
+}
+
+const BORDER = { style: "thin", color: { rgb: "D8DAD5" } };
+const BOX = { top: BORDER, bottom: BORDER, left: BORDER, right: BORDER };
+const HEAD_OFF = { ...HEAD, fill: { fgColor: { rgb: "65727A" } } }; // Saturday / Sunday header
 
 /* ---- Punch In / Out: one row per employee, In + Out under every date ---- */
 function addPunchSheet(wb, report, sheetName = "Punch In-Out") {
   const FIX = 3; // Employee ID, Name, Team
-  const TAIL = ["Present", "Half day", "Absent", "Missing out", "Total hours"];
+  const TAIL = ["Present", "Half day", "Absent", "No punch-out", "Total hours"];
   const HR = 3; // first header row index (0-based)
   const center = { horizontal: "center", vertical: "center", wrapText: true };
 
+  const dayHead = (d) => (d.weekday === 0 || d.weekday === 6 ? HEAD_OFF : HEAD);
   const h1 = [
     ...["Employee ID", "Name", "Team"].map((t) => cell(t, HEAD)),
     ...report.days.flatMap((d) => [
-      cell(`${d.day} ${WEEK[d.weekday]}`, HEAD),
-      cell("", HEAD),
+      cell(`${WEEK[d.weekday]} ${niceDate(d.date)}`, dayHead(d)),
+      cell("", dayHead(d)),
     ]),
     ...TAIL.map((t) => cell(t, HEAD)),
   ];
@@ -38,7 +160,10 @@ function addPunchSheet(wb, report, sheetName = "Punch In-Out") {
     ...Array(FIX)
       .fill(0)
       .map(() => cell("", HEAD)),
-    ...report.days.flatMap(() => [cell("In", HEAD), cell("Out", HEAD)]),
+    ...report.days.flatMap((d) => [
+      cell("Punch in", dayHead(d)),
+      cell("Punch out", dayHead(d)),
+    ]),
     ...TAIL.map(() => cell("", HEAD)),
   ];
 
@@ -55,17 +180,18 @@ function addPunchSheet(wb, report, sheetName = "Punch In-Out") {
 
   const body = report.rows.map((r, ri) => {
     const rowIdx = HR + 2 + ri;
+    const zebra = ri % 2 ? { fgColor: { rgb: "F7F6F1" } } : undefined;
     const out = [
-      cell(r.employeeId, { font: { bold: true } }),
-      cell(r.name, { font: { bold: true } }),
-      cell(r.team),
+      cell(r.employeeId, { font: { bold: true }, fill: zebra, border: BOX }),
+      cell(r.name, { font: { bold: true }, fill: zebra, border: BOX }),
+      cell(r.team, { fill: zebra, border: BOX }),
     ];
     r.days.forEach((d, i) => {
       const c = FIX + i * 2;
       const fill = d.code
         ? { fgColor: { rgb: FILL[d.code] || "FFFFFF" } }
-        : undefined;
-      const st = { fill, alignment: center, font: { sz: 10 } };
+        : zebra;
+      const st = { fill, alignment: center, font: { sz: 10 }, border: BOX };
       if (d.firstPunchIST) {
         const inTxt = `${d.firstPunchIST}${d.offDayWork ? " *" : ""}`;
         const outTxt = d.lastPunchIST
@@ -73,38 +199,66 @@ function addPunchSheet(wb, report, sheetName = "Punch In-Out") {
           : d.code === "IN"
             ? "Working"
             : "No punch-out";
-        out.push(cell(inTxt, st), cell(outTxt, st));
-      } else if (d.code) {
-        // A / WO / H: one merged cell across In + Out
         out.push(
-          cell(d.code, { ...st, font: { sz: 10, bold: true } }),
+          cell(inTxt, st),
+          cell(
+            outTxt,
+            d.lastPunchIST
+              ? st
+              : {
+                  ...st,
+                  font: { sz: 10, bold: true, color: { rgb: "B42318" } },
+                },
+          ),
+        );
+      } else if (d.code) {
+        // Absent / Week off / Holiday: one merged cell across In + Out
+        out.push(
+          cell(OFF_TEXT[d.code] || d.code, {
+            ...st,
+            font: {
+              sz: 10,
+              bold: d.code === "A",
+              color: d.code === "A" ? { rgb: "B42318" } : { rgb: "65727A" },
+            },
+          }),
           cell("", st),
         );
         merges.push({ s: { r: rowIdx, c }, e: { r: rowIdx, c: c + 1 } });
       } else {
-        out.push(cell(""), cell(""));
+        out.push(
+          cell("", { fill: zebra, border: BOX }),
+          cell("", { fill: zebra, border: BOX }),
+        );
       }
     });
+    const t = rangeTotals(r.days);
+    const tail = {
+      alignment: center,
+      fill: zebra,
+      border: BOX,
+      font: { bold: true },
+    };
     out.push(
-      cell(r.summary.present, { alignment: center }),
-      cell(r.summary.halfDay, { alignment: center }),
-      cell(r.summary.absent, { alignment: center }),
-      cell(r.summary.missingOut, { alignment: center }),
-      cell(r.summary.hours || "0h 00m", { alignment: center }),
+      cell(t.present, tail),
+      cell(t.halfDay, tail),
+      cell(t.absent, tail),
+      cell(t.missingOut, tail),
+      cell(t.hours, tail),
     );
     return out;
   });
 
   const ws = XLSX.utils.aoa_to_sheet([
     [
-      cell(`${report.label} punch in / punch out`, {
-        font: { bold: true, sz: 14 },
+      cell(`Punch in / punch out: ${report.rangeLabel || report.label}`, {
+        font: { bold: true, sz: 14, color: { rgb: "0B3048" } },
       }),
     ],
     [
       cell(
-        "Times are IST. Day = US Central date. P/HD cells show first punch (In) and last punch (Out). A = Absent, WO = Week off, H = Holiday, * = worked on a day off, No punch-out = forgot to punch out.",
-        { font: { italic: true, color: { rgb: "6B7280" } } },
+        "Times are IST. Day = US Central workday. Punch in = first punch, Punch out = last punch of the day. No punch-out = forgot to punch out. * = worked on a day off. Grey dates are Saturday / Sunday.",
+        { font: { italic: true, color: { rgb: "65727A" } } },
       ),
     ],
     [],
@@ -120,19 +274,99 @@ function addPunchSheet(wb, report, sheetName = "Punch In-Out") {
     ...report.days.flatMap(() => [{ wch: 10 }, { wch: 12 }]),
     ...TAIL.map(() => ({ wch: 11 })),
   ];
-  ws["!rows"] = [{}, {}, {}, { hpt: 24 }, { hpt: 20 }];
+  ws["!rows"] = [
+    { hpt: 22 },
+    {},
+    {},
+    { hpt: 24 },
+    { hpt: 20 },
+    ...body.map(() => ({ hpt: 20 })),
+  ];
   XLSX.utils.book_append_sheet(wb, ws, sheetName);
 }
 
-/** Standalone export: only the date-wise punch in / out sheet */
+/* ---- Punch list: one row per employee per day, with a filter on every column ---- */
+function addPunchListSheet(wb, report, sheetName = "Punch list") {
+  const head = [
+    "Date",
+    "Day",
+    "Employee ID",
+    "Name",
+    "Team",
+    "Punch in (IST)",
+    "Punch out (IST)",
+    "Hours",
+    "Status",
+  ];
+  const rows = [];
+  for (const d of report.days) {
+    for (const r of report.rows) {
+      const x = r.days.find((y) => y.date === d.date);
+      if (!x || (!x.code && !x.firstPunchIST)) continue; // future day / before joining
+      rows.push([
+        x.date,
+        WEEK[x.weekday],
+        r.employeeId,
+        r.name,
+        r.team,
+        x.firstPunchIST || "",
+        x.lastPunchIST ||
+          (x.firstPunchIST
+            ? x.code === "IN"
+              ? "Working"
+              : "No punch-out"
+            : ""),
+        x.hours || "",
+        `${STATUS_LABEL[x.status] || ""}${x.offDayWork ? " (day off)" : ""}`,
+      ]);
+    }
+  }
+  const ws = XLSX.utils.aoa_to_sheet([
+    head.map((h) => cell(h, HEAD)),
+    ...rows.map((row) =>
+      row.map((v, i) =>
+        cell(v, {
+          border: BOX,
+          font:
+            (i === 6 && v === "No punch-out") || (i === 8 && v === "Absent")
+              ? { bold: true, color: { rgb: "B42318" } }
+              : undefined,
+          alignment: i >= 5 && i <= 7 ? { horizontal: "center" } : undefined,
+        }),
+      ),
+    ),
+  ]);
+  ws["!cols"] = [
+    { wch: 12 },
+    { wch: 6 },
+    { wch: 12 },
+    { wch: 22 },
+    { wch: 11 },
+    { wch: 15 },
+    { wch: 16 },
+    { wch: 9 },
+    { wch: 22 },
+  ];
+  ws["!autofilter"] = {
+    ref: XLSX.utils.encode_range({
+      s: { r: 0, c: 0 },
+      e: { r: Math.max(rows.length, 1), c: head.length - 1 },
+    }),
+  };
+  XLSX.utils.book_append_sheet(wb, ws, sheetName);
+}
+
+/** Punch report export: grid (date -> punch in / out per employee) + filterable list */
 export function punchGridWorkbookBuffer(report) {
   const wb = XLSX.utils.book_new();
   addPunchSheet(wb, report);
-  return XLSX.write(wb, {
+  addPunchListSheet(wb, report);
+  const buf = XLSX.write(wb, {
     type: "buffer",
     bookType: "xlsx",
     compression: true,
   });
+  return withFrozenPanes(buf, XLSX, { 1: "D6", 2: "A2" });
 }
 
 export function attendanceWorkbookBuffer(report) {
@@ -285,11 +519,12 @@ export function attendanceWorkbookBuffer(report) {
   ];
   XLSX.utils.book_append_sheet(wb, ws3, "System clock-in");
 
-  return XLSX.write(wb, {
+  const buf = XLSX.write(wb, {
     type: "buffer",
     bookType: "xlsx",
     compression: true,
   });
+  return withFrozenPanes(buf, XLSX, { 2: "D6" });
 }
 
 export const statusLegend = STATUS_LABEL;

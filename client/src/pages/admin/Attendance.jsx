@@ -1,4 +1,4 @@
-// Admin attendance: monthly report (biometric + system clock-in), today, punch log, machines & cards.
+// Admin attendance: monthly report, punch in / out report, punch log, working days, machines & cards.
 import { useMemo, useState } from "react";
 import {
   CalendarCheck,
@@ -37,6 +37,7 @@ import {
   cx,
 } from "../../components/ui";
 import WorkingDays from "./WorkingDays";
+import PunchReport from "./PunchReport";
 
 // Palette only: lime = present, teal = absent, pearl = days off
 const CODE_STYLE = {
@@ -896,12 +897,14 @@ export default function Attendance() {
         onChange={setTab}
         tabs={[
           { value: "monthly", label: "Monthly report" },
+          { value: "punches", label: "Punch in / out" },
           { value: "log", label: "Punch log" },
           { value: "days", label: "Working days" },
           { value: "setup", label: "Machines & cards" },
         ]}
       />
       {tab === "monthly" && <MonthlyReport />}
+      {tab === "punches" && <PunchReport />}
       {tab === "log" && <PunchLog employees={employees.data || []} />}
       {tab === "days" && <WorkingDays />}
       {tab === "setup" && <Machines employees={employees.data || []} />}

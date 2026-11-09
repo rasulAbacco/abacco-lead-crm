@@ -1,6 +1,6 @@
 // Attendance jobs (run from the maintenance scheduler).
 //  - autoClockOut: every few minutes, closes clock-in sessions still open at 4:30 AM IST
-//    and flags them "Not clocked out" (hours not counted). Also notifies missing biometric punches.
+//    and flags them "Not clocked out" (hours not counted).
 //  - monthly email: on the 1st (US Central) the previous month's attendance Excel
 //    goes to ATTENDANCE_REPORT_EMAIL. Retries every hour until it succeeds.
 //  - 2-month retention: punches + sessions older than the previous month are deleted,
@@ -14,12 +14,18 @@ import {
   monthRange,
   monthLabel,
   formatCentral,
-  dateKey,
-  dayRangeKey,
 } from "../utils/time.js";
-import { monthlyAttendance, collapsePunches } from "../services/attendance.js";
-import { attendanceWorkbookBuffer } from "../utils/attendanceExcel.js";
-import { attendanceReportEmailHtml } from "../utils/emailTemplates.js";
+import { monthlyAttendance } from "../services/attendance.js";
+import {
+  attendanceWorkbookBuffer,
+  punchGridWorkbookBuffer,
+  sliceReport,
+  rangeTotals,
+} from "../utils/attendanceExcel.js";
+import {
+  attendanceReportEmailHtml,
+  punchReportEmailHtml,
+} from "../utils/emailTemplates.js";
 import { sendMail } from "../utils/mailer.js";
 import { notify, notifyAdmins } from "../services/notify.js";
 
@@ -27,8 +33,6 @@ const metaKey = (y, m) => `attendance-email:${y}-${String(m).padStart(2, "0")}`;
 
 export async function autoClockOut(now = new Date()) {
   const cutoff = lastIstCutoff(now, config.autoClockOutIst);
-
-  // 1. System clock-in auto close
   const open = await prisma.workSession.findMany({
     where: { clockOut: null, clockIn: { lt: cutoff } },
   });
@@ -44,48 +48,11 @@ export async function autoClockOut(now = new Date()) {
       link: "/employee-dashboard",
     });
   }
-
-  // 2. Biometric machine missing punch check
-  // The cutoff (4:30 AM IST) falls precisely on the US day of the shift that just ended.
-  const shiftDayKey = dateKey(cutoff);
-  const { start, end } = dayRangeKey(shiftDayKey);
-
-  const punches = await prisma.biometricPunch.findMany({
-    where: { punchTime: { gte: start, lt: end }, employeeId: { not: null } },
-    orderBy: { punchTime: "asc" },
-  });
-
-  const empPunches = {};
-  for (const p of punches) {
-    if (!empPunches[p.employeeId]) empPunches[p.employeeId] = [];
-    empPunches[p.employeeId].push(p);
-  }
-
-  let missedBiometricCount = 0;
-  for (const [empId, rawList] of Object.entries(empPunches)) {
-    // re-sent / double punches count as one; one real punch = forgot to punch out
-    const pList = collapsePunches(rawList.map((p) => p.punchTime)).map((t) => ({
-      punchTime: t,
-    }));
-    if (pList.length === 1) {
-      missedBiometricCount++;
-      await notify(empId, {
-        type: "attendance",
-        title: "Missing machine punch-out",
-        body: `You only punched the biometric machine once on ${formatCentral(pList[0].punchTime, "MMM d")}. The system closed your day automatically, and your hours are 0.`,
-        link: "/employee-dashboard",
-      });
-    }
-  }
-
-  const totalActions = open.length + missedBiometricCount;
-  if (totalActions > 0) {
+  if (open.length)
     console.log(
-      `⏰ Auto clock-out: ${open.length} session(s) closed, ${missedBiometricCount} missing biometric punches notified at ${cutoff.toISOString()}`,
+      `⏰ Auto clock-out: ${open.length} session(s) closed at ${cutoff.toISOString()}`,
     );
-  }
-
-  return totalActions;
+  return open.length;
 }
 
 /** Build + email one month's attendance report. Returns true when sent. */
@@ -165,6 +132,55 @@ export async function emailAttendanceReport(
     });
     return false;
   }
+}
+
+/** Email the punch in / punch out report (whole month or a date range). Throws on failure. */
+export async function emailPunchReport(
+  year,
+  month,
+  filters = {},
+  { sentBy } = {},
+) {
+  const report = sliceReport(await monthlyAttendance(year, month), filters);
+  if (!report.days.length)
+    throw Object.assign(new Error("No days in that range"), { status: 400 });
+  if (!report.rows.length)
+    throw Object.assign(new Error("No employees match"), { status: 400 });
+  const totals = report.rows.reduce(
+    (a, r) => {
+      const t = rangeTotals(r.days);
+      for (const k of ["punched", "present", "halfDay", "absent", "missingOut"])
+        a[k] += t[k];
+      return a;
+    },
+    { punched: 0, present: 0, halfDay: 0, absent: 0, missingOut: 0 },
+  );
+  const tag =
+    report.range && report.rangeLabel !== report.label
+      ? `${report.range.from}_to_${report.range.to}`
+      : `${year}-${String(month).padStart(2, "0")}`;
+  await sendMail({
+    to: config.attendanceReportEmail,
+    subject: `Punch in / out report: ${report.rangeLabel}`,
+    text: `Attached: punch in / punch out report (${report.rangeLabel}) for ${report.rows.length} employees.`,
+    html: punchReportEmailHtml({
+      title: report.rangeLabel,
+      employees: report.rows.length,
+      days: report.days.length,
+      totals,
+      sentBy,
+    }),
+    attachments: [
+      {
+        filename: `punch-in-out-${tag}.xlsx`,
+        content: punchGridWorkbookBuffer(report),
+      },
+    ],
+  });
+  console.log(
+    `📧 Punch report ${report.rangeLabel} emailed to ${config.attendanceReportEmail}`,
+  );
+  return { to: config.attendanceReportEmail, label: report.rangeLabel };
 }
 
 export async function monthlyAttendanceJobs(now = new Date()) {
