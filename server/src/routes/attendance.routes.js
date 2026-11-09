@@ -11,6 +11,9 @@ import {
   formatIST,
   formatCentral,
   dayRangeKey,
+  monthDays,
+  monthRange,
+  MONTH_NAMES,
 } from "../utils/time.js";
 import {
   monthlyAttendance,
@@ -23,7 +26,14 @@ import {
   dayIsClosed,
   dayFromKey,
   evaluateDay,
+  loadCalendar,
+  calFor,
+  isWorkingDay,
+  isDefaultWorkingDay,
+  parseSaturdaysOff,
+  DEFAULT_SATURDAYS_OFF,
 } from "../services/attendance.js";
+import { notify } from "../services/notify.js";
 import {
   attendanceWorkbookBuffer,
   punchGridWorkbookBuffer,
@@ -478,6 +488,10 @@ admin.get(
     const empIds = [
       ...new Set([...groups.values()].map((g) => g.employeeId).filter(Boolean)),
     ];
+    const wds = [...groups.values()].map((g) => g.wd).sort();
+    const calendar = wds.length
+      ? await loadCalendar(wds[0], wds[wds.length - 1], empIds)
+      : null;
     const emps = await prisma.employee.findMany({
       where: { employeeId: { in: empIds } },
       select: {
@@ -497,6 +511,7 @@ admin.get(
         joiningKey: e?.joiningDate ? dateKey(e.joiningDate) : null,
         todayKey,
         todayClosed,
+        calendar: calFor(calendar, g.employeeId, g.wd),
       });
       let code = ev.code;
       let status = ev.status ? STATUS_LABEL[ev.status] : "";
@@ -713,6 +728,281 @@ admin.patch(
         data: { clockOut: out, autoClosed: false },
       }),
     );
+  }),
+);
+
+/* =====================================================================
+   WORKING-DAY CALENDAR  (Attendance → Working days)
+   Company calendar: a date that is different for everyone (Saturday made
+   working, festival holiday). Person exceptions: someone must work a date
+   (e.g. every Saturday while behind target) or has it off.
+===================================================================== */
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+admin.get(
+  "/calendar",
+  ah(async (req, res) => {
+    const { year, month } = ym(req.query);
+    const days = monthDays(year, month);
+    const from = days[0].date;
+    const to = days[days.length - 1].date;
+    const todayKey = dateKey(new Date());
+    const now = centralParts();
+
+    // target performance: this month if it has started, otherwise the current month
+    const started = from <= todayKey;
+    const basis = started
+      ? { year, month }
+      : { year: now.year, month: now.month };
+    const basisDays = monthDays(basis.year, basis.month).length;
+    const isCurrent = basis.year === now.year && basis.month === now.month;
+    const fraction = isCurrent ? now.day / basisDays : 1;
+    const br = monthRange(basis.year, basis.month);
+
+    const [people, calendar, counts] = await Promise.all([
+      prisma.employee.findMany({
+        where: { isActive: true, role: { in: ["EMPLOYEE", "DEVELOPER"] } },
+        select: {
+          employeeId: true,
+          fullName: true,
+          role: true,
+          saturdayRule: true,
+          target: true,
+        },
+        orderBy: { fullName: "asc" },
+      }),
+      loadCalendar(from, to),
+      prisma.lead.groupBy({
+        by: ["employeeId"],
+        where: { date: { gte: br.start, lt: br.end } },
+        _count: { _all: true },
+      }),
+    ]);
+    const leadsOf = new Map(counts.map((c) => [c.employeeId, c._count._all]));
+    const overrides = [...calendar.personal.values()];
+    const monthKey = from.slice(0, 7);
+    const satOff = calendar.months.get(monthKey) || null;
+
+    res.json({
+      year,
+      month,
+      label: `${MONTH_NAMES[month - 1]} ${year}`,
+      todayKey,
+      basis: {
+        label: `${MONTH_NAMES[basis.month - 1]} ${basis.year}`,
+        isCurrent,
+        fraction,
+      },
+      saturdaysOff: satOff || DEFAULT_SATURDAYS_OFF,
+      saturdaysCustom: !!satOff,
+      days: days.map((d) => {
+        const c = calendar.company.get(d.date) || null;
+        const list = overrides.filter((o) => o.date === d.date);
+        return {
+          date: d.date,
+          day: d.day,
+          weekday: d.weekday,
+          nthWeekday: d.nthWeekday,
+          defaultWorking: isDefaultWorkingDay(d, "ALTERNATE", satOff),
+          companyWorking: isWorkingDay(d, "ALTERNATE", {
+            company: c,
+            personal: null,
+            satOff,
+          }),
+          companyType: c?.type || null,
+          note: c?.note || null,
+          working: list.filter((o) => o.working).map((o) => o.employeeId),
+          off: list.filter((o) => !o.working).map((o) => o.employeeId),
+        };
+      }),
+      employees: people.map((e) => {
+        const leads = leadsOf.get(e.employeeId) || 0;
+        const expected = Math.floor((e.target || 0) * fraction);
+        let workingDays = 0;
+        let extraDays = 0;
+        for (const d of days) {
+          const cal = calFor(calendar, e.employeeId, d.date);
+          if (isWorkingDay(d, e.saturdayRule, cal)) {
+            workingDays++;
+            if (
+              cal.personal?.working &&
+              !isWorkingDay(d, e.saturdayRule, { ...cal, personal: null })
+            )
+              extraDays++;
+          }
+        }
+        return {
+          employeeId: e.employeeId,
+          name: e.fullName,
+          role: e.role,
+          saturdayRule: e.saturdayRule,
+          target: e.target || 0,
+          leads,
+          pct: e.target ? Math.round((leads / e.target) * 100) : null,
+          expected,
+          behind: e.role !== "DEVELOPER" && e.target > 0 && leads < expected,
+          reached: e.role !== "DEVELOPER" && e.target > 0 && leads >= e.target,
+          workingDays,
+          extraDays,
+        };
+      }),
+    });
+  }),
+);
+
+/* Company calendar for one date: WORKING / WEEK_OFF / HOLIDAY for everyone, or DEFAULT (normal rule) */
+admin.put(
+  "/calendar/day",
+  ah(async (req, res) => {
+    const { date, type } = req.body || {};
+    const note =
+      String(req.body?.note || "")
+        .trim()
+        .slice(0, 120) || null;
+    if (!DATE_RE.test(date || ""))
+      return res.status(400).json({ message: "Pick a valid date" });
+    if (type === "DEFAULT" || !type) {
+      await prisma.workCalendarDay.deleteMany({ where: { date } });
+    } else if (["WORKING", "WEEK_OFF", "HOLIDAY"].includes(type)) {
+      await prisma.workCalendarDay.upsert({
+        where: { date },
+        update: { type, note },
+        create: { date, type, note },
+      });
+    } else {
+      return res
+        .status(400)
+        .json({
+          message: "Type must be WORKING, WEEK_OFF, HOLIDAY or DEFAULT",
+        });
+    }
+    res.json({ success: true });
+  }),
+);
+
+/* Which Saturdays are off this month for people on alternate Saturdays.
+   off: [1..5] (e.g. [2,4] or [1,3,5]); off: null = back to the default (2nd + 4th). */
+admin.put(
+  "/calendar/saturdays",
+  ah(async (req, res) => {
+    const { year, month } = ym(req.body || {});
+    const monthKey = `${year}-${String(month).padStart(2, "0")}`;
+    const reset = req.body?.off === null || req.body?.off === undefined;
+    if (!reset && !Array.isArray(req.body.off))
+      return res.status(400).json({ message: "off must be a list like [2,4]" });
+    const off = reset
+      ? DEFAULT_SATURDAYS_OFF
+      : parseSaturdaysOff(req.body.off.join(","));
+    if (reset)
+      await prisma.workMonthRule.deleteMany({ where: { month: monthKey } });
+    else
+      await prisma.workMonthRule.upsert({
+        where: { month: monthKey },
+        update: { saturdaysOff: off.join(",") },
+        create: { month: monthKey, saturdaysOff: off.join(",") },
+      });
+
+    // tell people on alternate Saturdays which Saturdays they have off
+    if (req.body?.notify !== false) {
+      const sats = monthDays(year, month).filter((d) => d.weekday === 6);
+      const offDays = sats
+        .filter((d) => off.includes(d.nthWeekday))
+        .map((d) => d.day);
+      const people = await prisma.employee.findMany({
+        where: {
+          isActive: true,
+          saturdayRule: "ALTERNATE",
+          role: { in: ["EMPLOYEE", "DEVELOPER"] },
+        },
+        select: { employeeId: true },
+      });
+      const mName = MONTH_NAMES[month - 1];
+      await notify(
+        people.map((p) => p.employeeId),
+        {
+          type: "attendance",
+          title: `Saturdays off in ${mName}`,
+          body: offDays.length
+            ? `${offDays.map((d) => `${mName.slice(0, 3)} ${d}`).join(", ")} are off. Other Saturdays are working days.`
+            : "All Saturdays are working days this month.",
+          link: "/employee-dashboard",
+          refKey: `satoff:${monthKey}`,
+        },
+      ).catch(() => {});
+    }
+    res.json({ success: true, saturdaysOff: off });
+  }),
+);
+
+/* Person exceptions for one or more dates.
+   working: true = must work, false = day off, null = back to normal. */
+admin.put(
+  "/calendar/people",
+  ah(async (req, res) => {
+    const dates = [
+      ...new Set((req.body?.dates || []).filter((d) => DATE_RE.test(d))),
+    ].slice(0, 62);
+    const employeeIds = [
+      ...new Set((req.body?.employeeIds || []).map(String)),
+    ].slice(0, 500);
+    const working =
+      req.body?.working === true
+        ? true
+        : req.body?.working === false
+          ? false
+          : null;
+    const note =
+      String(req.body?.note || "")
+        .trim()
+        .slice(0, 120) || null;
+    if (!dates.length)
+      return res.status(400).json({ message: "Pick at least one date" });
+    if (!employeeIds.length)
+      return res.status(400).json({ message: "Pick at least one employee" });
+
+    if (working === null) {
+      const r = await prisma.workDayOverride.deleteMany({
+        where: { date: { in: dates }, employeeId: { in: employeeIds } },
+      });
+      return res.json({ success: true, changed: r.count });
+    }
+    const valid = await prisma.employee.findMany({
+      where: { employeeId: { in: employeeIds } },
+      select: { employeeId: true },
+    });
+    const ops = [];
+    for (const { employeeId } of valid)
+      for (const date of dates)
+        ops.push(
+          prisma.workDayOverride.upsert({
+            where: { employeeId_date: { employeeId, date } },
+            update: { working, note },
+            create: { employeeId, date, working, note },
+          }),
+        );
+    await prisma.$transaction(ops);
+
+    // tell people about extra working days
+    if (working) {
+      const nice = dates
+        .sort()
+        .map((d) =>
+          formatCentral(new Date(`${d}T12:00:00-06:00`), "EEE, MMM d"),
+        );
+      await notify(
+        valid.map((v) => v.employeeId),
+        {
+          type: "attendance",
+          title:
+            dates.length === 1
+              ? `You are working on ${nice[0]}`
+              : `${dates.length} extra working days`,
+          body: `${nice.join(", ")}${note ? `. ${note}` : ""}`,
+          link: "/employee-dashboard",
+        },
+      ).catch(() => {});
+    }
+    res.json({ success: true, changed: ops.length });
   }),
 );
 

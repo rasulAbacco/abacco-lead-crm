@@ -48,7 +48,7 @@ const EMPTY = {
 };
 const SAT = {
   WORKING: "Every Saturday",
-  ALTERNATE: "Alternate (2nd & 4th off)",
+  ALTERNATE: "Alternate Saturdays",
   OFF: "Saturday off",
 };
 const ROLE_LABEL = {

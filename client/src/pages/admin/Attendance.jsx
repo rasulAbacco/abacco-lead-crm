@@ -36,6 +36,7 @@ import {
   useToast,
   cx,
 } from "../../components/ui";
+import WorkingDays from "./WorkingDays";
 
 // Palette only: lime = present, teal = absent, pearl = days off
 const CODE_STYLE = {
@@ -46,6 +47,7 @@ const CODE_STYLE = {
   WO: "bg-pearl text-muted border-line",
   H: "bg-pearl text-teal-deep border-teal-deep/30",
   IN: "bg-white text-teal-deep border-lime border-2",
+  NP: "bg-white text-muted border-line border-dashed",
 };
 const CODE_LABEL = {
   P: "Present",
@@ -463,9 +465,10 @@ function PunchLog({ employees }) {
         </Select>
         <Input
           type="date"
-          value={f.date}
+          value={f.date === "all" ? "" : f.date}
           onChange={set("date")}
-          aria-label="US date"
+          aria-label="US date (empty = today)"
+          title="Empty = today"
           className="col-span-2 md:col-span-1"
         />
       </div>
@@ -478,35 +481,76 @@ function PunchLog({ employees }) {
         </Empty>
       ) : (
         <>
+          {data.summary && data.date !== "all" && (
+            <div className="flex flex-wrap gap-2 px-4 py-3 border-b border-line text-[12.5px]">
+              <span className="rounded-full bg-lime px-2.5 py-0.5 font-semibold">
+                {data.summary.punched} punched
+              </span>
+              {data.summary.notPunched > 0 && (
+                <span className="rounded-full border border-dashed border-line bg-white px-2.5 py-0.5 font-semibold text-muted">
+                  {data.summary.notPunched} not punched yet
+                </span>
+              )}
+              {data.summary.absent > 0 && (
+                <span className="rounded-full bg-teal-deep text-white px-2.5 py-0.5 font-semibold">
+                  {data.summary.absent} absent
+                </span>
+              )}
+              {!data.dayClosed && (
+                <span className="text-muted self-center">
+                  Day still running, final at 4:30 AM IST
+                </span>
+              )}
+            </div>
+          )}
           <table className="w-full text-sm table-fixed">
             <thead>
               <tr>
                 <TH>Employee</TH>
-                <TH className="w-28">Card ID</TH>
-                <TH className="w-44">Time (IST)</TH>
-                <TH className="hidden md:table-cell w-28">US workday</TH>
-                <TH className="hidden lg:table-cell">Machine</TH>
+                <TH className="w-24 hidden sm:table-cell">Card ID</TH>
+                <TH className="w-28 hidden md:table-cell">US day</TH>
+                <TH className="w-36">In (IST)</TH>
+                <TH className="w-36 hidden sm:table-cell">Out (IST)</TH>
+                <TH className="w-24 hidden lg:table-cell text-right">Hours</TH>
+                <TH className="w-40">Status</TH>
               </tr>
             </thead>
             <tbody>
               {data.rows.map((r) => (
-                <tr key={r.id}>
+                <tr key={r.id} className="hover:bg-pearl/60">
                   <TD className="truncate">
                     {r.name ? (
                       <span className="font-medium">{r.name}</span>
                     ) : (
-                      <span className="text-noresp font-medium">
+                      <span className="font-medium text-muted">
                         Card not linked
                       </span>
                     )}
                   </TD>
-                  <TD className="num">{r.enrollmentId}</TD>
-                  <TD className="num">{r.timeIST}</TD>
+                  <TD className="num hidden sm:table-cell">{r.enrollmentId}</TD>
                   <TD className="num hidden md:table-cell text-ink-soft">
                     {r.workDate}
                   </TD>
-                  <TD className="hidden lg:table-cell text-ink-soft truncate">
-                    {r.device}, {r.location}
+                  <TD className="num">{r.inPunchIST || "—"}</TD>
+                  <TD className="num hidden sm:table-cell">
+                    {r.outPunchIST || "—"}
+                  </TD>
+                  <TD className="num hidden lg:table-cell text-right">
+                    {r.hours || "—"}
+                  </TD>
+                  <TD>
+                    {r.code ? (
+                      <span
+                        className={cx(
+                          "inline-flex items-center gap-1.5 rounded-full border px-2.5 h-6 text-[12px] font-semibold whitespace-nowrap",
+                          CODE_STYLE[r.code],
+                        )}
+                      >
+                        {r.status || CODE_LABEL[r.code]}
+                      </span>
+                    ) : (
+                      "—"
+                    )}
                   </TD>
                 </tr>
               ))}
@@ -853,11 +897,13 @@ export default function Attendance() {
         tabs={[
           { value: "monthly", label: "Monthly report" },
           { value: "log", label: "Punch log" },
+          { value: "days", label: "Working days" },
           { value: "setup", label: "Machines & cards" },
         ]}
       />
       {tab === "monthly" && <MonthlyReport />}
       {tab === "log" && <PunchLog employees={employees.data || []} />}
+      {tab === "days" && <WorkingDays />}
       {tab === "setup" && <Machines employees={employees.data || []} />}
     </>
   );

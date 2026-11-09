@@ -10,7 +10,12 @@
 //   WEEK_OFF      Saturday that is off for this person (see saturdayRule)
 //   HOLIDAY       Sunday
 //   Punches on WEEK_OFF / HOLIDAY still count, flagged as offDayWork.
-// Saturday rule per employee: WORKING (every Saturday), OFF, ALTERNATE (2nd + 4th Saturday off).
+// Saturday rule per employee: WORKING (every Saturday), OFF, ALTERNATE (Saturdays off as set for
+//   the month in WorkMonthRule; default 2nd + 4th Saturday off).
+// Working-day calendar (admin → Attendance → Working days) beats the rules above:
+//   1. person's own exception for a date (WorkDayOverride: must work / day off)
+//   2. company calendar for a date (WorkCalendarDay: WORKING for everyone / WEEK_OFF / HOLIDAY)
+//   3. normal rule: Sunday off, Saturday per the person's Saturday rule
 // System clock-in is reported next to it; sessions closed automatically at
 // 4:30 AM IST are marked "Not clocked out" and their hours are NOT counted.
 import prisma from "../prismaClient.js";
@@ -47,17 +52,85 @@ export const STATUS_LABEL = {
 export const SATURDAY_LABEL = {
   WORKING: "Every Saturday",
   OFF: "Saturday off",
-  ALTERNATE: "Alternate (2nd & 4th off)",
+  ALTERNATE: "Alternate Saturdays",
 };
 
-export function isWorkingDay(day, saturdayRule = "ALTERNATE") {
+export const DEFAULT_SATURDAYS_OFF = [2, 4];
+export const parseSaturdaysOff = (s) =>
+  [
+    ...new Set(
+      String(s ?? "")
+        .split(",")
+        .map(Number)
+        .filter((n) => n >= 1 && n <= 5),
+    ),
+  ].sort();
+
+/** Normal rule only (no calendar): Sunday off, Saturday per the person's rule.
+ *  satOff = which Saturdays of the month are off for ALTERNATE people (default 2nd + 4th). */
+export function isDefaultWorkingDay(
+  day,
+  saturdayRule = "ALTERNATE",
+  satOff = null,
+) {
   if (day.weekday === 0) return false;
   if (day.weekday === 6) {
     if (saturdayRule === "OFF") return false;
-    if (saturdayRule === "ALTERNATE") return ![2, 4].includes(day.nthWeekday);
+    if (saturdayRule === "ALTERNATE")
+      return !(satOff || DEFAULT_SATURDAYS_OFF).includes(day.nthWeekday);
   }
   return true;
 }
+
+/** Is this a working day for this person? `cal` = calFor(...) (optional) */
+export function isWorkingDay(day, saturdayRule = "ALTERNATE", cal = null) {
+  if (cal?.personal) return cal.personal.working;
+  if (cal?.company) return cal.company.type === "WORKING";
+  return isDefaultWorkingDay(day, saturdayRule, cal?.satOff);
+}
+
+/** Load the working-day calendar for [fromKey, toKey] (yyyy-MM-dd, inclusive) */
+export async function loadCalendar(fromKey, toKey, employeeIds) {
+  const [company, personal, months] = await Promise.all([
+    prisma.workCalendarDay.findMany({
+      where: { date: { gte: fromKey, lte: toKey } },
+    }),
+    prisma.workDayOverride.findMany({
+      where: {
+        date: { gte: fromKey, lte: toKey },
+        ...(employeeIds && { employeeId: { in: employeeIds } }),
+      },
+    }),
+    prisma.workMonthRule.findMany({
+      where: { month: { gte: fromKey.slice(0, 7), lte: toKey.slice(0, 7) } },
+    }),
+  ]);
+  return {
+    company: new Map(company.map((c) => [c.date, c])),
+    personal: new Map(personal.map((o) => [`${o.employeeId}|${o.date}`, o])),
+    months: new Map(
+      months.map((m) => [m.month, parseSaturdaysOff(m.saturdaysOff)]),
+    ),
+  };
+}
+
+/** Calendar entries that apply to one person on one date */
+export const calFor = (cal, employeeId, date) =>
+  cal
+    ? {
+        company: cal.company.get(date) || null,
+        personal: employeeId
+          ? cal.personal.get(`${employeeId}|${date}`) || null
+          : null,
+        satOff: cal.months?.get(date.slice(0, 7)) || null,
+      }
+    : null;
+
+/** Reason a day is off: company holiday / Sunday = HOLIDAY, otherwise WEEK_OFF (also company "Week off") */
+const offStatus = (day, cal) =>
+  !cal?.personal && (cal?.company?.type === "HOLIDAY" || day.weekday === 0)
+    ? "HOLIDAY"
+    : "WEEK_OFF";
 
 /* ---------------------------------------------------------------------
    Duplicate / re-sent punch protection.
@@ -114,10 +187,11 @@ export function evaluateDay(
     joiningKey,
     todayKey,
     todayClosed = false,
+    calendar = null,
   },
 ) {
   punches = collapsePunches(punches); // ignore re-sent / double punches
-  const working = isWorkingDay(day, saturdayRule);
+  const working = isWorkingDay(day, saturdayRule, calendar);
   const future = day.date > todayKey;
   const beforeJoin = joiningKey && day.date < joiningKey;
   // "today" only runs until the auto clock-out time passes; after that the
@@ -145,10 +219,10 @@ export function evaluateDay(
       last = null;
     }
   } else if (!future && !beforeJoin) {
-    if (!working) status = day.weekday === 0 ? "HOLIDAY" : "WEEK_OFF";
+    if (!working) status = offStatus(day, calendar);
     else if (!isToday) status = "ABSENT";
   } else if (future && !working) {
-    status = day.weekday === 0 ? "HOLIDAY" : "WEEK_OFF";
+    status = offStatus(day, calendar);
   }
 
   // system clock-in
@@ -176,6 +250,15 @@ export function evaluateDay(
     status,
     code: status ? STATUS_CODE[status] : "",
     offDayWork: !!punches.length && !working,
+    // why the day is (not) a working day, for the calendar view
+    dayNote: calendar?.personal?.note || calendar?.company?.note || null,
+    extraDay:
+      !!calendar?.personal?.working &&
+      !isWorkingDay(day, saturdayRule, {
+        company: calendar.company,
+        personal: null,
+        satOff: calendar.satOff,
+      }),
     firstPunch: first,
     lastPunch: last,
     firstPunchIST: formatIST(first),
@@ -202,7 +285,8 @@ export function evaluateDay(
 async function loadMonth(year, month, employeeId) {
   const r = monthRange(year, month);
   const prefix = `${year}-${String(month).padStart(2, "0")}`;
-  const [employees, punches, sessions] = await Promise.all([
+  const days = monthDays(year, month);
+  const [employees, punches, sessions, calendar] = await Promise.all([
     prisma.employee.findMany({
       where: employeeId ? { employeeId } : { isActive: true },
       select: {
@@ -230,8 +314,13 @@ async function loadMonth(year, month, employeeId) {
       },
       orderBy: { clockIn: "asc" },
     }),
+    loadCalendar(
+      days[0].date,
+      days[days.length - 1].date,
+      employeeId ? [employeeId] : undefined,
+    ),
   ]);
-  return { employees, punches, sessions };
+  return { employees, punches, sessions, calendar };
 }
 
 function index(punches, sessions) {
@@ -246,7 +335,7 @@ function index(punches, sessions) {
 
 /** Full month report for every active employee (or one) */
 export async function monthlyAttendance(year, month, { employeeId } = {}) {
-  const { employees, punches, sessions } = await loadMonth(
+  const { employees, punches, sessions, calendar } = await loadMonth(
     year,
     month,
     employeeId,
@@ -276,6 +365,7 @@ export async function monthlyAttendance(year, month, { employeeId } = {}) {
           joiningKey,
           todayKey,
           todayClosed,
+          calendar: calFor(calendar, e.employeeId, d.date),
         }),
       );
       const sum = {
@@ -286,6 +376,7 @@ export async function monthlyAttendance(year, month, { employeeId } = {}) {
         weekOff: 0,
         holiday: 0,
         offDayWork: 0,
+        extraDays: 0,
         minutes: 0,
         workingDays: 0,
       };
@@ -298,6 +389,7 @@ export async function monthlyAttendance(year, month, { employeeId } = {}) {
         if (d.status === "WEEK_OFF") sum.weekOff++;
         if (d.status === "HOLIDAY") sum.holiday++;
         if (d.offDayWork) sum.offDayWork++;
+        if (d.extraDay) sum.extraDays++;
         if (d.working && d.date <= todayKey) sum.workingDays++;
         sum.minutes += d.minutes || 0;
         if (d.system) {
@@ -349,7 +441,7 @@ export async function recentDays(employeeId, n = 2) {
     dateKey(new Date(Date.now() - i * 86400000)),
   );
   const start = dayRangeKey(keys[keys.length - 1]).start;
-  const [punches, sessions] = await Promise.all([
+  const [punches, sessions, calendar] = await Promise.all([
     prisma.biometricPunch.findMany({
       where: { employeeId, punchTime: { gte: start } },
       orderBy: { punchTime: "asc" },
@@ -359,6 +451,7 @@ export async function recentDays(employeeId, n = 2) {
       where: { employeeId, workDate: { in: keys } },
       orderBy: { clockIn: "asc" },
     }),
+    loadCalendar(keys[keys.length - 1], keys[0], [employeeId]),
   ]);
   return keys.map((k) =>
     evaluateDay(dayFromKey(k), {
@@ -370,6 +463,7 @@ export async function recentDays(employeeId, n = 2) {
       joiningKey: emp?.joiningDate ? dateKey(emp.joiningDate) : null,
       todayKey,
       todayClosed: dayIsClosed(todayKey),
+      calendar: calFor(calendar, employeeId, k),
     }),
   );
 }

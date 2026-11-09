@@ -3,6 +3,8 @@
 // Steps (each is skipped when already applied):
 //   v2: prisma/upgrade-v2.sql  — lead statuses, removed features, retention tables
 //   v3: prisma/upgrade-v3.sql  — attendance, biometric, clock-in, notifications
+//   v3.1: prisma/upgrade-v3-1.sql — working-day calendar (Saturdays, holidays, per-person days)
+//   v3.2: prisma/upgrade-v3-2.sql — "Week off" day type + Saturdays off per month
 //   + hashes any remaining plain-text passwords
 import "dotenv/config";
 import fs from "fs";
@@ -32,8 +34,12 @@ async function tableExists(name) {
 }
 
 async function applyFile(file, label) {
-  const statements = splitSql(fs.readFileSync(path.join(__dirname, "../prisma", file), "utf8"));
-  console.log(`• ${label}: applying ${statements.length} statements in one transaction…`);
+  const statements = splitSql(
+    fs.readFileSync(path.join(__dirname, "../prisma", file), "utf8"),
+  );
+  console.log(
+    `• ${label}: applying ${statements.length} statements in one transaction…`,
+  );
   await prisma.$transaction(
     async (tx) => {
       for (const stmt of statements) await tx.$executeRawUnsafe(stmt);
@@ -45,24 +51,45 @@ async function applyFile(file, label) {
 let signOut = false;
 
 async function v2() {
-  if (await tableExists("RetentionRun")) return console.log("• v2 already applied");
+  if (await tableExists("RetentionRun"))
+    return console.log("• v2 already applied");
   await applyFile("upgrade-v2.sql", "v2");
-  const counts = await prisma.$queryRawUnsafe(`SELECT status::text AS status, count(*)::int AS n FROM "Lead" GROUP BY status ORDER BY status`);
+  const counts = await prisma.$queryRawUnsafe(
+    `SELECT status::text AS status, count(*)::int AS n FROM "Lead" GROUP BY status ORDER BY status`,
+  );
   console.log("  Lead statuses after upgrade:", counts);
   signOut = true;
 }
 
 async function v3() {
-  if (await tableExists("WorkSession")) return console.log("• v3 already applied");
+  if (await tableExists("WorkSession"))
+    return console.log("• v3 already applied");
   await applyFile("upgrade-v3.sql", "v3");
 }
 
+async function v31() {
+  if (await tableExists("WorkCalendarDay"))
+    return console.log("• v3.1 already applied");
+  await applyFile("upgrade-v3-1.sql", "v3.1");
+}
+
+async function v32() {
+  if (await tableExists("WorkMonthRule"))
+    return console.log("• v3.2 already applied");
+  await applyFile("upgrade-v3-2.sql", "v3.2");
+}
+
 async function hashPasswords() {
-  const employees = await prisma.employee.findMany({ select: { id: true, password: true } });
+  const employees = await prisma.employee.findMany({
+    select: { id: true, password: true },
+  });
   let hashed = 0;
   for (const e of employees) {
     if (e.password && !e.password.startsWith("$2")) {
-      await prisma.employee.update({ where: { id: e.id }, data: { password: await bcrypt.hash(e.password, 10) } });
+      await prisma.employee.update({
+        where: { id: e.id },
+        data: { password: await bcrypt.hash(e.password, 10) },
+      });
       hashed++;
     }
   }
@@ -72,8 +99,14 @@ async function hashPasswords() {
 async function main() {
   await v2();
   await v3();
+  await v31();
+  await v32();
   await hashPasswords();
-  if (signOut) await prisma.session.updateMany({ where: { isActive: true }, data: { isActive: false } });
+  if (signOut)
+    await prisma.session.updateMany({
+      where: { isActive: true },
+      data: { isActive: false },
+    });
   console.log("✅ Database is up to date");
 }
 
