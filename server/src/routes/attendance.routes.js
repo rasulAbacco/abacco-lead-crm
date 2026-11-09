@@ -37,8 +37,12 @@ import { notify } from "../services/notify.js";
 import {
   attendanceWorkbookBuffer,
   punchGridWorkbookBuffer,
+  sliceReport,
 } from "../utils/attendanceExcel.js";
-import { emailAttendanceReport } from "../jobs/attendanceJobs.js";
+import {
+  emailAttendanceReport,
+  emailPunchReport,
+} from "../jobs/attendanceJobs.js";
 import { sendXlsx } from "../utils/excel.js";
 
 const router = express.Router();
@@ -318,16 +322,50 @@ admin.get(
   }),
 );
 
+/* Punch report filters: from / to (yyyy-MM-dd inside the month), team, q (name / ID) */
+const punchFilters = (src) => ({
+  from: /^\d{4}-\d{2}-\d{2}$/.test(src.from || "") ? src.from : undefined,
+  to: /^\d{4}-\d{2}-\d{2}$/.test(src.to || "") ? src.to : undefined,
+  team: ["Marketing", "Developer"].includes(src.team) ? src.team : undefined,
+  q: src.q ? String(src.q).slice(0, 60) : undefined,
+});
+
 admin.get(
   "/monthly/punch-export",
   ah(async (req, res) => {
     const { year, month } = ym(req.query);
-    const report = await monthlyAttendance(year, month);
-    sendXlsx(
-      res,
-      punchGridWorkbookBuffer(report),
-      `punch-in-out-${year}-${String(month).padStart(2, "0")}.xlsx`,
+    const report = sliceReport(
+      await monthlyAttendance(year, month),
+      punchFilters(req.query),
     );
+    const tag =
+      report.range && report.rangeLabel !== report.label
+        ? `${report.range.from}_to_${report.range.to}`
+        : `${year}-${String(month).padStart(2, "0")}`;
+    sendXlsx(res, punchGridWorkbookBuffer(report), `punch-in-out-${tag}.xlsx`);
+  }),
+);
+
+/* Email the punch in / out report to the report address (info@abaccotech.com) */
+admin.post(
+  "/monthly/punch-email",
+  ah(async (req, res) => {
+    const { year, month } = ym(req.body || {});
+    try {
+      const r = await emailPunchReport(
+        year,
+        month,
+        punchFilters(req.body || {}),
+        { sentBy: req.user?.fullName || req.user?.name },
+      );
+      res.json({ success: true, ...r });
+    } catch (e) {
+      if (e.status === 400) return res.status(400).json({ message: e.message });
+      console.error("punch report email failed:", e.message);
+      res
+        .status(502)
+        .json({ message: "Email could not be sent. Check the SMTP settings." });
+    }
   }),
 );
 
